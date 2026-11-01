@@ -1,0 +1,63 @@
+workflows:
+  android-apk:
+    name: Build Android APK (Capacitor React)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      node: 22
+      java: 21
+      groups:
+        - environment
+      vars:
+        PACKAGE_NAME: "app.bunyan.residential"
+    cache:
+      cache_paths:
+        - ~/.gradle/caches
+        - ~/.gradle/wrapper
+        - node_modules
+    triggering:
+      events:
+        - push
+        - tag
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+        - pattern: fix/android-google-auth
+          include: true
+          source: true
+        - pattern: migration/supabase-backend
+          include: true
+          source: true
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          npm install --include=optional
+      - name: Build React application (Vite)
+        script: |
+          export VITE_BUILD_ID="${CM_COMMIT:-$(git rev-parse --short HEAD)}"
+          npm run build
+      - name: Sync Capacitor Android project
+        script: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          if [ ! -f "android/variables.gradle" ]; then
+            tar -zxvf node_modules/@capacitor/cli/assets/android-template.tar.gz -C android variables.gradle
+          fi
+          npx cap sync android
+      - name: Build Android APK with Gradle
+        script: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+    artifacts:
+      - android/app/build/outputs/apk/**/*.apk
+      - android/app/build/outputs/mapping/**/mapping.txt
+    publishing:
+      email:
+        recipients:
+          - emadmohamedabdella1@gmail.com
+        notify:
+          success: true
+          failure: true

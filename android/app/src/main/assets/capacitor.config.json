@@ -1,0 +1,8 @@
+{
+	"appId": "app.bunyan.residential",
+	"appName": "برج الفتوح",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https"
+	}
+}

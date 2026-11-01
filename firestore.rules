@@ -1,0 +1,179 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny-all catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Root Super Admin check: Verified primary email OR existing record with role == 'super_admin'
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == 'emadmohamedabdella1@gmail.com' && request.auth.token.email_verified == true) ||
+        (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'super_admin' &&
+         get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.status != 'suspended')
+      );
+    }
+
+    // Admin check: Super Admin OR any active assistant admin
+    function isAdmin() {
+      return isSignedIn() && (
+        isSuperAdmin() ||
+        (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.status != 'suspended')
+      );
+    }
+
+    function currentUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Health check / connection test
+    match /test/{testId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Administrators Collection: Managed EXCLUSIVELY by Super Admin
+    match /admins/{adminId} {
+      // ONLY Super Admin or the admin themselves can read their record.
+      // Owners and tenants CANNOT read admins!
+      allow get: if isSignedIn() && (isSuperAdmin() || request.auth.uid == adminId);
+      allow list: if isSuperAdmin();
+
+      // ONLY Super Admin can add assistant admins
+      allow create: if isSuperAdmin() && isValidId(adminId) && (
+        incoming().role in ['admin', 'super_admin'] &&
+        incoming().email is string &&
+        incoming().email.size() <= 200 &&
+        incoming().status in ['active', 'suspended'] &&
+        incoming().addedBy == request.auth.uid
+      );
+
+      // ONLY Super Admin can update an admin record
+      // ABSOLUTE PROTECTION: Nobody can demote the primary Super Admin or change their status
+      allow update: if isSuperAdmin() && isValidId(adminId) && (
+        (adminId != request.auth.uid || incoming().role == 'super_admin') &&
+        (existing().email != 'emadmohamedabdella1@gmail.com' || incoming().status == 'active') &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'role', 'permissions', 'notes', 'updatedAt'])
+      );
+
+      // ONLY Super Admin can delete an assistant admin
+      // ABSOLUTE PROTECTION: The root Super Admin cannot be deleted
+      allow delete: if isSuperAdmin() && isValidId(adminId) && (
+        adminId != request.auth.uid &&
+        existing().email != 'emadmohamedabdella1@gmail.com'
+      );
+    }
+
+    // Administrator Audit Logs: Immutable log of admin operations
+    match /admin_audit_logs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isSuperAdmin() && isValidId(logId) && (
+        incoming().performedBy == request.auth.uid
+      );
+      allow update, delete: if false; // Immutable audit trail
+    }
+
+    // Users and Profiles
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && isValidId(userId) && (
+        isAdmin() ||
+        (request.auth.uid == userId && incoming().role != 'admin' && incoming().role != 'super_admin' && incoming().status == 'active')
+      );
+      allow update: if isSignedIn() && isValidId(userId) && (
+        isAdmin() ||
+        (
+          request.auth.uid == userId &&
+          incoming().role == existing().role &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'updatedAt'])
+        )
+      );
+      allow delete: if isSuperAdmin();
+    }
+
+    // Buildings: Managed by any Admin
+    match /buildings/{buildingId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() && isValidId(buildingId);
+    }
+
+    // Apartments: Managed by any Admin, readable by unit resident or Admin
+    match /apartments/{apartmentId} {
+      allow get: if isSignedIn() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && currentUserData().apartmentId == apartmentId));
+      allow list: if isSignedIn() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && resource.data.id == currentUserData().apartmentId));
+      allow write: if isAdmin() && isValidId(apartmentId);
+    }
+
+    // Payments: Managed by any Admin, readable by unit resident or Admin
+    match /payments/{paymentId} {
+      allow get: if isSignedIn() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && currentUserData().apartmentId == resource.data.apartmentId));
+      allow list: if isSignedIn() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && resource.data.apartmentId == currentUserData().apartmentId));
+      allow write: if isAdmin() && isValidId(paymentId);
+    }
+
+    // Payment Audit Logs: Readable/writable by any Admin
+    match /payment_audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin() && isValidId(logId);
+    }
+
+    // Operating Expenses: Managed exclusively by Admins
+    match /expenses/{expenseId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin() && isValidId(expenseId);
+    }
+
+    // Maintenance Tickets: Created by residents for their apartment, managed by Admins
+    match /tickets/{ticketId} {
+      allow get: if isSignedIn() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && currentUserData().apartmentId == resource.data.apartmentId));
+      allow list: if isSignedIn() && (isAdmin() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && resource.data.apartmentId == currentUserData().apartmentId));
+      allow create: if isSignedIn() && isValidId(ticketId) && (
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && incoming().apartmentId == currentUserData().apartmentId)
+      );
+      allow update: if isSignedIn() && isValidId(ticketId) && (
+        isAdmin() ||
+        (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          existing().apartmentId == currentUserData().apartmentId &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'urgency', 'status'])
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Facility Bookings: Created by residents, managed by Admins
+    match /bookings/{bookingId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(bookingId);
+      allow update, delete: if isAdmin();
+    }
+
+    // Announcements: Readable by all authenticated residents, managed by Admins
+    match /announcements/{announcementId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() && isValidId(announcementId);
+    }
+  }
+}

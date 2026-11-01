@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>بُنيان - المنظومة الذكية لإدارة العمارات السكنية</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: IBM Plex Sans Arabic -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              navy: '#0f2537',
+              dark: '#0a1926',
+              teal: '#00a896',
+              accent: '#00668b',
+              lightBlue: '#eff4ff',
+              surface: '#f8f9ff',
+              border: '#cbdbf5'
+            }
+          },
+          fontFamily: {
+            sans: ['"IBM Plex Sans Arabic"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'IBM Plex Sans Arabic', sans-serif;
+      background-color: #0b1723;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .screen-view {
+      display: none;
+      opacity: 0;
+      transition: opacity 0.2s ease-in-out;
+    }
+    .screen-view.active {
+      display: block;
+      opacity: 1;
+    }
+    /* Pulse glow for active mic */
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.15); opacity: 0.3; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .pulse-ring {
+      animation: pulse-ring 2.5s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="flex justify-center items-center min-h-screen text-slate-800 antialiased selection:bg-teal-500 selection:text-white">
+
+  <!-- Mobile Container Mockup / Phone Frame -->
+  <div class="w-full max-w-[420px] min-h-screen bg-[#f8f9ff] relative shadow-2xl overflow-x-hidden flex flex-col justify-between border-x border-slate-200/50">
+
+    <!-- Top Floating Switcher Quick-Bar (Always Accessible for seamless SPA testing) -->
+    <header class="bg-[#0f2537] text-white px-3 py-2.5 flex items-center justify-between text-xs sticky top-0 z-50 shadow-md">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+        <span class="font-bold tracking-wide text-teal-300">بُنيان SPA</span>
+        <span id="currentScreenBadge" class="bg-white/10 px-2 py-0.5 rounded text-[11px] text-slate-200">الرئيسية</span>
+      </div>
+      <!-- Fast Switcher Dropdown -->
+      <div class="relative">
+        <select id="quickScreenSelect" onchange="navigateTo(this.value)" class="bg-white/15 text-white text-[11px] font-medium py-1 px-2 rounded-lg border border-white/20 focus:outline-none focus:ring-1 focus:ring-teal-300 cursor-pointer">
+          <option value="login" class="text-slate-900">1. تسجيل الدخول واختيار العمارة</option>
+          <option value="dashboard" selected class="text-slate-900">2. لوحة تحكم مدير العمارة</option>
+          <option value="collections" class="text-slate-900">3. سجل الشقق والتحصيلات</option>
+          <option value="expenses" class="text-slate-900">4. تسجيل المصروفات والفواتير</option>
+          <option value="reports" class="text-slate-900">5. تقارير الحسابات وكشف PDF</option>
+          <option value="assistant" class="text-slate-900">6. المساعد الصوتي الذكي (AI)</option>
+          <option value="resident" class="text-slate-900">7. بوابة الساكن وخدمات العمارة</option>
+        </select>
+      </div>
+    </header>
+
+    <!-- MAIN APP CONTENT SCREENS CONTAINER -->
+    <main class="flex-1 pb-24">
+
+      <!-- ========================================== -->
+      <!-- 1. SCREEN: LOGIN & SELECT BUILDING (SCREEN_4) -->
+      <!-- ========================================== -->
+      <section id="screen-login" class="screen-view p-4 space-y-4">
+        <!-- Top Identity & User Header -->
+        <div class="flex items-center justify-between pt-2 pb-1">
+          <div class="flex items-center gap-2">
+            <div class="w-9 h-9 rounded-xl bg-[#0f2537] text-teal-400 font-bold flex items-center justify-center text-lg shadow-sm">بُ</div>
+            <div>
+              <h1 class="font-bold text-base text-[#0f2537] leading-tight">بُنيان</h1>
+              <p class="text-[11px] text-slate-500">إدارة العمارات السكنية</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <button class="px-2.5 py-1 rounded-full border border-slate-300 bg-white font-medium text-slate-600">EN</button>
+            <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-700">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Welcome Banner -->
+        <div class="bg-gradient-to-l from-[#0f2537] to-[#00668b] p-5 rounded-2xl text-white shadow-lg relative overflow-hidden">
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-medium mb-2 border border-emerald-500/30">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span> بوابة المُلّاك واتحاد الشاغلين
+          </div>
+          <h2 class="text-xl font-bold mb-1">مرحباً بك في بُنيان</h2>
+          <p class="text-xs text-slate-200 leading-relaxed">المنظومة الذكية لإدارة العمارات السكنية، الخزينة، والمصروفات في مصر.</p>
+        </div>
+
+        <!-- Logged-in Profile Card -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-[#0f2537] text-white flex items-center justify-center text-xl font-bold">م</div>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="font-bold text-sm text-slate-800">م. أحمد فؤاد الشناوي</span>
+                <span class="text-teal-600">✓</span>
+              </div>
+              <p class="text-xs text-slate-500">عضو مسجل • 3 عمارات متصلة</p>
+              <p class="text-xs text-slate-600 font-mono mt-0.5">201008479231+ 📱</p>
+            </div>
+          </div>
+          <button class="text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg border border-teal-200 transition">تغيير</button>
+        </div>
+
+        <!-- Role Selectors -->
+        <div>
+          <div class="flex justify-between items-center mb-2 px-1">
+            <h3 class="font-bold text-xs text-slate-700">صفتك الحالية (تغيير نمط العرض)</h3>
+            <span class="text-[11px] text-slate-400">3 صلاحيات</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <div class="bg-[#0f2537] text-white p-3 rounded-xl text-center shadow-md border-2 border-teal-400">
+              <span class="text-xl block mb-1">🏛️</span>
+              <p class="text-xs font-bold">مدير العمارة</p>
+              <p class="text-[10px] text-teal-200 mt-0.5">الخزينة والمصروفات</p>
+            </div>
+            <div onclick="navigateTo('resident')" class="bg-white hover:bg-slate-50 p-3 rounded-xl text-center border border-slate-200 cursor-pointer transition">
+              <span class="text-xl block mb-1">🔑</span>
+              <p class="text-xs font-bold text-slate-800">مالك وحدة</p>
+              <p class="text-[10px] text-slate-400 mt-0.5">التصويت والجمعية</p>
+            </div>
+            <div onclick="navigateTo('resident')" class="bg-white hover:bg-slate-50 p-3 rounded-xl text-center border border-slate-200 cursor-pointer transition">
+              <span class="text-xl block mb-1">🏠</span>
+              <p class="text-xs font-bold text-slate-800">ساكن / مستأجر</p>
+              <p class="text-[10px] text-slate-400 mt-0.5">الصيانة والأعطال</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Buildings List -->
+        <div>
+          <div class="flex justify-between items-center mb-2 px-1">
+            <h3 class="font-bold text-sm text-[#0f2537]">اختر العقار للمتابعة</h3>
+            <span class="text-xs bg-slate-200/80 px-2 py-0.5 rounded-full text-slate-600">3 مسجلة</span>
+          </div>
+
+          <!-- Building 1 (Selected) -->
+          <div class="bg-white p-4 rounded-2xl border-2 border-teal-500 shadow-sm mb-3 relative">
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex items-center gap-2.5">
+                <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center text-lg">🏢</div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h4 class="font-bold text-slate-900 text-sm">عمارة الأندلس 14</h4>
+                    <span class="text-[10px] bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full font-bold">نشطة</span>
+                  </div>
+                  <p class="text-xs text-slate-500">التجمع الخامس، القاهرة الجديدة • 11 وحدة</p>
+                </div>
+              </div>
+              <span class="w-5 h-5 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs">✓</span>
+            </div>
+            <div class="bg-slate-50 p-2.5 rounded-xl flex justify-between items-center text-xs mt-3">
+              <div>
+                <span class="text-slate-400 block text-[10px]">صفتك الإدارية</span>
+                <span class="font-bold text-slate-800">أمين الصندوق (كامل)</span>
+              </div>
+              <div class="text-left">
+                <span class="text-slate-400 block text-[10px]">رصيد صندوق العمارة</span>
+                <span class="font-bold text-emerald-600 text-sm">48,750 ج.م</span>
+              </div>
+            </div>
+            <div class="mt-2 text-[11px] text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg flex items-center gap-1.5 border border-amber-200">
+              <span>⚠️</span> تنبيه: موعد القفل المالي لشهر أكتوبر بعد يومين
+            </div>
+          </div>
+
+          <!-- Building 2 -->
+          <div class="bg-white p-3.5 rounded-xl border border-slate-200/80 mb-2 opacity-80 hover:opacity-100 transition cursor-pointer">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">🏬</div>
+                <div>
+                  <h4 class="font-bold text-slate-800 text-xs">برج النرجس 32 <span class="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">شقة 302</span></h4>
+                  <p class="text-[11px] text-slate-400">النرجس عمارات • 16 وحدة سكنية</p>
+                </div>
+              </div>
+              <span class="text-xs text-emerald-600 font-bold">مسدد بالكامل</span>
+            </div>
+          </div>
+
+          <!-- Building 3 -->
+          <div class="bg-white p-3.5 rounded-xl border border-slate-200/80 mb-3 opacity-80 hover:opacity-100 transition cursor-pointer">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">🏡</div>
+                <div>
+                  <h4 class="font-bold text-slate-800 text-xs">فيلا الياسمين 7 <span class="text-[10px] text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded font-bold">مستحق</span></h4>
+                  <p class="text-[11px] text-slate-400">حي الياسمين، التجمع الأول • 4 وحدات</p>
+                </div>
+              </div>
+              <span class="text-xs text-rose-600 font-bold">500 ج.م</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Button -->
+        <button onclick="navigateTo('dashboard')" class="w-full bg-[#0f2537] hover:bg-[#14324a] text-white py-3.5 rounded-2xl font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition active:scale-[0.99]">
+          <span>متابعة الدخول إلى عمارة الأندلس 14</span>
+          <span>←</span>
+        </button>
+
+        <button onclick="navigateTo('resident')" class="w-full bg-white hover:bg-slate-50 text-slate-700 py-2.5 rounded-xl text-xs font-semibold border border-slate-200 flex items-center justify-center gap-1.5">
+          <span>🔍 الدخول كساكن (بوابة الساكن والمصروفات)</span>
+        </button>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- 2. SCREEN: MANAGER DASHBOARD (SCREEN_16) -->
+      <!-- ========================================== -->
+      <section id="screen-dashboard" class="screen-view active p-4 space-y-4">
+        <!-- Dashboard Top Header Profile -->
+        <div class="flex items-center justify-between pt-1">
+          <div class="flex items-center gap-2.5">
+            <div class="w-10 h-10 rounded-full bg-[#0f2537] text-white flex items-center justify-center font-bold text-base shadow-sm">
+              أ
+            </div>
+            <div>
+              <div class="flex items-center gap-1">
+                <span class="font-bold text-sm text-[#0f2537]">بُنيان</span>
+                <span class="text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.2 rounded font-semibold">أكتوبر 2024</span>
+              </div>
+              <p class="text-xs text-slate-500">عمارة الأندلس 14 - التجمع الخامس</p>
+            </div>
+          </div>
+          <button onclick="navigateTo('login')" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-slate-200">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          </button>
+        </div>
+
+        <!-- Main Treasury Balance Card -->
+        <div class="bg-gradient-to-br from-[#0f2537] via-[#0d2e46] to-[#00668b] p-5 rounded-3xl text-white shadow-xl relative overflow-hidden">
+          <div class="flex justify-between items-start mb-2">
+            <div>
+              <span class="text-xs text-teal-200 flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-teal-400"></span> رصيد خزينة العمارة الفعلي
+              </span>
+              <h2 class="text-3xl font-extrabold tracking-tight mt-1">48,750 <span class="text-sm font-normal text-teal-200">ج.م</span></h2>
+            </div>
+            <span class="bg-teal-500/20 text-teal-300 text-xs px-2.5 py-1 rounded-full font-semibold border border-teal-400/30">
+              14.2%+
+            </span>
+          </div>
+
+          <div class="bg-white/10 backdrop-blur-sm p-2.5 rounded-xl flex justify-between items-center text-xs mb-4">
+            <span class="text-slate-200">صندوق الطوارئ والصيانة الاحتياطي</span>
+            <span class="font-bold text-white">15,000 ج.م</span>
+          </div>
+
+          <!-- Quick Action Buttons -->
+          <div class="grid grid-cols-3 gap-2">
+            <button onclick="navigateTo('collections')" class="bg-teal-500 hover:bg-teal-400 text-[#0f2537] py-2.5 rounded-xl font-bold text-xs flex flex-col items-center justify-center transition shadow">
+              <span class="text-sm mb-0.5">📥</span>
+              <span>تسجيل تحصيل</span>
+            </button>
+            <button onclick="navigateTo('expenses')" class="bg-white/20 hover:bg-white/30 text-white py-2.5 rounded-xl font-semibold text-xs flex flex-col items-center justify-center transition">
+              <span class="text-sm mb-0.5">🧾</span>
+              <span>إضافة مصروف</span>
+            </button>
+            <button onclick="navigateTo('reports')" class="bg-white/20 hover:bg-white/30 text-white py-2.5 rounded-xl font-semibold text-xs flex flex-col items-center justify-center transition">
+              <span class="text-sm mb-0.5">📑</span>
+              <span>كشف PDF</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Metrics Overview Grid -->
+        <div class="grid grid-cols-2 gap-3">
+          <div onclick="navigateTo('collections')" class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm cursor-pointer hover:border-teal-400 transition">
+            <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+              <span>المحصل لأكتوبر</span>
+              <span class="text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded text-[10px]">82%</span>
+            </div>
+            <p class="text-lg font-bold text-slate-900">18,200 <span class="text-xs font-normal text-slate-500">ج.م</span></p>
+            <p class="text-[11px] text-slate-400 mt-1">من مستهدف 22,000 ج.م</p>
+          </div>
+
+          <div onclick="navigateTo('expenses')" class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm cursor-pointer hover:border-teal-400 transition">
+            <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+              <span>المصروفات المنفذة</span>
+              <span class="text-slate-400 text-[10px]">3 بنود</span>
+            </div>
+            <p class="text-lg font-bold text-rose-600">11,450 <span class="text-xs font-normal text-slate-500">ج.م</span></p>
+            <p class="text-[11px] text-slate-400 mt-1">أسير، نظافة، كهرباء</p>
+          </div>
+        </div>
+
+        <!-- Arrears Alert Card -->
+        <div class="bg-rose-50 border border-rose-200 p-3.5 rounded-2xl">
+          <div class="flex items-center justify-between mb-1.5">
+            <div class="flex items-center gap-1.5">
+              <span class="text-rose-600 font-bold text-sm">⚠️ تنبيه المديونيات المتأخرة</span>
+            </div>
+            <span class="text-rose-700 font-bold text-xs">3,800 ج.م</span>
+          </div>
+          <p class="text-xs text-rose-800 leading-relaxed">
+            شقة 5 (أ. محمود عزمي 1,900 ج.م)، وشقة 9 (د. شريف يسري 1,900 ج.م) متأخرين عن استحقاق 1 أكتوبر.
+          </p>
+          <button onclick="alert('تم تجهيز وإرسال رسالة تذكير ودية عبر واتساب لشاغلي الشقتين!')" class="mt-2.5 w-full bg-white hover:bg-rose-100/50 text-rose-700 py-1.5 rounded-xl text-xs font-bold border border-rose-200 flex items-center justify-center gap-1.5">
+            <span>💬 إرسال تذكير ودّي عبر واتساب للمتأخرين</span>
+          </button>
+        </div>
+
+        <!-- Latest Transactions -->
+        <div class="space-y-2">
+          <div class="flex justify-between items-center px-1">
+            <h3 class="font-bold text-xs text-slate-800">أحدث الحركات المالية</h3>
+            <button onclick="navigateTo('reports')" class="text-xs text-teal-700 font-medium hover:underline">عرض السجل الكامل ←</button>
+          </div>
+
+          <div class="bg-white p-3 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">↓</div>
+              <div>
+                <p class="font-bold text-xs text-slate-800">سداد صيانة دورية • شقة 8</p>
+                <p class="text-[11px] text-slate-400">م. طارق كمال - تحويل إنستاباي</p>
+              </div>
+            </div>
+            <span class="font-bold text-xs text-emerald-600 font-mono">+2,000 ج.م</span>
+          </div>
+
+          <div class="bg-white p-3 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold">↑</div>
+              <div>
+                <p class="font-bold text-xs text-slate-800">صيانة دورية للمصعد</p>
+                <p class="text-[11px] text-slate-400">شركة أوتيس مصر (عقد سنوي)</p>
+              </div>
+            </div>
+            <span class="font-bold text-xs text-rose-600 font-mono">-4,500 ج.م</span>
+          </div>
+
+          <div class="bg-white p-3 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold">↑</div>
+              <div>
+                <p class="font-bold text-xs text-slate-800">فاتورة كهرباء السلم والمضخة</p>
+                <p class="text-[11px] text-slate-400">شركة جنوب القاهرة للكهرباء</p>
+              </div>
+            </div>
+            <span class="font-bold text-xs text-rose-600 font-mono">-1,850 ج.م</span>
+          </div>
+        </div>
+
+        <!-- Floating AI Voice Assistant Banner -->
+        <div onclick="navigateTo('assistant')" class="bg-gradient-to-r from-[#0f2537] to-[#00668b] p-3.5 rounded-2xl text-white flex items-center justify-between cursor-pointer hover:shadow-lg transition">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-teal-400/20 text-teal-300 flex items-center justify-center text-xl">🎙️</div>
+            <div>
+              <h4 class="font-bold text-xs">المساعد الصوتي الذكي</h4>
+              <p class="text-[11px] text-teal-200">سجّل أي قيد أو مصروف بصوتك بالعامية</p>
+            </div>
+          </div>
+          <span class="text-xs bg-teal-500 text-slate-900 font-bold px-3 py-1.5 rounded-xl">تحدث الآن</span>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- 3. SCREEN: COLLECTIONS & APARTMENTS (SCREEN_14) -->
+      <!-- ========================================== -->
+      <section id="screen-collections" class="screen-view p-4 space-y-4">
+        <!-- Top Stats Header -->
+        <div class="bg-[#0f2537] text-white p-4 rounded-2xl shadow-md">
+          <div class="flex justify-between items-center mb-2">
+            <h2 class="font-bold text-sm">تحصيلات شهر أكتوبر 2024</h2>
+            <span class="text-xs bg-teal-500/20 text-teal-300 px-2 py-0.5 rounded font-mono">عمارة 14</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3 text-center mb-2">
+            <div class="bg-white/10 p-2.5 rounded-xl">
+              <span class="text-[10px] text-slate-300 block">المحصل الفعلي</span>
+              <span class="text-base font-extrabold text-teal-300">12,750 ج.م</span>
+            </div>
+            <div class="bg-white/10 p-2.5 rounded-xl">
+              <span class="text-[10px] text-slate-300 block">المتبقي والمتأخر</span>
+              <span class="text-base font-extrabold text-rose-300">3,750 ج.م</span>
+            </div>
+          </div>
+          <div class="w-full bg-white/20 h-2 rounded-full overflow-hidden">
+            <div class="bg-teal-400 h-full rounded-full" style="width: 77%;"></div>
+          </div>
+          <p class="text-[10px] text-slate-300 mt-1 text-left">نسبة الإنجاز (8 من 11 وحدة)</p>
+        </div>
+
+        <!-- Filter Chips -->
+        <div class="flex gap-2 overflow-x-auto pb-1 text-xs">
+          <button class="bg-[#0f2537] text-white px-3 py-1.5 rounded-full font-bold whitespace-nowrap">الكل (11)</button>
+          <button class="bg-white border border-slate-200 text-emerald-700 px-3 py-1.5 rounded-full font-medium whitespace-nowrap">تم السداد (8)</button>
+          <button class="bg-white border border-slate-200 text-rose-600 px-3 py-1.5 rounded-full font-medium whitespace-nowrap">متأخر (2)</button>
+          <button class="bg-white border border-slate-200 text-amber-600 px-3 py-1.5 rounded-full font-medium whitespace-nowrap">سداد جزئي (1)</button>
+        </div>
+
+        <!-- Apartments List by Floor -->
+        <div class="space-y-3">
+          <h3 class="text-xs font-bold text-slate-700">الدور الأول</h3>
+          
+          <!-- Apt 101 -->
+          <div class="bg-white p-3 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="bg-[#0f2537] text-white text-[11px] font-bold px-2 py-0.5 rounded">شقة 101</span>
+                <span class="font-bold text-xs text-slate-800">م. طارق عبد الرحمن</span>
+                <span class="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-1.5 rounded">تم السداد</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1">1,500 ج.م • سدد بتاريخ 2 أكتوبر</p>
+            </div>
+            <button onclick="alert('تم إرسال كشف الحساب وتأكيد السداد عبر واتساب للمالك!')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg">إيصال 📄</button>
+          </div>
+
+          <!-- Apt 102 -->
+          <div class="bg-white p-3 rounded-xl border border-rose-200 shadow-sm flex items-center justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="bg-rose-700 text-white text-[11px] font-bold px-2 py-0.5 rounded">شقة 102</span>
+                <span class="font-bold text-xs text-slate-800">أ. شريف كمال</span>
+                <span class="text-[10px] bg-rose-50 text-rose-700 font-bold px-1.5 rounded">متأخر شهرين</span>
+              </div>
+              <p class="text-[11px] text-rose-600 font-bold mt-1">إجمالي المتأخرات: 3,000 ج.م</p>
+            </div>
+            <button onclick="alert('تسجيل سداد فوري لشقة 102')" class="text-xs bg-rose-600 hover:bg-rose-700 text-white px-2.5 py-1 rounded-lg font-bold">تسجيل سداد</button>
+          </div>
+
+          <h3 class="text-xs font-bold text-slate-700 pt-1">الدور الثاني</h3>
+
+          <!-- Apt 201 -->
+          <div class="bg-white p-3 rounded-xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="bg-[#0f2537] text-white text-[11px] font-bold px-2 py-0.5 rounded">شقة 201</span>
+                <span class="font-bold text-xs text-slate-800">د. حسام عزمي</span>
+                <span class="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-1.5 rounded">تم السداد</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1">1,500 ج.م • سدد إلكترونياً (فوري)</p>
+            </div>
+            <button onclick="alert('كشف حساب شقة 201')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg">إيصال 📄</button>
+          </div>
+
+          <!-- Apt 202 (Partial) -->
+          <div class="bg-white p-3 rounded-xl border border-amber-200 shadow-sm flex items-center justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="bg-amber-600 text-white text-[11px] font-bold px-2 py-0.5 rounded">شقة 202</span>
+                <span class="font-bold text-xs text-slate-800">أ. هاني سليم</span>
+                <span class="text-[10px] bg-amber-50 text-amber-700 font-bold px-1.5 rounded">سداد جزئي</span>
+              </div>
+              <p class="text-[11px] text-amber-700 font-medium mt-1">تم دفع 750 ج.م • المتبقي 750 ج.م</p>
+            </div>
+            <button onclick="alert('استكمال دفعة شقة 202')" class="text-xs bg-amber-600 text-white px-2.5 py-1 rounded-lg font-bold">استكمال الدفعة</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- 4. SCREEN: EXPENSES & INVOICES (SCREEN_6) -->
+      <!-- ========================================== -->
+      <section id="screen-expenses" class="screen-view p-4 space-y-4">
+        <!-- Header Info -->
+        <div class="bg-[#0f2537] text-white p-4 rounded-2xl flex justify-between items-center shadow-md">
+          <div>
+            <h2 class="font-bold text-sm">تسجيل مصروف جديد</h2>
+            <p class="text-xs text-teal-300">سند صرف فوري #1084</p>
+          </div>
+          <div class="text-left">
+            <span class="text-[10px] text-slate-300 block">الرصيد المتاح بالخزينة</span>
+            <span class="font-extrabold text-sm text-white">48,750 ج.م</span>
+          </div>
+        </div>
+
+        <!-- Amount Input Card -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm text-center">
+          <label class="text-xs text-slate-500 block mb-1">مبلغ المصروف المطلوب صرفه</label>
+          <div class="flex items-center justify-center gap-2">
+            <input type="number" id="expenseAmount" value="3200" class="text-3xl font-extrabold text-[#0f2537] text-center w-36 focus:outline-none border-b-2 border-teal-500 py-1" />
+            <span class="text-sm font-bold text-slate-400">ج.م</span>
+          </div>
+          <div class="flex justify-center gap-2 mt-3 text-xs">
+            <button onclick="document.getElementById('expenseAmount').value=100" class="px-2.5 py-1 bg-slate-100 rounded-lg text-slate-700">100 ج.م</button>
+            <button onclick="document.getElementById('expenseAmount').value=500" class="px-2.5 py-1 bg-slate-100 rounded-lg text-slate-700">500 ج.م</button>
+            <button onclick="document.getElementById('expenseAmount').value=1000" class="px-2.5 py-1 bg-slate-100 rounded-lg text-slate-700">1,000 ج.م</button>
+            <button onclick="document.getElementById('expenseAmount').value=2500" class="px-2.5 py-1 bg-slate-100 rounded-lg text-slate-700">2,500 ج.م</button>
+          </div>
+        </div>
+
+        <!-- Expense Category Picker -->
+        <div>
+          <label class="text-xs font-bold text-slate-700 block mb-2 px-1">بند وتصنيف المصروف</label>
+          <div class="grid grid-cols-4 gap-2 text-center text-xs">
+            <div class="bg-[#0f2537] text-white p-2.5 rounded-xl border border-teal-400 shadow">
+              <span class="text-lg block mb-0.5">🛗</span>
+              <span class="text-[11px] font-bold">صيانة مصعد</span>
+            </div>
+            <div class="bg-white text-slate-700 p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50">
+              <span class="text-lg block mb-0.5">⚡</span>
+              <span class="text-[11px]">كهرباء ومضخات</span>
+            </div>
+            <div class="bg-white text-slate-700 p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50">
+              <span class="text-lg block mb-0.5">🔧</span>
+              <span class="text-[11px]">سباكة ومياه</span>
+            </div>
+            <div class="bg-white text-slate-700 p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50">
+              <span class="text-lg block mb-0.5">🧹</span>
+              <span class="text-[11px]">نظافة وحراسة</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Description Form -->
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3 text-xs">
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">بيان وتفاصيل المصروف</label>
+            <input type="text" value="شراء مفتاح تشغيل رئيسي ولوحة تحكم طوارئ لمصعد شندلر" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700 block mb-1">الجهة المنفذة / الفني المستلم</label>
+            <input type="text" value="م. سامح غنيم - شركة دلتا للمصاعد" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500" />
+          </div>
+        </div>
+
+        <!-- Attachment Card (Mock Invoice) -->
+        <div class="bg-teal-50/50 border border-teal-200 p-3.5 rounded-2xl">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-bold text-xs text-teal-900">📄 توثيق الفاتورة والإيصال الورقي</span>
+            <span class="text-[10px] bg-teal-600 text-white px-2 py-0.5 rounded font-bold">تم الفحص بـ AI</span>
+          </div>
+          <div class="bg-white p-2.5 rounded-xl border border-teal-100 flex items-center justify-between text-xs">
+            <div class="flex items-center gap-2">
+              <span class="text-xl">🧾</span>
+              <div>
+                <p class="font-bold text-slate-800">فاتورة_قطع_غيار_مصعد_1084.jpg</p>
+                <p class="text-[10px] text-slate-400">تطابق المبلغ المكتوب: 3,200.00 ج.م ✓</p>
+              </div>
+            </div>
+            <button onclick="alert('معاينة صورة الفاتورة المختومة')" class="text-teal-700 font-bold hover:underline">معاينة</button>
+          </div>
+        </div>
+
+        <!-- Confirm CTA -->
+        <button onclick="alert('تم اعتماد الصرف بنجاح وخصم المبلغ من الخزينة وإشعار السكان!')" class="w-full bg-[#0f2537] hover:bg-[#14324a] text-white py-3.5 rounded-2xl font-bold text-sm shadow-lg flex items-center justify-center gap-2">
+          <span>اعتماد الصرف وتوثيق الفاتورة</span>
+          <span>✓</span>
+        </button>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- 5. SCREEN: FINANCIAL REPORTS & PDF (SCREEN_8) -->
+      <!-- ========================================== -->
+      <section id="screen-reports" class="screen-view p-4 space-y-4">
+        <!-- Reports Header -->
+        <div class="flex justify-between items-center pt-1">
+          <div>
+            <h2 class="font-bold text-base text-[#0f2537]">التقارير المالية والختامية</h2>
+            <p class="text-xs text-slate-500">كشوف الحسابات المعتمدة لعمارة الأندلس 14</p>
+          </div>
+          <span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full font-bold border border-emerald-200">دورة مغلقة</span>
+        </div>
+
+        <!-- Month Summary Cards -->
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+            <span class="text-slate-400 block text-[11px]">إجمالي الإيرادات</span>
+            <span class="font-extrabold text-emerald-600 text-lg">18,200 <span class="text-[10px]">ج.م</span></span>
+            <span class="text-[10px] text-slate-400 block mt-0.5">تحصيل 9 من 11 شقة</span>
+          </div>
+          <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+            <span class="text-slate-400 block text-[11px]">إجمالي المصروفات</span>
+            <span class="font-extrabold text-rose-600 text-lg">11,450 <span class="text-[10px]">ج.م</span></span>
+            <span class="text-[10px] text-slate-400 block mt-0.5">4 بنود صيانة رئيسية</span>
+          </div>
+        </div>
+
+        <div class="bg-[#0f2537] text-white p-3.5 rounded-2xl flex justify-between items-center text-xs">
+          <div>
+            <span class="text-teal-200 block text-[10px]">صافي وفر الشهر</span>
+            <span class="font-extrabold text-base text-white">+6,750 ج.م</span>
+          </div>
+          <span class="text-[11px] bg-teal-500/20 text-teal-300 px-2.5 py-1 rounded-lg border border-teal-400/30">أضيف لرصيد الاحتياطي</span>
+        </div>
+
+        <!-- Official Statement Preview (Mock PDF Sheet) -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-300 shadow-sm">
+          <div class="border-b border-slate-200 pb-2 mb-3 flex justify-between items-center">
+            <div>
+              <h3 class="font-bold text-xs text-slate-900">اتحاد شاغلي عمارة الأندلس 14</h3>
+              <p class="text-[10px] text-slate-400">كشف حساب شهر أكتوبر 2024 (معتمد)</p>
+            </div>
+            <span class="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-mono">BNY-2024-10-A</span>
+          </div>
+
+          <table class="w-full text-right text-[11px]">
+            <thead>
+              <tr class="text-slate-400 border-b border-slate-100 pb-1">
+                <th class="py-1">البند المحاسبي</th>
+                <th class="py-1">النوع</th>
+                <th class="py-1 text-left">المبلغ</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr>
+                <td class="py-1.5 font-medium">تحصيل اشتراكات الصيانة الشهرية</td>
+                <td class="py-1.5"><span class="text-emerald-700 bg-emerald-50 px-1 rounded text-[10px]">إيراد</span></td>
+                <td class="py-1.5 text-left font-bold text-emerald-700">18,200 ج.م</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 font-medium">صيانة دورية مصعد أوتيس</td>
+                <td class="py-1.5"><span class="text-rose-700 bg-rose-50 px-1 rounded text-[10px]">مصروف</span></td>
+                <td class="py-1.5 text-left font-bold text-rose-700">3,200 ج.م</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 font-medium">فاتورة كهرباء السلم والمضخات</td>
+                <td class="py-1.5"><span class="text-rose-700 bg-rose-50 px-1 rounded text-[10px]">مصروف</span></td>
+                <td class="py-1.5 text-left font-bold text-rose-700">2,850 ج.م</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 font-medium">أتعاب النظافة الشهرية (عم رجب)</td>
+                <td class="py-1.5"><span class="text-rose-700 bg-rose-50 px-1 rounded text-[10px]">مصروف</span></td>
+                <td class="py-1.5 text-left font-bold text-rose-700">2,400 ج.م</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="mt-4 pt-2 border-t border-slate-200 flex justify-between items-center text-xs">
+            <span class="text-slate-500 text-[10px]">أمين الصندوق: أ. أحمد رضوان</span>
+            <span class="text-emerald-700 font-bold flex items-center gap-1 text-[10px]">
+              <span>✓</span> معتمد ومختوم إلكترونياً
+            </span>
+          </div>
+        </div>
+
+        <!-- PDF Export Actions -->
+        <div class="space-y-2">
+          <button onclick="alert('جاري تنزيل كشف الحساب بصيغة PDF (1.2 MB)...')" class="w-full bg-[#0f2537] hover:bg-[#14324a] text-white py-3 rounded-xl font-bold text-xs shadow flex items-center justify-center gap-2">
+            <span>📥 تحميل كشف الحساب بصيغة PDF</span>
+          </button>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="alert('تم تجهيز الرابط لمشاركته مع جروب واتساب العمارة!')" class="bg-white hover:bg-slate-50 text-slate-800 py-2.5 rounded-xl font-semibold text-xs border border-slate-200 flex items-center justify-center gap-1.5">
+              <span>💬 إرسال لجروب السكان</span>
+            </button>
+            <button onclick="alert('جاري تصدير ملف الإكسيل Excel XLSX...')" class="bg-white hover:bg-slate-50 text-slate-800 py-2.5 rounded-xl font-semibold text-xs border border-slate-200 flex items-center justify-center gap-1.5">
+              <span>📊 تصدير إكسيل (XLSX)</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- 6. SCREEN: AI VOICE ASSISTANT (SCREEN_12) -->
+      <!-- ========================================== -->
+      <section id="screen-assistant" class="screen-view p-4 space-y-4">
+        <!-- Voice Wave Visualizer Card -->
+        <div class="bg-gradient-to-b from-[#0f2537] to-[#00668b] p-6 rounded-3xl text-white text-center shadow-xl relative overflow-hidden">
+          <div class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-teal-400/20 text-teal-300 text-xs font-medium mb-4">
+            <span class="w-2 h-2 rounded-full bg-teal-400"></span> المساعد المالي الصوتي • لهجة مصرية طبيعية
+          </div>
+
+          <!-- Pulsing Mic Button -->
+          <div class="relative w-24 h-24 mx-auto my-3 flex items-center justify-center">
+            <div class="absolute inset-0 rounded-full bg-teal-400/20 pulse-ring"></div>
+            <button onclick="toggleVoiceRecording()" class="w-20 h-20 rounded-full bg-teal-500 hover:bg-teal-400 text-[#0f2537] flex items-center justify-center text-3xl shadow-xl transition transform active:scale-95 z-10">
+              🎙️
+            </button>
+          </div>
+
+          <h3 id="micStatusText" class="text-base font-bold text-white mb-1">الميكروفون نشط.. تحدث الآن بالعامية</h3>
+          <p class="text-xs text-teal-200">جاري الاستماع بدقة وتحليل الصوت لحظياً...</p>
+        </div>
+
+        <!-- Recognized Speech Box -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="flex justify-between items-center mb-1 text-xs">
+            <span class="text-slate-400 font-medium">النص المسموع</span>
+            <span class="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded font-bold text-[10px]">مكتمل 100%</span>
+          </div>
+          <p class="text-sm font-bold text-slate-800 leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+            "سجل تحصيل 1500 جنيه صيانة من شقة 4 أستاذ طارق بالبنك الأهلي"
+          </p>
+        </div>
+
+        <!-- AI Extraction Result (Auto Voucher) -->
+        <div class="bg-teal-50/70 border border-teal-200 p-4 rounded-2xl space-y-2.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5 text-xs font-bold text-teal-900">
+              <span>✨</span>
+              <span>معاينة استخراج الذكاء الاصطناعي</span>
+            </div>
+            <span class="text-[10px] bg-teal-600 text-white px-2 py-0.5 rounded font-bold">جاهز للقيد</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="bg-white p-2.5 rounded-xl border border-teal-100">
+              <span class="text-[10px] text-slate-400 block">نوع المعاملة</span>
+              <span class="font-bold text-emerald-700">إيراد / تحصيل صيانة دورية</span>
+            </div>
+            <div class="bg-white p-2.5 rounded-xl border border-teal-100">
+              <span class="text-[10px] text-slate-400 block">الوحدة والساكن</span>
+              <span class="font-bold text-slate-800">شقة 4 - الدور 2 (أ/ طارق)</span>
+            </div>
+          </div>
+
+          <div class="bg-[#0f2537] text-white p-3 rounded-xl flex justify-between items-center">
+            <div>
+              <span class="text-[10px] text-teal-200 block">المبلغ المسجل في الإيصال</span>
+              <span class="font-extrabold text-base">1,500 ج.م</span>
+            </div>
+            <span class="text-xs bg-white/20 px-2.5 py-1 rounded text-slate-200">عن صيانة شهر أكتوبر</span>
+          </div>
+        </div>
+
+        <!-- Confirmation CTAs -->
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="alert('تم تأكيد القيد وحفظه في الخزينة وتحديث رصيد العمارة فوراً!')" class="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-xs shadow flex items-center justify-center gap-1.5">
+            <span>✓ تأكيد وحفظ القيد</span>
+          </button>
+          <button onclick="alert('يمكنك إعادة الإملاء أو التعديل اليدوي')" class="bg-white hover:bg-slate-50 text-slate-700 py-3 rounded-xl font-bold text-xs border border-slate-200 flex items-center justify-center gap-1.5">
+            <span>✏️ تعديل يدوي</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- 7. SCREEN: RESIDENT PORTAL (SCREEN_10) -->
+      <!-- ========================================== -->
+      <section id="screen-resident" class="screen-view p-4 space-y-4">
+        <!-- Resident Greeting -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center text-xl font-bold">👤</div>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <h2 class="font-bold text-sm text-slate-900">د. أحمد مصطفى</h2>
+                <span class="bg-[#0f2537] text-white text-[10px] font-bold px-1.5 py-0.5 rounded">شقة 302</span>
+              </div>
+              <p class="text-xs text-slate-400">عضو اتحاد الشاغلين • الدور الثالث</p>
+            </div>
+          </div>
+          <button onclick="navigateTo('login')" class="text-xs text-teal-700 font-bold bg-teal-50 px-2.5 py-1 rounded-lg">خروج</button>
+        </div>
+
+        <!-- Urgent Notice -->
+        <div class="bg-[#0f2537] text-white p-3.5 rounded-2xl shadow">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-rose-400 font-bold text-xs">📢 تنبيه مجلس إدارة العمارة</span>
+            <span class="text-[10px] bg-rose-500/20 text-rose-300 px-1.5 py-0.2 rounded font-bold">عاجل</span>
+          </div>
+          <p class="text-xs text-slate-200 leading-relaxed">
+            سيتم فصل مياه الخدمات غداً الجمعة من 2:00 إلى 4:00 عصراً لتنظيف الخزان العلوي وتعقيمه الدوري.
+          </p>
+        </div>
+
+        <!-- Resident Financial Status -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="flex justify-between items-center mb-2">
+            <span class="font-bold text-xs text-slate-800">الحالة المالية للوحدة</span>
+            <span class="text-[11px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full">مسدد بالكامل ✓</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-xs mb-3">
+            <div class="bg-slate-50 p-2.5 rounded-xl">
+              <span class="text-[10px] text-slate-400 block">رصيد المستحقات</span>
+              <span class="font-bold text-emerald-600 text-sm">0 ج.م</span>
+              <span class="text-[10px] text-slate-400 block">لا توجد متأخرات</span>
+            </div>
+            <div class="bg-slate-50 p-2.5 rounded-xl">
+              <span class="text-[10px] text-slate-400 block">حالة الاشتراك الشهري</span>
+              <span class="font-bold text-slate-800">حتى نهاية أكتوبر 2024</span>
+              <span class="text-[10px] text-slate-400 block">الدفعة القادمة: نوفمبر</span>
+            </div>
+          </div>
+          <button onclick="alert('عرض إيصالات السداد المعتمدة لشقة 302')" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-xl text-xs font-semibold">
+            سجل المدفوعات وآخر إيصال 📥
+          </button>
+        </div>
+
+        <!-- Improvement Project Contribution -->
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+          <div class="flex justify-between items-center mb-1">
+            <h3 class="font-bold text-xs text-slate-900">مشروع تجديد دهان الواجهة وتغيير الكاميرات</h3>
+            <span class="text-[10px] bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded">مشروع استثنائي</span>
+          </div>
+          <p class="text-[11px] text-slate-500 mb-2">صيانة المدخل الخارجي واستبدال نظام 4K لكافة الأدوار</p>
+          <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden mb-1">
+            <div class="bg-teal-500 h-full rounded-full" style="width: 65%;"></div>
+          </div>
+          <div class="flex justify-between text-[11px] text-slate-500 mb-3">
+            <span>تم تحصيل: 18,000 من 27,500 ج.م</span>
+            <span class="font-bold text-teal-700">65%</span>
+          </div>
+          <button onclick="alert('فتح بوابة دفع المساهمة لشقة 302 (2,500 ج.م)')" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2.5 rounded-xl font-bold text-xs shadow">
+            سداد المساهمة المقررة (2,500 ج.م)
+          </button>
+        </div>
+
+        <!-- Quick Emergency Contacts -->
+        <div class="space-y-2">
+          <h3 class="font-bold text-xs text-slate-800 px-1">دليل الطوارئ والخدمات السريعة</h3>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <a href="tel:0100000000" class="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center gap-2 hover:bg-slate-50">
+              <span class="text-base">👮</span>
+              <div>
+                <p class="font-bold text-slate-800">عم إبراهيم</p>
+                <p class="text-[10px] text-slate-400">حارس العمارة</p>
+              </div>
+            </a>
+            <a href="tel:0110000000" class="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center gap-2 hover:bg-slate-50">
+              <span class="text-base">🛗</span>
+              <div>
+                <p class="font-bold text-slate-800">طوارئ المصعد</p>
+                <p class="text-[10px] text-slate-400">أوتيس 24/7</p>
+              </div>
+            </a>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ========================================== -->
+    <!-- PERSISTENT MOBILE BOTTOM TAB NAVIGATION BAR -->
+    <!-- ========================================== -->
+    <nav class="fixed bottom-0 max-w-[420px] w-full bg-white border-t border-slate-200/80 px-2 py-2 flex justify-around items-center z-40 shadow-lg">
+      
+      <!-- Tab 1: Dashboard -->
+      <button onclick="navigateTo('dashboard')" id="tab-dashboard" class="nav-tab flex flex-col items-center justify-center text-teal-600 font-bold text-[11px] transition">
+        <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        <span>الرئيسية</span>
+      </button>
+
+      <!-- Tab 2: Collections -->
+      <button onclick="navigateTo('collections')" id="tab-collections" class="nav-tab flex flex-col items-center justify-center text-slate-400 font-medium text-[11px] hover:text-teal-600 transition">
+        <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        <span>الشقق والتحصيل</span>
+      </button>
+
+      <!-- Tab Center: Voice Assistant (Floating Action Icon) -->
+      <button onclick="navigateTo('assistant')" id="tab-assistant" class="nav-tab -mt-5 bg-[#0f2537] text-teal-300 w-12 h-12 rounded-full flex flex-col items-center justify-center shadow-lg border-2 border-white hover:scale-105 transition">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+      </button>
+
+      <!-- Tab 4: Expenses -->
+      <button onclick="navigateTo('expenses')" id="tab-expenses" class="nav-tab flex flex-col items-center justify-center text-slate-400 font-medium text-[11px] hover:text-teal-600 transition">
+        <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z"/></svg>
+        <span>المصروفات</span>
+      </button>
+
+      <!-- Tab 5: Resident Portal -->
+      <button onclick="navigateTo('resident')" id="tab-resident" class="nav-tab flex flex-col items-center justify-center text-slate-400 font-medium text-[11px] hover:text-teal-600 transition">
+        <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+        <span>بوابة الساكن</span>
+      </button>
+
+    </nav>
+
+  </div>
+
+  <!-- SPA ROUTING & INTERACTIVITY SCRIPT -->
+  <script>
+    const screens = {
+      'login': { title: 'تسجيل الدخول', hideTabs: true },
+      'dashboard': { title: 'لوحة التحكم', hideTabs: false },
+      'collections': { title: 'سجل التحصيلات', hideTabs: false },
+      'expenses': { title: 'تسجيل المصروفات', hideTabs: false },
+      'reports': { title: 'التقارير وكشف PDF', hideTabs: false },
+      'assistant': { title: 'المساعد الصوتي', hideTabs: false },
+      'resident': { title: 'بوابة الساكن', hideTabs: false }
+    };
+
+    function navigateTo(screenId) {
+      if (!screens[screenId]) return;
+
+      // 1. Hide all screen containers
+      document.querySelectorAll('.screen-view').forEach(view => {
+        view.classList.remove('active');
+      });
+
+      // 2. Show active screen
+      const activeEl = document.getElementById('screen-' + screenId);
+      if (activeEl) {
+        activeEl.classList.add('active');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      // 3. Update Quick Switcher Dropdown and Badge
+      const select = document.getElementById('quickScreenSelect');
+      if (select) select.value = screenId;
+
+      const badge = document.getElementById('currentScreenBadge');
+      if (badge) badge.innerText = screens[screenId].title;
+
+      // 4. Update Tab Bar Active State
+      document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.classList.remove('text-teal-600', 'font-bold');
+        tab.classList.add('text-slate-400', 'font-medium');
+      });
+
+      const activeTab = document.getElementById('tab-' + screenId);
+      if (activeTab && screenId !== 'assistant') {
+        activeTab.classList.remove('text-slate-400', 'font-medium');
+        activeTab.classList.add('text-teal-600', 'font-bold');
+      }
+
+      // 5. Update URL Hash without reload
+      window.location.hash = screenId;
+    }
+
+    // Toggle Voice Recording Demo
+    let isListening = true;
+    function toggleVoiceRecording() {
+      isListening = !isListening;
+      const text = document.getElementById('micStatusText');
+      if (text) {
+        text.innerText = isListening ? 'الميكروفون نشط.. تحدث الآن بالعامية' : 'تم إيقاف الاستماع مؤقتاً (اضغط للبدء)';
+      }
+    }
+
+    // Listen to initial hash on load
+    window.addEventListener('DOMContentLoaded', () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash && screens[hash]) {
+        navigateTo(hash);
+      }
+    });
+  </script>
+</body>
+</html>

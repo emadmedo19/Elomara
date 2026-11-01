@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_tab" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100vw;margin:0;padding:0;}body{overscroll-behavior:none;font-family:'IBM Plex Sans',sans-serif;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "on-tertiary-fixed": "#2f1500", "on-secondary-fixed-variant": "#005049", "surface-container": "#e5eeff", "primary-fixed-dim": "#b3c9e0", "on-secondary": "#ffffff", "on-primary": "#ffffff", "error": "#ba1a1a", "on-primary-container": "#788da3", "primary-fixed": "#cfe5fd", "on-primary-fixed-variant": "#34495c", "on-tertiary-container": "#d17200", "tertiary-fixed-dim": "#ffb77d", "surface-variant": "#d3e4fe", "surface-dim": "#cbdbf5", "secondary-container": "#86f2e4", "on-tertiary": "#ffffff", "on-background": "#0b1c30", "on-secondary-container": "#006f66", "surface-tint": "#4c6075", "primary": "#000f1d", "on-error": "#ffffff", "surface-container-lowest": "#ffffff", "secondary-fixed": "#89f5e7", "tertiary": "#1a0900", "on-tertiary-fixed-variant": "#6e3900", "surface-container-highest": "#d3e4fe", "on-surface-variant": "#43474c", "inverse-surface": "#213145", "tertiary-fixed": "#ffdcc3", "background": "#f8f9ff", "outline-variant": "#c3c7cd", "on-surface": "#0b1c30", "secondary": "#006a61", "surface-bright": "#f8f9ff", "surface": "#f8f9ff", "outline": "#74777d", "tertiary-container": "#3a1b00", "inverse-primary": "#b3c9e0", "surface-container-low": "#eff4ff", "surface-container-high": "#dce9ff", "primary-container": "#0f2537", "inverse-on-surface": "#eaf1ff", "error-container": "#ffdad6", "on-secondary-fixed": "#00201d", "secondary-fixed-dim": "#6bd8cb", "on-primary-fixed": "#061d2f", "on-error-container": "#93000a" }, borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, spacing: { "space-md": "1rem", "gutter-tablet": "1.5rem", "space-xs": "0.25rem", "gutter": "1rem", "space-sm": "0.5rem", "margin-desktop": "3rem", "space-xl": "2.5rem", "margin-tablet": "2rem", "space-lg": "1.5rem", "gutter-desktop": "2rem", "margin": "1rem" }, fontFamily: { "label-md": ["IBM Plex Sans"], "label-currency": ["IBM Plex Sans"], "label-lg": ["IBM Plex Sans"], "body-md": ["IBM Plex Sans"], "body-sm": ["IBM Plex Sans"], "headline-md": ["IBM Plex Sans"], "headline-sm": ["IBM Plex Sans"], "headline-lg": ["IBM Plex Sans"], "display-hero": ["IBM Plex Sans"], "display-hero-mobile": ["IBM Plex Sans"], "body-lg": ["IBM Plex Sans"] }, fontSize: { "label-md": ["12px", { lineHeight: "16px", fontWeight: "600" }], "label-currency": ["13px", { lineHeight: "18px", fontWeight: "700" }], "label-lg": ["14px", { lineHeight: "20px", fontWeight: "600" }], "body-md": ["14px", { lineHeight: "22px", fontWeight: "400" }], "body-sm": ["12px", { lineHeight: "18px", fontWeight: "400" }], "headline-md": ["20px", { lineHeight: "28px", fontWeight: "600" }], "headline-sm": ["18px", { lineHeight: "26px", fontWeight: "600" }], "headline-lg": ["24px", { lineHeight: "34px", letterSpacing: "-0.01em", fontWeight: "700" }], "display-hero": ["36px", { lineHeight: "48px", letterSpacing: "-0.02em", fontWeight: "700" }], "display-hero-mobile": ["28px", { lineHeight: "38px", letterSpacing: "-0.01em", fontWeight: "700" }], "body-lg": ["16px", { lineHeight: "26px", fontWeight: "400" }] } } } };</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface text-on-surface font-body-md text-body-md flex flex-col min-h-screen selection:bg-secondary-container"><header class="fixed top-0 w-full z-50 pt-safe bg-surface/85 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 px-gutter flex items-center justify-between"><div class="flex items-center gap-space-sm"><img alt="Bonyan App Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBOMX5O63t-B8Simaxh4LES5hu6ff0IeX43JxG4t4Rn9YnDnplS4bQY-KNwUhxCBXYpcp1ErewW2Q6lj2ZyXGQgPhbqSmnly9HEap7yKDS75pw76p8bnmtOEKmhLDUHTgEO3KSvDr49dvltDT1lMuDotzxVUMfx21gYrMSJ2tGw3JvcjRRYU--MabYdwt5J9_YMtC0JmeFOqMAdfsuyipEcldUcskrUkMPWP3yUnLic"/><div class="flex flex-col justify-center text-right"><div class="flex items-center gap-1"><span class="font-headline-sm text-headline-sm text-primary-container leading-none font-bold">بُنيان</span><span class="font-label-md text-label-md text-on-surface-variant font-normal opacity-70 hidden sm:inline">• Resident Hub</span></div><span class="font-body-sm text-body-sm text-on-surface-variant line-clamp-1 leading-tight">عمارة الأندلس 14 - التجمع الخامس</span></div></div><div class="flex items-center gap-space-sm"><button aria-label="Notifications" class="relative w-11 h-11 flex items-center justify-center rounded-full text-primary-container hover:bg-surface-container transition-colors"><span class="material-symbols-outlined text-[24px]">notifications</span><span class="absolute top-2 left-2 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-error text-on-error font-label-md text-[10px] font-bold leading-none ring-2 ring-surface">3</span></button><button aria-label="Resident Profile" class="w-11 h-11 flex items-center justify-center rounded-full transition-transform active:scale-95"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3LLToHr5SsG6KziJa5w_YMqmLc-wfkgzgr9r-lzjMPu-0aB1-uHnQRr6coA7udoBpDmmLpYgUxwAmhwOK2QxaIDD18Hue0JH9wKfKJF67B_eQiDfhzp2mrhej4bAHYqRDPieX0IGzuvMWf08bjo1ZaP-VmWzitSg-rt0sCWw71TLPGt6MFyS8FeZz8Lx7VcMFSBfM6eL0-PXYpoLQhZ3hQy0ACmZ2R8Mwx6iWNpof"/></button></div></div></header><main class="flex flex-col relative w-full pt-16 pb-28 bg-surface min-h-screen"><div class="flex flex-col w-full px-gutter space-y-space-md">
+<!-- Resident Identity & Welcome Banner -->
+<div class="bg-surface-container-low rounded-xl p-space-md shadow-sm flex items-center justify-between">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="relative w-12 h-12 rounded-full overflow-hidden shrink-0 bg-surface-container">
+<img class="w-full h-full object-cover" data-alt="Warm portrait of a distinguished Middle Eastern resident named Dr. Ahmed Mostafa wearing modern glasses and casual linen attire with soft natural indoor lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBGCPW1GGi7e96goxa3-Ut-tXJ5-UmRo00954etX0e44yGwyBArfHEzrvXNqdD4uz0KUsZ2WV0AOiv5d3S_zsFJUlbI0dArSdOUM66vIVhJcNgZ4J1EQhJwt9Nt9tsCkkWdWLTpGWiA-HRafE6vgKs9WzJVwHZJj_D7hIY9wsfkb_MoySuSwvEEHWlr8_V5JRG5tRRUk9JDBlC1Pgm2d9ZCAMi79GdMAseG-fLzq1xk"/>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1.5 flex-wrap">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold truncate">مرحباً، د. أحمد مصطفى</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary text-on-secondary font-label-md text-label-md">شقة 302</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1 mt-0.5">
+<span class="material-symbols-outlined text-[16px] text-secondary">verified</span>
+          عضو اتحاد الشاغلين • الدور الثالث
+        </span>
+</div>
+</div>
+<div class="shrink-0 flex items-center gap-1">
+<button class="w-10 h-10 rounded-full bg-surface-container hover:bg-surface-container-high text-primary flex items-center justify-center transition-colors" id="qrAccessBtn" title="رمز البوابة الذكية">
+<span class="material-symbols-outlined text-[22px]">qr_code_2</span>
+</button>
+</div>
+</div>
+<!-- Building Alert Notice (HOA Announcement) -->
+<div class="bg-primary-container text-on-primary rounded-xl p-space-md shadow-md flex items-start gap-space-sm relative overflow-hidden">
+<div class="absolute -left-6 -bottom-6 w-24 h-24 rounded-full bg-secondary-fixed opacity-10 pointer-events-none"></div>
+<div class="w-9 h-9 rounded-lg bg-surface-container-lowest/15 flex items-center justify-center shrink-0 mt-0.5 text-secondary-fixed">
+<span class="material-symbols-outlined text-[22px]">campaign</span>
+</div>
+<div class="flex flex-col min-w-0 flex-1">
+<div class="flex items-center justify-between gap-2">
+<span class="font-label-lg text-label-lg font-bold text-secondary-fixed">تنبيه مجلس إدارة العمارة</span>
+<span class="font-label-md text-label-md text-on-primary-container bg-surface-container-lowest/10 px-2 py-0.5 rounded-full">عاجل</span>
+</div>
+<p class="font-body-md text-body-md mt-1 leading-snug">
+        سيتم فصل مياه الخدمات غداً الجمعة من 2:00 إلى 4:00 عصراً لتنظيف الخزان العلوي وتعقيمه الدوري.
+      </p>
+</div>
+</div>
+<!-- Financial Status Card -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col space-y-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary"></span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">الحالة المالية للوحدة</span>
+</div>
+<span class="font-label-md text-label-md px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-container flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+        مسدد بالكامل
+      </span>
+</div>
+<!-- Dual Metric Snapshot -->
+<div class="grid grid-cols-2 gap-space-sm">
+<div class="bg-surface-container-low rounded-lg p-space-sm flex flex-col">
+<span class="font-body-sm text-body-sm text-on-surface-variant">رصيد المستحقات</span>
+<div class="flex items-baseline gap-1 mt-1">
+<span class="font-display-hero-mobile text-display-hero-mobile font-bold text-secondary">0</span>
+<span class="font-label-currency text-label-currency text-secondary">ج.م</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant opacity-80 mt-1">لا توجد متأخرات</span>
+</div>
+<div class="bg-surface-container-low rounded-lg p-space-sm flex flex-col justify-between">
+<div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">حالة الاشتراك الشهري</span>
+<span class="font-label-lg text-label-lg font-bold text-on-surface block mt-1">حتى نهاية أكتوبر 2024</span>
+</div>
+<span class="font-label-md text-label-md text-secondary flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[14px]">event_available</span>
+          الدفعة القادمة: نوفمبر
+        </span>
+</div>
+</div>
+<!-- Action Buttons for Receipts and Ledger -->
+<div class="flex items-center gap-space-sm pt-1">
+<button class="flex-1 h-12 rounded-lg bg-surface-container hover:bg-surface-container-high text-primary-container font-label-lg text-label-lg flex items-center justify-center gap-2 transition-colors" id="viewHistoryBtn">
+<span class="material-symbols-outlined text-[20px]">history</span>
+<span>سجل المدفوعات</span>
+</button>
+<button class="h-12 px-space-md rounded-lg bg-primary-container text-on-primary hover:bg-primary font-label-lg text-label-lg flex items-center justify-center gap-1.5 shadow-sm transition-colors" id="downloadReceiptBtn">
+<span class="material-symbols-outlined text-[20px]">download</span>
+<span>آخر إيصال</span>
+</button>
+</div>
+</div>
+<!-- Special Projects & Capital Contributions -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col space-y-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[22px] text-tertiary-fixed-variant">foundation</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">مشاريع التطوير الجارية</span>
+</div>
+<span class="font-label-md text-label-md text-on-tertiary-container bg-tertiary-fixed px-2 py-0.5 rounded-full font-bold">مشروع استثنائي</span>
+</div>
+<!-- Project Card -->
+<div class="bg-surface-container-low rounded-xl p-space-md flex flex-col space-y-space-sm">
+<div class="flex items-start justify-between gap-2">
+<div>
+<h3 class="font-headline-sm text-headline-sm font-bold text-on-surface">تجديد دهان الواجهة وتغيير كاميرات المراقبة</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">صيانة المدخل الخارجي واستبدال نظام 4K لكافة الأدوار والمحيط</p>
+</div>
+</div>
+<div class="w-full h-32 rounded-lg overflow-hidden relative shadow-sm my-1">
+<img class="w-full h-full object-cover" data-alt="Architectural exterior facade renovation of a contemporary upscale Egyptian apartment building in New Cairo with modern warm accent lighting, scaffoldings, and pristine minimalist design." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-GZY6eWABmq5k0XZ6yWee6CRl3uzRPRb8-HvJFnPxY1Q06TGMaTxBPwPRrxA5MJniovcKXxGMvWwR1r7s_pRae3lCXecXrMXfUUOR5wxbTfy1hui5NgFzyC7c0W3QqxieLrX2w-nvq85EykbNTxGKc9_-Per2Xrg1yuLtC0z4ufSxrkE6-9X44695BPp5q_Dta59Ck5AEewYxu-s27pBKWxx73qw6Mrqou7nsHJRG"/>
+<div class="absolute bottom-2 right-2 bg-primary-container/85 backdrop-blur-md px-2.5 py-1 rounded-md text-on-primary font-label-md text-label-md flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px] text-secondary-fixed">videocam</span>
+          كاميرات Hikvision + جوتن
+        </div>
+</div>
+<!-- Financial Progress Meter -->
+<div class="flex flex-col space-y-1.5 pt-1">
+<div class="flex items-center justify-between text-on-surface">
+<span class="font-label-md text-label-md text-on-surface-variant">تم تحصيل: 18,000 من 27,500 ج.م</span>
+<span class="font-headline-sm text-headline-sm font-bold text-secondary">65%</span>
+</div>
+<!-- Accessible Native Bar -->
+<div class="w-full h-2.5 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-secondary rounded-full transition-all duration-700" style="width: 65%;"></div>
+</div>
+</div>
+<!-- Individual Unit Quota & Contribution Status -->
+<div class="flex items-center justify-between bg-surface-container-lowest p-space-sm rounded-lg">
+<div class="flex flex-col">
+<span class="font-body-sm text-body-sm text-on-surface-variant">الحصة المطلوبة لشقة 302</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">2,500 <span class="text-label-currency font-label-currency">ج.م</span></span>
+</div>
+<button class="px-space-md h-10 rounded-lg bg-secondary text-on-secondary font-label-lg text-label-lg flex items-center gap-1.5 shadow-sm active:scale-95 transition-all" id="contributeBtn">
+<span class="material-symbols-outlined text-[18px]">payments</span>
+<span>سداد المساهمة</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Quick Maintenance Request & Ticket Tracker -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col space-y-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[22px] text-primary-container">build</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">خدمات الصيانة والبلاغات</span>
+</div>
+<button class="px-3 py-1.5 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md flex items-center gap-1 shadow-sm" id="openNewTicketBtn">
+<span class="material-symbols-outlined text-[16px]">add</span>
+<span>إبلاغ عن عطل</span>
+</button>
+</div>
+<!-- Quick Report Category Chips -->
+<div class="flex flex-col space-y-1.5">
+<span class="font-label-md text-label-md text-on-surface-variant">طلب فوري حسب النوع:</span>
+<div class="grid grid-cols-2 gap-2">
+<button class="quick-category-btn p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container flex items-center gap-2 text-right transition-colors" data-category="سباكة المشترك">
+<div class="w-8 h-8 rounded-full bg-secondary-container/60 text-on-secondary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">plumbing</span>
+</div>
+<div class="min-w-0">
+<span class="font-label-lg text-label-lg block text-on-surface truncate">سباكة المشترك</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant block">مواسير، عدادات</span>
+</div>
+</button>
+<button class="quick-category-btn p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container flex items-center gap-2 text-right transition-colors" data-category="المصعد">
+<div class="w-8 h-8 rounded-full bg-primary-fixed text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">elevator</span>
+</div>
+<div class="min-w-0">
+<span class="font-label-lg text-label-lg block text-on-surface truncate">أعطال المصعد</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant block">توقف، أبواب، زر</span>
+</div>
+</button>
+<button class="quick-category-btn p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container flex items-center gap-2 text-right transition-colors" data-category="إنارة الممر">
+<div class="w-8 h-8 rounded-full bg-tertiary-fixed text-on-tertiary-fixed-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">light</span>
+</div>
+<div class="min-w-0">
+<span class="font-label-lg text-label-lg block text-on-surface truncate">إنارة الممرات</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant block">السلم، المدخل</span>
+</div>
+</button>
+<button class="quick-category-btn p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container flex items-center gap-2 text-right transition-colors" data-category="البوابة الخارجية">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-primary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">garage_home</span>
+</div>
+<div class="min-w-0">
+<span class="font-label-lg text-label-lg block text-on-surface truncate">البوابة والجراج</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant block">ريموت، إنتركم</span>
+</div>
+</button>
+</div>
+</div>
+<!-- Active Ticket Tracker Card -->
+<div class="bg-surface-container-low rounded-xl p-space-md flex flex-col space-y-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-on-surface-variant font-semibold">تتبع بلاغ قيد المعالجة (#T-108)</span>
+<span class="px-2.5 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed-variant font-label-md text-label-md flex items-center gap-1 font-bold">
+<span class="w-2 h-2 rounded-full bg-on-tertiary-fixed-variant animate-pulse"></span>
+          جاري الإصلاح
+        </span>
+</div>
+<div class="flex items-start gap-space-sm">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[22px]">lock_reset</span>
+</div>
+<div class="flex flex-col min-w-0">
+<h4 class="font-headline-sm text-headline-sm font-bold text-on-surface">صيانة مفتاح باب الجراج الرئيسي</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">تم استلام البلاغ وتحويله لفني الأبواب الإلكترونية لتبديل لوحة الاستشعار.</p>
+</div>
+</div>
+<!-- Ticket Stepper -->
+<div class="flex items-center justify-between pt-2 px-1">
+<div class="flex flex-col items-center">
+<div class="w-6 h-6 rounded-full bg-secondary text-on-secondary flex items-center justify-center text-[12px] font-bold">
+<span class="material-symbols-outlined text-[14px]">check</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant mt-1 text-[11px]">مستلم</span>
+</div>
+<div class="flex-1 h-0.5 bg-secondary mx-1"></div>
+<div class="flex flex-col items-center">
+<div class="w-6 h-6 rounded-full bg-secondary text-on-secondary flex items-center justify-center text-[12px] font-bold">
+<span class="material-symbols-outlined text-[14px]">check</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant mt-1 text-[11px]">معتمد</span>
+</div>
+<div class="flex-1 h-0.5 bg-secondary mx-1"></div>
+<div class="flex flex-col items-center">
+<div class="w-6 h-6 rounded-full bg-on-tertiary-container text-on-primary flex items-center justify-center text-[12px] font-bold">
+<span class="material-symbols-outlined text-[14px]">engineering</span>
+</div>
+<span class="font-label-md text-label-md text-on-tertiary-container mt-1 text-[11px] font-bold">الفني بالموقع</span>
+</div>
+<div class="flex-1 h-0.5 bg-surface-container-highest mx-1"></div>
+<div class="flex flex-col items-center">
+<div class="w-6 h-6 rounded-full bg-surface-container text-on-surface-variant flex items-center justify-center text-[12px]">
+            4
+          </div>
+<span class="font-body-sm text-body-sm text-on-surface-variant mt-1 text-[11px]">مكتمل</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Building Emergency Directory & Direct Contacts -->
+<div class="bg-surface-container-lowest rounded-xl p-space-md shadow-sm flex flex-col space-y-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[22px] text-error">phone_in_talk</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">دليل الطوارئ والخدمات السريعة</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant">اتصال مباشر بلمسة</span>
+</div>
+<!-- Contact Item: حارس العمارة -->
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-10 h-10 rounded-full bg-secondary-container/70 text-on-secondary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">security</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface truncate">عم إبراهيم</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">حارس العمارة والخدمات اليومية</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 shrink-0">
+<a aria-label="واتساب عم إبراهيم" class="w-9 h-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center hover:opacity-90 active:scale-95 transition-all" href="https://wa.me/201000000001" target="_blank">
+<span class="material-symbols-outlined text-[20px]">chat</span>
+</a>
+<a aria-label="اتصال بعم إبراهيم" class="w-9 h-9 rounded-full bg-primary-container text-on-primary flex items-center justify-center hover:bg-primary active:scale-95 transition-all" href="tel:+201000000001">
+<span class="material-symbols-outlined text-[18px]">call</span>
+</a>
+</div>
+</div>
+<!-- Contact Item: طوارئ المصاعد -->
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-10 h-10 rounded-full bg-error-container text-on-error-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">elevator</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-1.5">
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface truncate">شركة أوتيس مصر</span>
+<span class="px-1.5 py-0.2 rounded bg-error-container text-on-error-container text-[10px] font-bold">24/7</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">طوارئ وصيانة المصعد المعتمدة</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 shrink-0">
+<a class="h-9 px-3 rounded-full bg-error text-on-error flex items-center gap-1 font-label-md text-label-md active:scale-95 transition-all" href="tel:19000">
+<span class="material-symbols-outlined text-[16px]">emergency</span>
+<span>طوارئ</span>
+</a>
+</div>
+</div>
+<!-- Contact Item: كهربائي العمارة -->
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-10 h-10 rounded-full bg-tertiary-fixed text-on-tertiary-fixed-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">bolt</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface truncate">الأسطى ناصر</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">كهربائي العمارة واللوحات الرئيسية</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 shrink-0">
+<a aria-label="واتساب الأسطى ناصر" class="w-9 h-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center hover:opacity-90 active:scale-95 transition-all" href="https://wa.me/201000000002" target="_blank">
+<span class="material-symbols-outlined text-[20px]">chat</span>
+</a>
+<a aria-label="اتصال بالأسطى ناصر" class="w-9 h-9 rounded-full bg-primary-container text-on-primary flex items-center justify-center hover:bg-primary active:scale-95 transition-all" href="tel:+201000000002">
+<span class="material-symbols-outlined text-[18px]">call</span>
+</a>
+</div>
+</div>
+<!-- Contact Item: سباك العمارة -->
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-10 h-10 rounded-full bg-surface-variant text-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">water_damage</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface truncate">الأسطى محروس</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">سباك العمارة وشبكة الصرف والخزانات</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 shrink-0">
+<a aria-label="واتساب الأسطى محروس" class="w-9 h-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center hover:opacity-90 active:scale-95 transition-all" href="https://wa.me/201000000003" target="_blank">
+<span class="material-symbols-outlined text-[20px]">chat</span>
+</a>
+<a aria-label="اتصال بالأسطى محروس" class="w-9 h-9 rounded-full bg-primary-container text-on-primary flex items-center justify-center hover:bg-primary active:scale-95 transition-all" href="tel:+201000000003">
+<span class="material-symbols-outlined text-[18px]">call</span>
+</a>
+</div>
+</div>
+<!-- Contact Item: رئيس اتحاد الشاغلين -->
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-10 h-10 rounded-full bg-primary-fixed text-primary-container flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[20px]">admin_panel_settings</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface truncate">م. كريم فوزي</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">رئيس مجلس اتحاد الشاغلين (شقة 501)</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 shrink-0">
+<a aria-label="واتساب م. كريم فوزي" class="w-9 h-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center hover:opacity-90 active:scale-95 transition-all" href="https://wa.me/201000000004" target="_blank">
+<span class="material-symbols-outlined text-[20px]">chat</span>
+</a>
+<a aria-label="اتصال بالمهندس كريم" class="w-9 h-9 rounded-full bg-primary-container text-on-primary flex items-center justify-center hover:bg-primary active:scale-95 transition-all" href="tel:+201000000004">
+<span class="material-symbols-outlined text-[18px]">call</span>
+</a>
+</div>
+</div>
+</div>
+<!-- Interactive Slide-Up Modal: New Maintenance Ticket Form (Hidden by default) -->
+<div class="fixed inset-0 z-50 bg-primary/60 backdrop-blur-sm hidden flex-col justify-end" id="ticketModal">
+<div class="w-full bg-surface-container-lowest rounded-t-2xl p-space-md flex flex-col space-y-space-md max-h-[751px] overflow-y-auto pb-safe">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[24px] text-secondary">handyman</span>
+<h3 class="font-headline-md text-headline-md font-bold text-on-surface">إرسال بلاغ صيانة جديد</h3>
+</div>
+<button class="w-9 h-9 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant" id="closeTicketModal">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<form class="flex flex-col space-y-space-sm" id="newTicketForm" onsubmit="event.preventDefault();">
+<div class="flex flex-col space-y-1">
+<label class="font-label-lg text-label-lg text-on-surface">قسم العطل</label>
+<select class="w-full h-12 px-3 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md outline-none focus:ring-0" id="ticketCategorySelect">
+<option value="سباكة المشترك">سباكة المشترك</option>
+<option value="المصعد">المصعد</option>
+<option value="إنارة الممر">إنارة الممر</option>
+<option value="البوابة الخارجية">البوابة الخارجية والجراج</option>
+<option value="أخرى">أخرى</option>
+</select>
+</div>
+<div class="flex flex-col space-y-1">
+<label class="font-label-lg text-label-lg text-on-surface">وصف تفصيلي للعطل</label>
+<textarea class="w-full p-3 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md outline-none placeholder:text-outline resize-none" placeholder="يرجى ذكر موقع العطل وتفاصيله بوضوح..." rows="3"></textarea>
+</div>
+<!-- Upload Photo Simulation -->
+<div class="flex flex-col space-y-1">
+<label class="font-label-lg text-label-lg text-on-surface">إرفاق صورة أو فيديو للعطل (اختياري)</label>
+<div class="w-full h-24 rounded-lg bg-surface-container-low flex flex-col items-center justify-center cursor-pointer hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[28px] text-on-surface-variant">add_a_photo</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant mt-1">اضغط لالتقاط أو رفع صورة من الجهاز</span>
+</div>
+</div>
+<button class="w-full h-12 mt-2 rounded-xl bg-primary-container text-on-primary font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-md hover:bg-primary active:scale-[0.98] transition-all" id="submitTicketBtn" type="button">
+<span class="material-symbols-outlined text-[20px]">send</span>
+<span>إرسال البلاغ لمسؤول الصيانة</span>
+</button>
+</form>
+</div>
+</div>
+<!-- Toast Notification Feedback -->
+<div class="fixed bottom-24 right-4 left-4 z-50 transform translate-y-16 opacity-0 pointer-events-none transition-all duration-300 flex items-center justify-center" id="toastNotification">
+<div class="bg-primary text-on-primary px-space-md py-space-sm rounded-xl shadow-xl flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px] text-secondary-fixed" id="toastIcon">check_circle</span>
+<span class="font-label-lg text-label-lg" id="toastMessage">تم تنفيذ طلبك بنجاح</span>
+</div>
+</div>
+</div>
+<script>
+  // DOM Elements
+  const ticketModal = document.getElementById('ticketModal');
+  const openNewTicketBtn = document.getElementById('openNewTicketBtn');
+  const closeTicketModal = document.getElementById('closeTicketModal');
+  const submitTicketBtn = document.getElementById('submitTicketBtn');
+  const quickCategoryBtns = document.querySelectorAll('.quick-category-btn');
+  const ticketCategorySelect = document.getElementById('ticketCategorySelect');
+  const toastNotification = document.getElementById('toastNotification');
+  const toastMessage = document.getElementById('toastMessage');
+  const toastIcon = document.getElementById('toastIcon');
+
+  function showToast(message, icon = 'check_circle') {
+    toastMessage.textContent = message;
+    toastIcon.textContent = icon;
+    toastNotification.classList.remove('translate-y-16', 'opacity-0', 'pointer-events-none');
+    toastNotification.classList.add('translate-y-0', 'opacity-100');
+    setTimeout(() => {
+      toastNotification.classList.remove('translate-y-0', 'opacity-100');
+      toastNotification.classList.add('translate-y-16', 'opacity-0', 'pointer-events-none');
+    }, 2800);
+  }
+
+  // Modal handlers
+  openNewTicketBtn.addEventListener('click', () => {
+    ticketModal.classList.remove('hidden');
+    ticketModal.classList.add('flex');
+  });
+
+  closeTicketModal.addEventListener('click', () => {
+    ticketModal.classList.add('hidden');
+    ticketModal.classList.remove('flex');
+  });
+
+  ticketModal.addEventListener('click', (e) => {
+    if (e.target === ticketModal) {
+      ticketModal.classList.add('hidden');
+      ticketModal.classList.remove('flex');
+    }
+  });
+
+  // Quick categories pre-fill and launch modal
+  quickCategoryBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const category = btn.getAttribute('data-category');
+      if (category && ticketCategorySelect) {
+        ticketCategorySelect.value = category;
+      }
+      ticketModal.classList.remove('hidden');
+      ticketModal.classList.add('flex');
+    });
+  });
+
+  submitTicketBtn.addEventListener('click', () => {
+    ticketModal.classList.add('hidden');
+    ticketModal.classList.remove('flex');
+    showToast('تم إرسال البلاغ بنجاح وجاري إخطار الفني المعني');
+  });
+
+  // Direct Quick Action buttons
+  document.getElementById('downloadReceiptBtn')?.addEventListener('click', () => {
+    showToast('جاري تنزيل إيصال سداد شهر أكتوبر (PDF)...', 'download_done');
+  });
+
+  document.getElementById('viewHistoryBtn')?.addEventListener('click', () => {
+    showToast('تم تحديث السجل المالي لعام 2024 بالكامل', 'receipt_long');
+  });
+
+  document.getElementById('contributeBtn')?.addEventListener('click', () => {
+    showToast('تم فتح بوابة الدفع الإلكتروني لمشروع الواجهة', 'account_balance_wallet');
+  });
+
+  document.getElementById('qrAccessBtn')?.addEventListener('click', () => {
+    showToast('تم توليد تصريح دخول الزوار المشفر للبوابة', 'qr_code');
+  });
+</script></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface/90 backdrop-blur-xl shadow-[0_-4px_20px_rgba(15,37,55,0.06)]" data-active-classes="text-secondary font-bold"><div class="h-20 px-space-xs flex items-center justify-around"><a class="flex-1 flex flex-col items-center justify-center py-1 min-w-[56px] min-h-[44px] text-on-surface-variant transition-colors hover:text-on-surface" data-path="dashboard" href="#"><span class="material-symbols-outlined text-[24px] mb-0.5">dashboard</span><span class="font-label-md text-label-md text-center tracking-tight">الرئيسية</span></a><a class="flex-1 flex flex-col items-center justify-center py-1 min-w-[56px] min-h-[44px] text-on-surface-variant transition-colors hover:text-on-surface" data-path="apartments-dues" href="#"><span class="material-symbols-outlined text-[24px] mb-0.5">apartment</span><span class="font-label-md text-label-md text-center tracking-tight whitespace-nowrap">الشقق والتحصيل</span></a><div class="relative -top-4 flex flex-col items-center justify-center px-1"><a aria-label="Voice AI Assistant" class="w-14 h-14 rounded-full bg-primary-container text-on-primary flex items-center justify-center shadow-[0_8px_16px_-4px_rgba(15,37,55,0.3)] transition-transform hover:scale-105 active:scale-95" data-path="voice-ai-assistant" href="#"><span class="material-symbols-outlined text-[28px] text-secondary-fixed">mic</span></a><span class="font-label-md text-label-md text-primary-container mt-1 text-center font-bold">المساعد الصوتي</span></div><a class="flex-1 flex flex-col items-center justify-center py-1 min-w-[56px] min-h-[44px] text-on-surface-variant transition-colors hover:text-on-surface" data-path="expenses-reports" href="#"><span class="material-symbols-outlined text-[24px] mb-0.5">receipt_long</span><span class="font-label-md text-label-md text-center tracking-tight whitespace-nowrap">المصروفات</span></a><a aria-current="page" class="flex-1 flex flex-col items-center justify-center py-1 min-w-[56px] min-h-[44px] transition-colors text-secondary font-bold" data-path="resident-hub" href="#"><span class="material-symbols-outlined text-[24px] mb-0.5">person_pin</span><span class="font-label-md text-label-md text-center tracking-tight whitespace-nowrap">بوابة الساكن</span></a></div></nav></body></html>

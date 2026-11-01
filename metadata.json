@@ -1,0 +1,8 @@
+{
+  "name": "Remix ResiManage Interactive",
+  "description": "Transform your residential building project files into a fully interactive management application for seamless property administration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

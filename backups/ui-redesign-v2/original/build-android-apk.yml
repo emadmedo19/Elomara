@@ -1,0 +1,70 @@
+name: Build برج الفتوح Android APK
+
+on:
+  push:
+    branches:
+      - migration/supabase-backend
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: migration/supabase-backend
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: android
+        run: bash ./gradlew assembleDebug
+
+      - name: Print Android debug APK certificate SHA-1
+        run: |
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | grep -i "certificate SHA-1 digest"
+
+      - name: Rename APK for download
+        run: |
+          mkdir -p release-apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk "release-apk/برج-الفتوح.apk"
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: برج-الفتوح-APK
+          path: release-apk/برج-الفتوح.apk
+          if-no-files-found: error
+          retention-days: 30

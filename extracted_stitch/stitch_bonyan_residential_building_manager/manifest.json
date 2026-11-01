@@ -1,0 +1,52 @@
+{
+  "name": "بُنيان - إدارة العمارات السكنية",
+  "short_name": "بُنيان",
+  "description": "المنظومة الذكية لإدارة العمارات السكنية، الخزينة والمصروفات، واتحادات الشاغلين في مصر",
+  "start_url": "./index.html",
+  "id": "eg.bonyan.app",
+  "display": "standalone",
+  "orientation": "portrait",
+  "dir": "rtl",
+  "lang": "ar-EG",
+  "background_color": "#0f2537",
+  "theme_color": "#0f2537",
+  "scope": "./",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "utilities", "business", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "تسجيل مصروف جديد",
+      "short_name": "مصروف جديد",
+      "description": "توثيق فاتورة أو سداد مصروف للعمارة",
+      "url": "./expense.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "سجل التحصيلات",
+      "short_name": "التحصيلات",
+      "description": "متابعة سداد اشتراكات شقق العمارة",
+      "url": "./collections.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "المساعد الصوتي",
+      "short_name": "تسجيل صوتي",
+      "description": "إملاء قيود الصرف بالمساعد الذكي",
+      "url": "./voice-assistant.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

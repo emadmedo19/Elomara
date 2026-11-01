@@ -1,0 +1,469 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Core Primitives & Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Root Super Admin: Hard-locked to the verified primary system owner email ONLY.
+    // Cannot be granted merely by writing a document in Firestore.
+    function isSuperAdmin() {
+      return isSignedIn() &&
+        request.auth.token.email == 'emadmohamedabdella1@gmail.com' &&
+        request.auth.token.email_verified == true;
+    }
+
+    // Assistant Admin: Document exists in /admins/{uid}, role is 'admin', status is explicitly 'active'
+    function isAssistantAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'admin' &&
+        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.status == 'active';
+    }
+
+    // Any authorized administrator (Super Admin OR active Assistant Admin)
+    function isAdmin() {
+      return isSuperAdmin() || isAssistantAdmin();
+    }
+
+    // Building document existence verification
+    function isBuildingValid(bldId) {
+      return bldId is string && bldId.size() > 0 &&
+        exists(/databases/$(database)/documents/buildings/$(bldId));
+    }
+
+    // Fail-Closed building scope check for Assistant Admins (null bldId is STRICTLY rejected)
+    function isAuthorizedForBuilding(bldId) {
+      return isSuperAdmin() || (
+        isAssistantAdmin() &&
+        isBuildingValid(bldId) && (
+          !('assignedBuildings' in get(/databases/$(database)/documents/admins/$(request.auth.uid)).data) ||
+          get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.assignedBuildings.hasAny([bldId])
+        )
+      );
+    }
+
+    // Fine-grained permission check for Assistant Admins
+    function hasAdminPermission(perm) {
+      return isSuperAdmin() || (
+        isAssistantAdmin() && (
+          !('permissions' in get(/databases/$(database)/documents/admins/$(request.auth.uid)).data) ||
+          get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.permissions.hasAny([perm])
+        )
+      );
+    }
+
+    function currentUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Approved Resident: Verified email, active status, valid resident role (owner/tenant), linked to valid unit
+    function isApprovedResident() {
+      return isSignedIn() &&
+        request.auth.token.email_verified == true &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        currentUserData().status == 'active' &&
+        currentUserData().role in ['owner', 'tenant'] &&
+        currentUserData().apartmentId != null &&
+        currentUserData().buildingId != null;
+    }
+
+    // Relational integrity helper: All fields must be null (unlinked) OR all must exist and match
+    function isValidUnitLinkage(bldId, aptId, unitNum) {
+      return (bldId == null && aptId == null && unitNum == null) ||
+        (
+          bldId is string && aptId is string && unitNum is string &&
+          isBuildingValid(bldId) &&
+          exists(/databases/$(database)/documents/apartments/$(aptId)) &&
+          get(/databases/$(database)/documents/apartments/$(aptId)).data.buildingId == bldId &&
+          get(/databases/$(database)/documents/apartments/$(aptId)).data.unitNumber == unitNum
+        );
+    }
+
+    // Coherence of role, status, and unit linkage
+    function isStatusRoleCoherent(status, role, bldId, aptId, unitNum) {
+      return (status == 'pending' && role == 'unassigned' && bldId == null && aptId == null && unitNum == null) ||
+        (status == 'active' && role in ['owner', 'tenant'] && bldId != null && aptId != null && unitNum != null) ||
+        (status == 'suspended' && role in ['owner', 'tenant']);
+    }
+
+    // 3. Health Check / Connection Test (Restricted: read for signed-in, writes for admin only)
+    match /test/{testId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin() && isValidId(testId);
+    }
+
+    // 4. Administrators Collection: Managed EXCLUSIVELY by Super Admin
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && (isSuperAdmin() || request.auth.uid == adminId);
+      allow list: if isSuperAdmin();
+
+      // Super Admin can create assistant admins. Role must be 'admin' (creating super_admin is forbidden).
+      allow create: if isSuperAdmin() && isValidId(adminId) && (
+        incoming().role == 'admin' &&
+        incoming().status in ['active', 'suspended'] &&
+        incoming().email is string &&
+        incoming().email.size() <= 200 &&
+        incoming().addedBy == request.auth.uid &&
+        incoming().keys().hasOnly(['uid', 'email', 'role', 'status', 'addedBy', 'assignedBuildings', 'permissions', 'notes', 'createdAt', 'updatedAt'])
+      );
+
+      // Super Admin can update an admin record. Cannot promote to super_admin or modify root Super Admin.
+      allow update: if isSuperAdmin() && isValidId(adminId) && (
+        adminId != request.auth.uid &&
+        existing().email != 'emadmohamedabdella1@gmail.com' &&
+        incoming().role == 'admin' &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'assignedBuildings', 'permissions', 'notes', 'updatedAt'])
+      );
+
+      // Super Admin can delete an assistant admin. Root Super Admin cannot be deleted.
+      allow delete: if isSuperAdmin() && isValidId(adminId) && (
+        adminId != request.auth.uid &&
+        existing().email != 'emadmohamedabdella1@gmail.com'
+      );
+    }
+
+    // 5. Admin Audit Logs: Immutable log of admin operations (Super Admin only)
+    match /admin_audit_logs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isSuperAdmin() && isValidId(logId) && (
+        incoming().performedBy == request.auth.uid &&
+        incoming().keys().hasOnly(['id', 'action', 'targetAdminId', 'targetEmail', 'performedBy', 'timestamp', 'details'])
+      );
+      allow update, delete: if false; // Strict immutability
+    }
+
+    // 6. Account Linking Audit Logs: Immutable log of resident approvals and links
+    match /account_link_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && isValidId(logId) && (
+        incoming().performedBy == request.auth.uid &&
+        (isSuperAdmin() || (isAssistantAdmin() && hasAdminPermission('manage_residents') && isAuthorizedForBuilding(incoming().buildingId))) &&
+        incoming().keys().hasOnly(['id', 'action', 'targetUserId', 'targetEmail', 'buildingId', 'apartmentId', 'unitNumber', 'role', 'performedBy', 'timestamp', 'notes'])
+      );
+      allow update, delete: if false; // Strict immutability
+    }
+
+    // 7. Users and Profiles: Self-registration starts unassigned & pending; Admins link & approve
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+
+      // Creation: Separated and secured
+      allow create: if isSignedIn() && isValidId(userId) && (
+        // Case A: User Self-Registration
+        (
+          request.auth.uid == userId &&
+          request.auth.token.email != null &&
+          incoming().uid == request.auth.uid &&
+          incoming().email == request.auth.token.email &&
+          incoming().role == 'unassigned' &&
+          incoming().status == 'pending' &&
+          incoming().buildingId == null &&
+          incoming().apartmentId == null &&
+          incoming().unitNumber == null &&
+          incoming().keys().hasAll(['uid', 'email', 'displayName', 'role', 'status']) &&
+          incoming().keys().hasOnly(['uid', 'email', 'displayName', 'phone', 'role', 'status', 'buildingId', 'apartmentId', 'unitNumber', 'createdAt'])
+        ) ||
+        // Case B: Super Admin can provision resident accounts
+        (
+          isSuperAdmin() &&
+          incoming().uid == userId &&
+          incoming().email is string &&
+          incoming().role in ['owner', 'tenant', 'unassigned'] &&
+          isValidUnitLinkage(incoming().buildingId, incoming().apartmentId, incoming().unitNumber) &&
+          isStatusRoleCoherent(incoming().status, incoming().role, incoming().buildingId, incoming().apartmentId, incoming().unitNumber) &&
+          incoming().keys().hasOnly(['uid', 'email', 'displayName', 'phone', 'role', 'status', 'buildingId', 'apartmentId', 'unitNumber', 'leaseStartDate', 'leaseEndDate', 'linkedBy', 'linkedAt', 'createdAt', 'updatedAt'])
+        ) ||
+        // Case C: Assistant Admin can ONLY create resident accounts with valid linkage and authorized building
+        (
+          isAssistantAdmin() &&
+          hasAdminPermission('manage_residents') &&
+          incoming().uid == userId &&
+          incoming().email is string &&
+          incoming().role in ['owner', 'tenant'] &&
+          incoming().linkedBy == request.auth.uid &&
+          isAuthorizedForBuilding(incoming().buildingId) &&
+          isValidUnitLinkage(incoming().buildingId, incoming().apartmentId, incoming().unitNumber) &&
+          isStatusRoleCoherent(incoming().status, incoming().role, incoming().buildingId, incoming().apartmentId, incoming().unitNumber) &&
+          incoming().keys().hasOnly(['uid', 'email', 'displayName', 'phone', 'role', 'status', 'buildingId', 'apartmentId', 'unitNumber', 'leaseStartDate', 'leaseEndDate', 'linkedBy', 'linkedAt', 'createdAt', 'updatedAt'])
+        )
+      );
+
+      // Updates: Separated and secured
+      allow update: if isSignedIn() && isValidId(userId) && (
+        // Case A: Resident self-update
+        (
+          request.auth.uid == userId &&
+          incoming().uid == existing().uid &&
+          incoming().email == existing().email &&
+          incoming().role == existing().role &&
+          incoming().status == existing().status &&
+          incoming().buildingId == existing().buildingId &&
+          incoming().apartmentId == existing().apartmentId &&
+          incoming().unitNumber == existing().unitNumber &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'updatedAt'])
+        ) ||
+        // Case B: Assistant Admin linking / approval / transfer (must have authority over BOTH old and new building)
+        (
+          isAssistantAdmin() &&
+          hasAdminPermission('manage_residents') &&
+          existing().role in ['unassigned', 'owner', 'tenant'] &&
+          incoming().role in ['owner', 'tenant'] && // NEVER admin!
+          incoming().uid == existing().uid &&
+          incoming().email == existing().email &&
+          incoming().linkedBy == request.auth.uid &&
+          (existing().buildingId == null || isAuthorizedForBuilding(existing().buildingId)) &&
+          (incoming().buildingId == null || isAuthorizedForBuilding(incoming().buildingId)) &&
+          isValidUnitLinkage(incoming().buildingId, incoming().apartmentId, incoming().unitNumber) &&
+          isStatusRoleCoherent(incoming().status, incoming().role, incoming().buildingId, incoming().apartmentId, incoming().unitNumber) &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'buildingId', 'apartmentId', 'unitNumber', 'role', 'status',
+            'leaseStartDate', 'leaseEndDate', 'linkedBy', 'linkedAt', 'updatedAt'
+          ])
+        ) ||
+        // Case C: Super Admin update
+        (
+          isSuperAdmin() &&
+          incoming().uid == existing().uid &&
+          isValidUnitLinkage(incoming().buildingId, incoming().apartmentId, incoming().unitNumber) &&
+          isStatusRoleCoherent(incoming().status, incoming().role, incoming().buildingId, incoming().apartmentId, incoming().unitNumber) &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'buildingId', 'apartmentId', 'unitNumber', 'role', 'status',
+            'displayName', 'phone', 'leaseStartDate', 'leaseEndDate', 'linkedBy', 'linkedAt', 'updatedAt'
+          ])
+        )
+      );
+
+      // Delete: Super Admin only
+      allow delete: if isSuperAdmin();
+    }
+
+    // 8. Buildings: Super Admin has full access; Assistant Admin must have manage_buildings & authorized scope
+    match /buildings/{buildingId} {
+      allow get: if isSignedIn() && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && isAuthorizedForBuilding(buildingId)) ||
+        (isApprovedResident() && currentUserData().buildingId == buildingId)
+      );
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && isValidId(buildingId) && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && hasAdminPermission('manage_buildings') && isAuthorizedForBuilding(buildingId))
+      );
+      allow update: if isSignedIn() && isValidId(buildingId) && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && hasAdminPermission('manage_buildings') && isAuthorizedForBuilding(buildingId))
+      );
+      allow delete: if isSuperAdmin();
+    }
+
+    // 9. Apartments: Residents can ONLY 'get' their own apartment. Residents CANNOT 'list' apartments!
+    match /apartments/{apartmentId} {
+      allow get: if isSignedIn() && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && isAuthorizedForBuilding(resource.data.buildingId)) ||
+        (isApprovedResident() && currentUserData().apartmentId == apartmentId)
+      );
+      allow list: if isAdmin(); // Strictly restricted to Admins!
+      allow create: if isSignedIn() && isValidId(apartmentId) && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && hasAdminPermission('manage_apartments') && isAuthorizedForBuilding(incoming().buildingId))
+      ) && incoming().keys().hasOnly(['id', 'buildingId', 'unitNumber', 'floor', 'residentName', 'residentPhone', 'isOwner', 'monthlyFee', 'status', 'overdueMonths', 'lastPaymentDate', 'paidAmount', 'creditBalance', 'leaseStartDate', 'leaseEndDate', 'createdAt', 'updatedAt']);
+      allow update: if isSignedIn() && isValidId(apartmentId) && (
+        isSuperAdmin() ||
+        (
+          isAssistantAdmin() &&
+          hasAdminPermission('manage_apartments') &&
+          isAuthorizedForBuilding(existing().buildingId) &&
+          isAuthorizedForBuilding(incoming().buildingId)
+        )
+      );
+      allow delete: if isSignedIn() && isValidId(apartmentId) && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && hasAdminPermission('manage_apartments') && isAuthorizedForBuilding(existing().buildingId))
+      );
+    }
+
+    // 10. Payments: Separated write operations with building scoping
+    match /payments/{paymentId} {
+      allow get: if isSignedIn() && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && isAuthorizedForBuilding(resource.data.buildingId)) ||
+        (isApprovedResident() && currentUserData().apartmentId == resource.data.apartmentId)
+      );
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        (isApprovedResident() && resource.data.apartmentId == currentUserData().apartmentId)
+      );
+      allow create: if isSignedIn() && isValidId(paymentId) && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && hasAdminPermission('manage_payments') && isAuthorizedForBuilding(incoming().buildingId))
+      ) && incoming().keys().hasOnly(['id', 'apartmentId', 'buildingId', 'unitNumber', 'residentName', 'amount', 'date', 'month', 'method', 'notes', 'receiptNumber', 'recordedAt', 'recordedBy']);
+      allow update: if isSignedIn() && isValidId(paymentId) && (
+        isSuperAdmin() ||
+        (
+          isAssistantAdmin() &&
+          hasAdminPermission('manage_payments') &&
+          isAuthorizedForBuilding(existing().buildingId) &&
+          isAuthorizedForBuilding(incoming().buildingId)
+        )
+      );
+      allow delete: if isSignedIn() && isValidId(paymentId) && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && hasAdminPermission('manage_payments') && isAuthorizedForBuilding(existing().buildingId))
+      );
+    }
+
+    // 11. Payment Audit Logs: Strictly immutable (create only by authorized admin)
+    match /payment_audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && isValidId(logId) && (
+        incoming().performedBy == request.auth.uid &&
+        (isSuperAdmin() || (isAssistantAdmin() && hasAdminPermission('manage_payments') && isAuthorizedForBuilding(incoming().buildingId))) &&
+        incoming().keys().hasAll(['id', 'action', 'paymentId', 'apartmentId', 'buildingId', 'timestamp', 'performedBy']) &&
+        incoming().keys().hasOnly(['id', 'action', 'paymentId', 'apartmentId', 'unitNumber', 'buildingId', 'timestamp', 'performedBy', 'previousData', 'newData', 'notes'])
+      );
+      allow update, delete: if false; // Permanent immutability
+    }
+
+    // 12. Operating Expenses: Strictly Admins only (Zero resident access)
+    match /expenses/{expenseId} {
+      allow get: if isSignedIn() && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && hasAdminPermission('manage_expenses') && isAuthorizedForBuilding(resource.data.buildingId))
+      );
+      allow list: if isSignedIn() && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && hasAdminPermission('manage_expenses'))
+      );
+      allow create: if isSignedIn() && isValidId(expenseId) && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && hasAdminPermission('manage_expenses') && isAuthorizedForBuilding(incoming().buildingId))
+      );
+      allow update: if isSignedIn() && isValidId(expenseId) && (
+        isSuperAdmin() ||
+        (
+          isAssistantAdmin() &&
+          hasAdminPermission('manage_expenses') &&
+          isAuthorizedForBuilding(existing().buildingId) &&
+          isAuthorizedForBuilding(incoming().buildingId)
+        )
+      );
+      allow delete: if isSignedIn() && isValidId(expenseId) && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && hasAdminPermission('manage_expenses') && isAuthorizedForBuilding(existing().buildingId))
+      );
+    }
+
+    // 13. Maintenance Tickets: Approved residents can file & view tickets for their apartment
+    match /tickets/{ticketId} {
+      allow get: if isSignedIn() && (
+        isAdmin() ||
+        (isApprovedResident() && currentUserData().apartmentId == resource.data.apartmentId)
+      );
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        (isApprovedResident() && resource.data.apartmentId == currentUserData().apartmentId)
+      );
+      
+      allow create: if isSignedIn() && isValidId(ticketId) && (
+        (isSuperAdmin() || (isAssistantAdmin() && hasAdminPermission('manage_tickets') && isAuthorizedForBuilding(incoming().buildingId))) ||
+        (
+          isApprovedResident() &&
+          incoming().apartmentId == currentUserData().apartmentId &&
+          incoming().buildingId == currentUserData().buildingId &&
+          incoming().status == 'جديد' &&
+          incoming().keys().hasOnly(['id', 'buildingId', 'apartmentId', 'unitNumber', 'residentName', 'category', 'title', 'description', 'date', 'urgency', 'status', 'createdAt'])
+        )
+      );
+
+      allow update: if isSignedIn() && isValidId(ticketId) && (
+        (isSuperAdmin() || (isAssistantAdmin() && hasAdminPermission('manage_tickets') && isAuthorizedForBuilding(existing().buildingId))) ||
+        (
+          isApprovedResident() &&
+          existing().apartmentId == currentUserData().apartmentId &&
+          incoming().status == existing().status && // Resident CANNOT change status!
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'urgency', 'date'])
+        )
+      );
+
+      allow delete: if isSignedIn() && isValidId(ticketId) && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && hasAdminPermission('manage_tickets') && isAuthorizedForBuilding(existing().buildingId))
+      );
+    }
+
+    // 14. Facility Bookings: Scoped to the apartment; residents CANNOT view other residents' bookings!
+    match /bookings/{bookingId} {
+      allow get: if isSignedIn() && (
+        isAdmin() ||
+        (isApprovedResident() && currentUserData().apartmentId == resource.data.apartmentId)
+      );
+      allow list: if isSignedIn() && (
+        isAdmin() ||
+        (isApprovedResident() && resource.data.apartmentId == currentUserData().apartmentId)
+      );
+      
+      allow create: if isSignedIn() && isValidId(bookingId) && (
+        (isSuperAdmin() || (isAssistantAdmin() && hasAdminPermission('manage_bookings') && isAuthorizedForBuilding(incoming().buildingId))) ||
+        (
+          isApprovedResident() &&
+          incoming().apartmentId == currentUserData().apartmentId &&
+          incoming().buildingId == currentUserData().buildingId &&
+          incoming().status == 'قيد المراجعة' &&
+          incoming().keys().hasOnly(['id', 'buildingId', 'apartmentId', 'facility', 'unitNumber', 'residentName', 'date', 'timeSlot', 'status', 'createdAt'])
+        )
+      );
+
+      allow update: if isSignedIn() && isValidId(bookingId) && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && hasAdminPermission('manage_bookings') && isAuthorizedForBuilding(existing().buildingId))
+      );
+
+      allow delete: if isSignedIn() && isValidId(bookingId) && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && hasAdminPermission('manage_bookings') && isAuthorizedForBuilding(existing().buildingId))
+      );
+    }
+
+    // 15. Announcements: Approved residents can view announcements for their building
+    match /announcements/{announcementId} {
+      allow get, list: if isSignedIn() && (
+        isAdmin() || 
+        (isApprovedResident() && (resource.data.buildingId == null || resource.data.buildingId == currentUserData().buildingId))
+      );
+      allow create: if isSignedIn() && isValidId(announcementId) && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && hasAdminPermission('manage_announcements') && (incoming().buildingId == null || isAuthorizedForBuilding(incoming().buildingId)))
+      );
+      allow update: if isSignedIn() && isValidId(announcementId) && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && hasAdminPermission('manage_announcements') && (existing().buildingId == null || isAuthorizedForBuilding(existing().buildingId)))
+      );
+      allow delete: if isSignedIn() && isValidId(announcementId) && (
+        isSuperAdmin() ||
+        (isAssistantAdmin() && hasAdminPermission('manage_announcements') && (existing().buildingId == null || isAuthorizedForBuilding(existing().buildingId)))
+      );
+    }
+  }
+}

@@ -1,0 +1,90 @@
+name: Bunyan OTA
+
+on:
+  push:
+    branches:
+      - main
+      - migration/supabase-backend
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install image tools
+        run: python -m pip install cairosvg pillow
+
+      - name: Generate unified app branding assets
+        run: python .github/scripts/generate_brand_assets.py
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build app
+        run: npm run build
+        env:
+          VITE_BUILD_ID: ${{ github.sha }}
+
+      - name: Package OTA bundle
+        run: |
+          set -euo pipefail
+          mkdir -p ota-upload
+          (cd dist && zip -qr "../ota-upload/${GITHUB_SHA}.zip" .)
+          sha256sum "ota-upload/${GITHUB_SHA}.zip" | cut -d ' ' -f 1 > ota-upload/checksum.txt
+          printf '{"bundleId":"%s","url":"https://yvoylicirtdarroqcxoq.supabase.co/storage/v1/object/public/bunyan-ota/bundles/%s.zip","checksum":"%s"}' "${GITHUB_SHA}" "${GITHUB_SHA}" "$(cat ota-upload/checksum.txt)" > ota-upload/latest.json
+
+      - name: Upload bundle and manifest to Supabase Storage
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+            echo "::error::SUPABASE_SERVICE_ROLE_KEY is missing or empty in GitHub repository secrets."
+            exit 1
+          fi
+
+          upload_file() {
+            local source_file="$1"
+            local destination="$2"
+            local content_type="$3"
+            local response_file
+            local http_code
+            response_file="$(mktemp)"
+
+            http_code="$(curl --silent --show-error --retry 2 \
+              --output "$response_file" \
+              --write-out "%{http_code}" \
+              --request POST \
+              "https://yvoylicirtdarroqcxoq.supabase.co/storage/v1/object/bunyan-ota/$destination" \
+              --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+              --header "Content-Type: $content_type" \
+              --header "x-upsert: true" \
+              --data-binary "@$source_file")"
+
+            echo "Supabase Storage upload HTTP status: $http_code"
+            if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+              echo "::error::Supabase Storage rejected $destination (HTTP $http_code). Response:"
+              # Print the server's diagnostic response only; never print request headers or secrets.
+              cat "$response_file"
+              rm -f "$response_file"
+              return 1
+            fi
+
+            rm -f "$response_file"
+            echo "Uploaded $destination successfully."
+          }
+
+          upload_file "ota-upload/${GITHUB_SHA}.zip" "bundles/${GITHUB_SHA}.zip" "application/zip"
+          upload_file "ota-upload/latest.json" "latest.json" "application/json"
