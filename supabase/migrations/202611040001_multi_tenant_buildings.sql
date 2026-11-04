@@ -286,3 +286,58 @@ grant execute on function public.create_building_for_current_user(text, text, in
 grant execute on function public.create_building_invite(uuid, uuid, text) to authenticated;
 grant execute on function public.accept_building_invite(uuid) to authenticated;
 grant execute on function public.list_building_users() to authenticated;
+
+-- Scope profile visibility to the caller's building. The previous admin policy
+-- used a global helper and would either hide building members or expose profiles
+-- across buildings if that helper were broadened.
+drop policy if exists profiles_admin_read on public.profiles;
+create policy profiles_admin_read
+on public.profiles
+for select
+to authenticated
+using (
+  id = (select auth.uid())
+  or public.can_manage_bunyan_building(building_id)
+);
+
+-- Keep manual approval available to building managers, but never let a manager
+-- assign a user to an apartment in a different building.
+create or replace function public.approve_and_assign_registration(
+  target_user_id uuid,
+  target_apartment_id uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  target_building_id uuid;
+begin
+  select a.building_id into target_building_id
+  from public.apartments a
+  where a.id = target_apartment_id;
+
+  if target_building_id is null then
+    raise exception 'Apartment not found';
+  end if;
+
+  if not public.can_manage_bunyan_building(target_building_id) then
+    raise exception 'Not authorized to approve users for this building';
+  end if;
+
+  update public.profiles
+  set role = 'tenant',
+      approved = true,
+      building_id = target_building_id,
+      apartment_id = target_apartment_id,
+      updated_at = now()
+  where id = target_user_id
+    and role = 'pending'
+    and approved = false
+    and building_id is null
+    and apartment_id is null;
+
+  return found;
+end;
+$function$;
