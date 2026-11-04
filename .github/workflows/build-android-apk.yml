@@ -2,14 +2,16 @@ name: Build العمارة Android APK
 
 on:
   push:
-    branches:
-      - main
-      - migration/supabase-backend
-      - ui-redesign-v2
+    tags:
+      - 'apk-v*'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-android:
@@ -69,10 +71,12 @@ jobs:
           mkdir -p release-apk
           cp android/app/build/outputs/apk/debug/app-debug.apk "release-apk/العمارة.apk"
 
-      - name: Upload installable APK
-        uses: actions/upload-artifact@v4
+      - name: Publish APK as GitHub Release asset
+        uses: softprops/action-gh-release@v2
         with:
-          name: العمارة-APK
-          path: release-apk/العمارة.apk
-          if-no-files-found: error
-          retention-days: 30
+          tag_name: apk-${{ github.run_number }}
+          name: العمارة APK - Build ${{ github.run_number }}
+          files: release-apk/العمارة.apk
+          prerelease: true
+          make_latest: false
+          fail_on_unmatched_files: true

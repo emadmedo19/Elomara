@@ -265,7 +265,7 @@ export const ResidentPortal: React.FC = () => {
           </div> : <p className="text-sm text-slate-500">التقرير غير متاح حاليًا. اسحب للتحديث وحاول مرة أخرى.</p>}
         </div>
         {financialReport?.apartments?.length > 0 && <div className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm">
-          <h3 className="font-bold mb-3">موقف السداد لكل شقة</h3>
+          <h3 className="font-bold mb-3">موقف سداد شقتك</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-right min-w-[420px]">
               <thead><tr className="border-b text-slate-500 text-xs"><th className="py-3 px-2">الشقة</th><th className="py-3 px-2">دفعت كام</th><th className="py-3 px-2">باقي كام</th><th className="py-3 px-2">الحالة</th></tr></thead>

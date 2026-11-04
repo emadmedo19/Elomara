@@ -27,6 +27,7 @@ as $function$
     from public.profiles p
     where p.id = (select auth.uid())
       and p.approved = true
+      and p.disabled_at is null
       and (
         p.role = 'super_admin'
         or (
@@ -77,9 +78,15 @@ declare
   current_id uuid := auth.uid();
   new_building_id uuid;
   profile_row public.profiles%rowtype;
+  email_confirmed_at timestamptz;
 begin
   if current_id is null then
     raise exception 'Authentication required';
+  end if;
+  select u.email_confirmed_at into email_confirmed_at
+  from auth.users u where u.id = current_id;
+  if email_confirmed_at is null then
+    raise exception 'Confirm your email before creating a building';
   end if;
   if nullif(trim(building_name), '') is null then
     raise exception 'Building name is required';
@@ -93,7 +100,7 @@ begin
   where id = current_id
   for update;
 
-  if not found or profile_row.role <> 'pending' or profile_row.approved then
+  if not found or profile_row.role <> 'pending' or profile_row.approved or profile_row.disabled_at is not null then
     raise exception 'This account is not eligible to create a building';
   end if;
   if profile_row.building_id is not null then
@@ -222,6 +229,7 @@ begin
   from public.profiles p where p.id = current_id for update;
 
   if not found or profile_row.role <> 'pending' or profile_row.approved
+     or profile_row.disabled_at is not null
      or profile_row.building_id is not null then
     raise exception 'This account is already assigned or is not eligible';
   end if;
@@ -327,8 +335,11 @@ set search_path = ''
 as $function$
 declare
   target_building_id uuid;
+  target_is_owner boolean;
+  target_email_confirmed_at timestamptz;
 begin
-  select a.building_id into target_building_id
+  select a.building_id, a.is_owner
+    into target_building_id, target_is_owner
   from public.apartments a
   where a.id = target_apartment_id;
 
@@ -340,8 +351,14 @@ begin
     raise exception 'Not authorized to approve users for this building';
   end if;
 
+  select u.email_confirmed_at into target_email_confirmed_at
+  from auth.users u where u.id = target_user_id;
+  if target_email_confirmed_at is null then
+    raise exception 'The resident must confirm their email before approval';
+  end if;
+
   update public.profiles
-  set role = 'tenant',
+  set role = case when coalesce(target_is_owner, false) then 'owner' else 'tenant' end,
       approved = true,
       building_id = target_building_id,
       apartment_id = target_apartment_id,
@@ -350,8 +367,162 @@ begin
     and role = 'pending'
     and approved = false
     and building_id is null
-    and apartment_id is null;
+    and apartment_id is null
+    and disabled_at is null;
 
   return found;
 end;
 $function$;
+
+
+-- Harden privileged RPC exposure and make the financial summary building-aware
+-- for the new building_admin role.
+create or replace function public.get_building_financial_summary(p_building_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_uid uuid := auth.uid();
+  v_profile record;
+  v_building record;
+  v_collected numeric := 0;
+  v_expenses numeric := 0;
+  v_outstanding numeric := 0;
+  v_monthly jsonb := '[]'::jsonb;
+  v_categories jsonb := '[]'::jsonb;
+  v_apartments jsonb := '[]'::jsonb;
+begin
+  if v_uid is null then
+    raise exception 'Authentication required' using errcode = '42501';
+  end if;
+
+  select role, approved, building_id, apartment_id
+    into v_profile from public.profiles where id = v_uid;
+
+  if not found or v_profile.approved is distinct from true then
+    raise exception 'Approved account required' using errcode = '42501';
+  end if;
+
+  if v_profile.role not in ('tenant','owner','super_admin','assistant_admin','building_admin') then
+    raise exception 'Not permitted' using errcode = '42501';
+  end if;
+
+  if v_profile.role in ('tenant','owner') and v_profile.building_id is distinct from p_building_id then
+    raise exception 'Building access denied' using errcode = '42501';
+  end if;
+
+  if v_profile.role in ('super_admin','assistant_admin','building_admin')
+     and not public.can_manage_bunyan_building(p_building_id) then
+    raise exception 'Building access denied' using errcode = '42501';
+  end if;
+
+  select id, balance into v_building
+    from public.buildings where id = p_building_id;
+  if not found then
+    raise exception 'Building not found' using errcode = 'P0002';
+  end if;
+
+  select coalesce(sum(amount),0) into v_collected
+    from public.payments where building_id = p_building_id;
+
+  select coalesce(sum(amount),0) into v_expenses
+    from public.expenses where building_id = p_building_id;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'unit_number', a.unit_number,
+      'total_paid', coalesce(p.total_paid, a.paid_amount, 0),
+      'remaining', greatest(
+        (a.monthly_fee * greatest(coalesce(a.overdue_months,0),1))
+        - coalesce(p.total_paid, a.paid_amount, 0), 0
+      ),
+      'status', case
+        when greatest((a.monthly_fee * greatest(coalesce(a.overdue_months,0),1))
+          - coalesce(p.total_paid, a.paid_amount, 0),0) = 0 then 'paid'
+        when coalesce(p.total_paid, a.paid_amount, 0) > 0 then 'partial'
+        when coalesce(a.overdue_months,0) > 0 then 'overdue'
+        else 'pending'
+      end
+    ) order by a.unit_number), '[]'::jsonb)
+    into v_apartments
+    from public.apartments a
+    left join (
+      select apartment_id, sum(amount) as total_paid
+        from public.payments
+       where building_id = p_building_id
+       group by apartment_id
+    ) p on p.apartment_id = a.id
+   where a.building_id = p_building_id
+     and (v_profile.role in ('super_admin','assistant_admin','building_admin') or a.id = v_profile.apartment_id);
+
+  select coalesce(sum(greatest(
+      (a.monthly_fee * greatest(coalesce(a.overdue_months,0),1))
+      - coalesce(p.total_paid, a.paid_amount, 0), 0
+    )),0)
+    into v_outstanding
+    from public.apartments a
+    left join (
+      select apartment_id, sum(amount) as total_paid
+        from public.payments
+       where building_id = p_building_id
+       group by apartment_id
+    ) p on p.apartment_id = a.id
+   where a.building_id = p_building_id
+     and (v_profile.role in ('super_admin','assistant_admin','building_admin') or a.id = v_profile.apartment_id);
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'month', to_char(m.month_start,'YYYY-MM'),
+      'income', m.income,
+      'expenses', m.expenses
+    ) order by m.month_start), '[]'::jsonb)
+    into v_monthly
+    from (
+      select month_start, coalesce(sum(income),0) as income, coalesce(sum(expenses),0) as expenses
+      from (
+        select date_trunc('month', payment_date)::date as month_start, sum(amount) as income, 0::numeric as expenses
+          from public.payments where building_id = p_building_id
+           and payment_date >= (date_trunc('month', current_date) - interval '11 months')::date group by 1
+        union all
+        select date_trunc('month', expense_date)::date as month_start, 0::numeric as income, sum(amount) as expenses
+          from public.expenses where building_id = p_building_id
+           and expense_date >= (date_trunc('month', current_date) - interval '11 months')::date group by 1
+      ) movements group by month_start
+    ) m;
+
+  select coalesce(jsonb_agg(jsonb_build_object('category', category, 'amount', amount) order by amount desc), '[]'::jsonb)
+    into v_categories
+    from (select category, sum(amount) as amount from public.expenses where building_id = p_building_id group by category) c;
+
+  return jsonb_build_object(
+    'total_collected', v_collected,
+    'total_expenses', v_expenses,
+    'outstanding_amount', v_outstanding,
+    'treasury_balance', coalesce(v_building.balance,0),
+    'monthly', v_monthly,
+    'expense_categories', v_categories,
+    'apartments', v_apartments
+  );
+end;
+$function$;
+
+-- No anonymous caller should be able to execute a SECURITY DEFINER function.
+-- Explicit authenticated grants remain intact for RPCs that perform their own
+-- authorization checks. The legacy global request-list RPC is no longer exposed.
+do $block$
+declare
+  function_row record;
+begin
+  for function_row in
+    select p.oid::regprocedure as signature
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.prosecdef = true
+  loop
+    execute format('revoke execute on function %s from public, anon', function_row.signature);
+  end loop;
+end;
+$block$;
+
+revoke execute on function public.list_resident_access_requests() from authenticated;

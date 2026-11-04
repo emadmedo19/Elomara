@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - migration/supabase-backend
+      - migration/multi-tenant-isolation
   workflow_dispatch:
 
 permissions:

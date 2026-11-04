@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
@@ -28,6 +28,9 @@ interface AuthContextType {
   signUpWithEmail: (email: string, pass: string, fullName: string) => Promise<boolean>;
   resendSignupConfirmation: (email: string) => Promise<boolean>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
+  signUpWithPhone: (phone: string, pass: string, fullName: string) => Promise<boolean>;
+  verifyPhoneSignup: (phone: string, token: string) => Promise<boolean>;
+  signInWithPhone: (phone: string, pass: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
@@ -54,8 +57,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const profileLoadSequence = useRef(0);
 
   const loadProfile = async (currentUser: User | null) => {
+    const requestId = ++profileLoadSequence.current;
     setUser(currentUser);
     if (!currentUser) {
       setUserProfile(null); setRole(null); setIsAdmin(false); setIsSuperAdmin(false); setIsLoading(false);
@@ -67,27 +72,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { error: bootstrapError } = await supabase.rpc('bootstrap_first_super_admin');
         if (bootstrapError) console.warn('First-admin bootstrap unavailable:', bootstrapError.message);
       }
+      if (requestId !== profileLoadSequence.current) return;
       const { data, error } = await supabase.from('profiles')
-        .select('id, full_name, phone, role, building_id, apartment_id, approved')
+        .select('id, full_name, phone, role, building_id, apartment_id, approved, disabled_at')
         .eq('id', currentUser.id).maybeSingle();
       if (error) throw error;
+      if (requestId !== profileLoadSequence.current) return;
       const profile: UserProfile | null = data ? {
         uid: data.id, email: currentUser.email ?? null,
         displayName: data.full_name || currentUser.user_metadata?.full_name || currentUser.email || null,
         role: data.role as UserProfile['role'],
         buildingId: data.building_id || undefined, apartmentId: data.apartment_id || undefined,
         phone: data.phone || undefined,
-        status: data.approved || data.role === 'super_admin' || data.role === 'assistant_admin' ? 'active' : 'pending',
+        status: data.disabled_at ? 'suspended' : (data.approved || data.role === 'super_admin' || data.role === 'assistant_admin') ? 'active' : 'pending',
       } : null;
       setUserProfile(profile); setRole(profile?.role ?? null);
       const admin = profile?.role === 'super_admin' || profile?.role === 'assistant_admin' || profile?.role === 'building_admin';
       setIsAdmin(Boolean(admin && profile?.status === 'active'));
       setIsSuperAdmin(profile?.role === 'super_admin');
     } catch (error) {
+      if (requestId !== profileLoadSequence.current) return;
       console.error('Supabase profile loading failed:', error);
       setUserProfile(null); setRole(null); setIsAdmin(false); setIsSuperAdmin(false);
       setAuthError('تم تسجيل الدخول لكن تعذر تحميل صلاحيات الحساب. راجع إعدادات Supabase.');
-    } finally { setIsLoading(false); }
+    } finally {
+      if (requestId === profileLoadSequence.current) setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -97,42 +107,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const completeOAuthCallback = async (callbackUrl: string) => {
       if (processedOAuthCallbacks.has(callbackUrl)) return;
       processedOAuthCallbacks.add(callbackUrl);
+
+      let sessionEstablished = false;
       try {
         const callback = new URL(callbackUrl);
         if (callback.protocol !== 'app.bunyan.residential:' || callback.hostname !== 'login-callback') return;
 
+        setAuthError(null);
         setIsLoading(true);
-        await Browser.close().catch(() => undefined);
+
         const oauthError = callback.searchParams.get('error_description') || callback.searchParams.get('error');
         if (oauthError) throw new Error(oauthError);
 
         const code = callback.searchParams.get('code');
         if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
-          return;
-        }
-
-        const hash = new URLSearchParams(callback.hash.replace(/^#/, ''));
-        const accessToken = hash.get('access_token');
-        const refreshToken = hash.get('refresh_token');
-        if (accessToken && refreshToken) {
-          const { error } = await supabase.auth.setSession({
+          if (!data.session?.user) throw new Error('تم الرجوع من Google لكن لم يتم إنشاء جلسة دخول.');
+          sessionEstablished = true;
+          await loadProfile(data.session.user);
+        } else {
+          const hash = new URLSearchParams(callback.hash.replace(/^#/, ''));
+          const accessToken = hash.get('access_token');
+          const refreshToken = hash.get('refresh_token');
+          if (!accessToken || !refreshToken) {
+            throw new Error('لم يصل رمز تسجيل الدخول من Google. حاول تسجيل الدخول مرة أخرى.');
+          }
+          const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
           if (error) throw error;
-          return;
+          if (!data.session?.user) throw new Error('تم الرجوع من Google لكن لم يتم إنشاء جلسة دخول.');
+          sessionEstablished = true;
+          await loadProfile(data.session.user);
         }
 
-        throw new Error('لم يصل رمز تسجيل الدخول من Google. حاول تسجيل الدخول مرة أخرى.');
+        // Close the Custom Tab only after Supabase has persisted the session
+        // and the account profile has been loaded in the native app.
+        await Browser.close().catch(() => undefined);
       } catch (error) {
         if (active) setAuthError(friendlyError(error));
+        console.error('Google OAuth callback failed:', error);
       } finally {
-        if (active) setIsLoading(false);
+        if (active && !sessionEstablished) setIsLoading(false);
       }
     };
-
     let appUrlListener: ReturnType<typeof CapacitorApp.addListener> | null = null;
     if (Capacitor.isNativePlatform()) {
       appUrlListener = CapacitorApp.addListener('appUrlOpen', ({ url }) => {
@@ -148,8 +168,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (active) window.setTimeout(() => { if (active) void loadProfile(session?.user ?? null); }, 0);
     }).catch(error => { if (active) { setAuthError(friendlyError(error)); setIsLoading(false); } });
+    // Keep Supabase's auth callback synchronous. Calling Supabase APIs
+    // (profile queries / RPCs) directly while the auth lock is held can
+    // deadlock during native OAuth deep-link completion.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) void loadProfile(session?.user ?? null);
+      if (!active) return;
+      const nextUser = session?.user ?? null;
+      window.setTimeout(() => {
+        if (active) void loadProfile(nextUser);
+      }, 0);
     });
     return () => {
       active = false;
@@ -163,7 +190,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
-      options: { data: { full_name: fullName.trim() } },
+      options: {
+        data: { full_name: fullName.trim() },
+        emailRedirectTo: getAuthRedirectUrl(),
+      },
     });
     if (error) { setAuthError(friendlyError(error)); setIsLoading(false); return false; }
     setIsLoading(false);
@@ -190,6 +220,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthError(null); setIsLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) { setAuthError(friendlyError(error)); setIsLoading(false); }
+  };
+
+  const normalizePhoneForAuth = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    if (/^01[0125]\d{8}$/.test(digits)) return '+2' + digits;
+    if (/^201[0125]\d{8}$/.test(digits)) return '+' + digits;
+    if (/^00201[0125]\d{8}$/.test(digits)) return '+' + digits.slice(2);
+    throw new Error('أدخل رقم موبايل مصري صحيح.');
+  };
+
+  const signUpWithPhone = async (phone: string, password: string, fullName: string): Promise<boolean> => {
+    setAuthError(null); setIsLoading(true);
+    try {
+      const normalizedPhone = normalizePhoneForAuth(phone);
+      const { error } = await supabase.auth.signUp({
+        phone: normalizedPhone,
+        password,
+        options: { data: { full_name: fullName.trim() } },
+      });
+      if (error) throw error;
+      setIsLoading(false);
+      return true;
+    } catch (error) {
+      setAuthError(friendlyError(error)); setIsLoading(false); return false;
+    }
+  };
+
+  const verifyPhoneSignup = async (phone: string, token: string): Promise<boolean> => {
+    setAuthError(null); setIsLoading(true);
+    try {
+      const normalizedPhone = normalizePhoneForAuth(phone);
+      const { error } = await supabase.auth.verifyOtp({
+        phone: normalizedPhone,
+        token: token.trim(),
+        type: 'sms',
+      });
+      if (error) throw error;
+      setIsLoading(false);
+      return true;
+    } catch (error) {
+      setAuthError(friendlyError(error)); setIsLoading(false); return false;
+    }
+  };
+
+  const signInWithPhone = async (phone: string, password: string) => {
+    setAuthError(null); setIsLoading(true);
+    try {
+      const normalizedPhone = normalizePhoneForAuth(phone);
+      const { error } = await supabase.auth.signInWithPassword({ phone: normalizedPhone, password });
+      if (error) throw error;
+    } catch (error) { setAuthError(friendlyError(error)); setIsLoading(false); }
   };
 
   const signInWithGoogle = async () => {
@@ -220,7 +301,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null); setUserProfile(null); setRole(null); setIsAdmin(false); setIsSuperAdmin(false);
   };
   return <AuthContext.Provider value={{ user, userProfile, role, isAdmin, isSuperAdmin, isLoading, authError,
-    signUpWithEmail, resendSignupConfirmation, signInWithEmail, signInWithGoogle, signOut, clearError: () => setAuthError(null) }}>
+    signUpWithEmail, resendSignupConfirmation, signInWithEmail, signUpWithPhone, verifyPhoneSignup, signInWithPhone, signInWithGoogle, signOut, clearError: () => setAuthError(null) }}>
     {children}
   </AuthContext.Provider>;
 };
