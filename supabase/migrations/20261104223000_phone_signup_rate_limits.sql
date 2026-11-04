@@ -6,6 +6,8 @@ create table if not exists public.phone_signup_rate_limits (
   updated_at timestamptz not null default now()
 );
 
+create index if not exists phone_signup_rate_limits_updated_idx on public.phone_signup_rate_limits(updated_at);
+
 alter table public.phone_signup_rate_limits enable row level security;
 revoke all on public.phone_signup_rate_limits from public, anon, authenticated;
 
@@ -23,7 +25,9 @@ declare
   phone_attempts integer;
   ip_attempts integer;
 begin
-  if phone_key_hash !~ '^[a-f0-9]{64}$' then
+  delete from public.phone_signup_rate_limits where updated_at < current_time - interval '2 days';
+
+  if phone_key_hash ! '^[a-f0-9]{64}$' then
     raise exception 'Invalid phone rate-limit key';
   end if;
 
