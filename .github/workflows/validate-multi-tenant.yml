@@ -1,0 +1,39 @@
+name: Validate multi-tenant branch
+
+on:
+  push:
+    branches:
+      - migration/multi-tenant-isolation
+  pull_request:
+    branches:
+      - migration/multi-tenant-isolation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-multi-tenant-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npm run lint
+
+      - name: Build web app
+        run: npm run build
