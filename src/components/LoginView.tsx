@@ -9,10 +9,12 @@ import {
 
 export const LoginView: React.FC = () => {
   const {
-    signUpWithEmail, resendSignupConfirmation, signInWithEmail, signInWithGoogle,
+    signUpWithEmail, resendSignupConfirmation, signInWithEmail, signUpWithPhone, signInWithPhone, signInWithGoogle,
     authError, isLoading, clearError, user, userProfile, isAdmin, signOut,
   } = useAuth();
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [phoneMode, setPhoneMode] = useState(false);
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -31,11 +33,18 @@ export const LoginView: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); clearError(); setLocalValidation(null); setSuccessMessage(null);
-    if (!email.trim()) return setLocalValidation('يرجى إدخال البريد الإلكتروني.');
+    if (phoneMode && !phone.trim()) return setLocalValidation('يرجى إدخال رقم الموبايل.');
+    if (!phoneMode && !email.trim()) return setLocalValidation('يرجى إدخال البريد الإلكتروني.');
     if (!password) return setLocalValidation('يرجى إدخال كلمة المرور.');
     if (password.length < 6) return setLocalValidation('كلمة المرور يجب ألا تقل عن 6 أحرف.');
     if (isSignUp && !fullName.trim()) return setLocalValidation('يرجى إدخال الاسم بالكامل.');
-    if (isSignUp) {
+    if (phoneMode) {
+      if (isSignUp && !fullName.trim()) return setLocalValidation('يرجى إدخال الاسم بالكامل.');
+      if (isSignUp) {
+        const created = await signUpWithPhone(phone, password, fullName);
+        if (created) { setIsSignUp(false); setSuccessMessage('تم إنشاء الحساب. سجّل الدخول بنفس رقم الموبايل وكلمة المرور للانضمام إلى العمارة.'); }
+      } else await signInWithPhone(phone, password);
+    } else if (isSignUp) {
       const created = await signUpWithEmail(email, password, fullName);
       if (created) setSuccessMessage('تم إنشاء الحساب. أكّد بريدك الإلكتروني، ثم ارجع للتطبيق لإنشاء عمارتك أو الانضمام إلى عمارة بكود دعوة.');
     } else await signInWithEmail(email, password);
@@ -129,28 +138,29 @@ export const LoginView: React.FC = () => {
                   <img src="/icon.png" alt="شعار العمارة" className="h-full w-full rounded-xl object-cover" />
                 </div>
                 <h2>تسجيل الدخول</h2>
-                <p>بالبريد الإلكتروني أو بحساب Google. حساب واحد يعمل على كل أجهزتك.</p>
+                <p>ادخل بالبريد أو رقم الموبايل وكلمة المرور أو Google. حسابك يعمل على أجهزتك.</p>
               </div>
-              <button type="button" onClick={() => setShowEmailForm(v => !v)} className="fotouh-primary-button w-full">
-                <LogIn className="h-5 w-5"/> الدخول / إنشاء حساب
+              <button type="button" onClick={() => { setPhoneMode(true); setShowEmailForm(true); setIsSignUp(false); }} className="fotouh-primary-button w-full">
+                <LogIn className="h-5 w-5"/> الدخول برقم الموبايل
               </button>
+              <button type="button" onClick={() => { setPhoneMode(false); setShowEmailForm(true); setIsSignUp(false); }} className="w-full rounded-xl border border-slate-200 p-3 text-sm font-bold text-slate-700">الدخول بالبريد الإلكتروني / إنشاء حساب</button>
               <button type="button" onClick={() => void handleGoogleSignIn()} disabled={isLoading} className="fotouh-google-button w-full">
                 <Chrome className="h-5 w-5 text-[#4285F4]"/> {isLoading ? 'جارٍ الاتصال بحساب Google...' : 'المتابعة باستخدام Google'}
               </button>
               {showEmailForm && (
                 <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
                   <div className="mb-4 flex items-center justify-between">
-                    <strong className="text-sm text-[#123c40]">{isSignUp ? 'إنشاء حساب جديد' : 'الدخول بالبريد الإلكتروني'}</strong>
+                    <strong className="text-sm text-[#123c40]">{isSignUp ? 'إنشاء حساب جديد' : phoneMode ? 'الدخول برقم الموبايل' : 'الدخول بالبريد الإلكتروني'}</strong>
                     <button type="button" onClick={() => setShowEmailForm(false)} className="text-xs text-slate-400">إغلاق</button>
                   </div>
                   <form onSubmit={handleSubmit} className="space-y-3">
                     {isSignUp && <label className="fotouh-field"><span>الاسم بالكامل</span><div><UserRound/><input value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="الاسم كما سيظهر في التطبيق"/></div></label>}
-                    <label className="fotouh-field"><span>البريد الإلكتروني</span><div><Mail/><input type="email" dir="ltr" value={email} onChange={e=>setEmail(e.target.value)} placeholder="name@example.com"/></div></label>
+                    {phoneMode ? <label className="fotouh-field"><span>رقم الموبايل</span><div><UserRound/><input type="tel" inputMode="tel" dir="ltr" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="01xxxxxxxxx"/></div></label> : <label className="fotouh-field"><span>البريد الإلكتروني</span><div><Mail/><input type="email" dir="ltr" value={email} onChange={e=>setEmail(e.target.value)} placeholder="name@example.com"/></div></label>}
                     <label className="fotouh-field"><span>كلمة المرور</span><div><Lock/><input type={showPassword?'text':'password'} dir="ltr" value={password} onChange={e=>setPassword(e.target.value)} placeholder="6 أحرف على الأقل"/><button type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?<EyeOff/>:<Eye/>}</button></div></label>
                     {(authError || localValidation) && <p className="fotouh-message error"><AlertCircle/>{authError || localValidation}</p>}
                     {successMessage && <p className="fotouh-message success"><CheckCircle2/>{successMessage}</p>}
                     <button type="submit" disabled={isLoading} className="fotouh-primary-button w-full">{isLoading?'جارٍ التحقق...':isSignUp?'إنشاء حساب جديد':'تسجيل الدخول'}</button>
-                    {isSignUp && successMessage && <button type="button" onClick={()=>void handleResendConfirmation()} className="w-full text-xs font-bold text-teal-700"><MailCheck className="ml-1 inline h-4 w-4"/>إعادة إرسال تأكيد البريد</button>}
+                    {!phoneMode && isSignUp && successMessage && <button type="button" onClick={()=>void handleResendConfirmation()} className="w-full text-xs font-bold text-teal-700"><MailCheck className="ml-1 inline h-4 w-4"/>إعادة إرسال تأكيد البريد</button>}
                   </form>
                   <div className="mt-4 flex justify-between gap-3 text-xs font-bold text-teal-800">
                     <button type="button" onClick={()=>switchMode(false)}>لديك حساب؟ دخول</button>
