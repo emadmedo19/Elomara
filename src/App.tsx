@@ -1040,21 +1040,37 @@ export default function App() {
     showToast('تمت استعادة كافة البيانات وتحديث الواجهة بنجاح!');
   };
 
-  // Independent animated intro; existing auth and data gates run immediately after it.
+  // Full-screen animated intro composed from the independently uploaded transparent artwork.
   if (showIntroSplash) {
     return (
-      <div className="elomara-intro" dir="rtl">
-        <style>{'@keyframes introLogo{0%{opacity:0;transform:scale(.6) rotate(-8deg)}70%{opacity:1;transform:scale(1.08)}100%{opacity:1;transform:scale(1)}}@keyframes introUp{from{opacity:0;transform:translateY(45px)}to{opacity:1;transform:translateY(0)}}@keyframes introLeft{from{opacity:0;transform:translate(-55px,35px)}to{opacity:1;transform:translate(0,0)}}@keyframes introRight{from{opacity:0;transform:translate(55px,35px)}to{opacity:1;transform:translate(0,0)}}@keyframes introLoad{from{transform:translateX(120%)}to{transform:translateX(-120%)}}.elomara-intro{position:fixed;inset:0;z-index:9999;overflow:hidden;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#edf8fc 0%,#dceef5 60%,#c5e1eb 100%);color:#124454}.elomara-intro:before,.elomara-intro:after{content:"";position:absolute;left:-12%;width:124%;height:100px;border-radius:50%;border:2px solid #65adc5;opacity:.35}.elomara-intro:before{top:-65px;box-shadow:0 14px 0 -5px #e5bd5c}.elomara-intro:after{bottom:-75px;box-shadow:0 -14px 0 -5px #e5bd5c}.intro-center{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;text-align:center;padding-bottom:60px}.intro-logo{width:116px;height:116px;padding:9px;border-radius:30px;background:#ffffffd9;border:1px solid white;box-shadow:0 18px 44px #2c78932b;animation:introLogo .9s cubic-bezier(.2,.8,.2,1) .55s both}.intro-logo img{width:100%;height:100%;object-fit:contain;border-radius:22px}.intro-name{margin-top:18px;font-size:clamp(36px,8vw,48px);font-weight:950;letter-spacing:-.05em;animation:introUp .65s ease 1.2s both}.intro-tag{margin-top:8px;color:#497889;font-size:14px;font-weight:650;animation:introUp .65s ease 1.45s both}.intro-skyline{position:absolute;bottom:0;left:0;right:0;height:31%;display:flex;justify-content:space-between;align-items:end;z-index:2;pointer-events:none}.intro-group{height:100%;width:48%;display:flex;align-items:end;gap:5px}.intro-group.left{justify-content:start;padding-left:2%;animation:introLeft .85s ease .1s both}.intro-group.right{justify-content:end;padding-right:2%;animation:introRight .85s ease .2s both}.intro-tower{position:relative;width:clamp(27px,7vw,58px);border:1px solid #83b9c8;border-bottom:0;border-radius:5px 5px 0 0;background:linear-gradient(#fff,#9fcbd7);box-shadow:inset 0 8px 16px #fff9}.intro-tower:after{content:"";position:absolute;inset:12px 7px 8px;background:repeating-linear-gradient(90deg,transparent 0 8px,#609db1 8px 11px),repeating-linear-gradient(0deg,transparent 0 13px,#609db1 13px 16px);opacity:.5}.intro-tower.t1{height:43%}.intro-tower.t2{height:64%}.intro-tower.t3{height:34%}.intro-tower.t4{height:76%}.intro-tower.t5{height:51%}.intro-loading{position:absolute;bottom:27px;z-index:4;width:94px;height:3px;border-radius:5px;background:#9bbdca;overflow:hidden}.intro-loading:after{content:"";display:block;width:40%;height:100%;background:#d4a63d;animation:introLoad 1.2s ease-in-out infinite}'}</style>
-        <div className="intro-center">
-          <div className="intro-logo"><img src="/icon.png" alt="شعار العمارة" /></div>
-          <h1 className="intro-name">العمارة</h1>
-          <p className="intro-tag">نظام إدارة العقارات والملاك</p>
-        </div>
-        <div className="intro-skyline" aria-hidden="true">
-          <div className="intro-group left"><i className="intro-tower t1"/><i className="intro-tower t2"/><i className="intro-tower t3"/><i className="intro-tower t5"/></div>
-          <div className="intro-group right"><i className="intro-tower t3"/><i className="intro-tower t4"/><i className="intro-tower t1"/><i className="intro-tower t5"/></div>
-        </div>
-        <div className="intro-loading"/>
+      <div className="elomara-intro" dir="rtl" aria-label="العمارة">
+        <style>{`
+          @keyframes splashFade { from { opacity: 0 } to { opacity: 1 } }
+          @keyframes splashBuilding { from { opacity: 0; transform: translateY(24px) scale(.94) } to { opacity: 1; transform: translateY(0) scale(1) } }
+          @keyframes splashText { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: translateY(0) } }
+          @keyframes splashDrift { from { transform: translateX(-2%) } to { transform: translateX(2%) } }
+          @keyframes splashProgress { from { transform: translateX(120%) } to { transform: translateX(-120%) } }
+          .elomara-intro { position:fixed; inset:0; z-index:9999; width:100%; height:100vh; height:100dvh; overflow:hidden; isolation:isolate; background:radial-gradient(ellipse at 50% 43%,#fff 0%,#eaf7ff 57%,#b9e2fb 100%); }
+          .splash-art { position:absolute; display:block; object-fit:contain; pointer-events:none; user-select:none; }
+          .splash-top { top:0; left:0; width:100%; height:20%; object-position:top left; animation:splashFade .8s ease both; }
+          .splash-city { left:0; bottom:0; width:100%; height:31%; object-position:center bottom; animation:splashFade 1s ease .2s both; }
+          .splash-waves { left:0; bottom:0; width:100%; height:14%; object-position:center bottom; animation:splashFade 1s ease .3s both; }
+          .splash-building { left:50%; top:15%; transform:translateX(-50%); width:min(72vw,390px); height:42%; animation:splashBuilding .9s cubic-bezier(.2,.8,.2,1) .15s both; }
+          .splash-title { left:50%; top:57%; transform:translateX(-50%); width:min(76vw,410px); height:12%; animation:splashText .7s ease .65s both; }
+          .splash-tagline { left:50%; top:70%; transform:translateX(-50%); width:min(78vw,430px); height:7%; animation:splashText .7s ease .85s both; }
+          .splash-progress { position:absolute; z-index:5; left:50%; bottom:max(22px,env(safe-area-inset-bottom)); transform:translateX(-50%); width:92px; height:4px; border-radius:99px; overflow:hidden; background:#b8d7eb; }
+          .splash-progress:after { content:""; display:block; width:42%; height:100%; border-radius:inherit; background:#f4bd20; animation:splashProgress 1.15s ease-in-out infinite; }
+          @media (max-height:650px) { .splash-building { top:10%; height:40%; } .splash-title { top:51%; height:12%; } .splash-tagline { top:64%; height:7%; } .splash-city { height:29%; } }
+          @media (min-width:700px) { .splash-building { width:min(45vw,420px); } .splash-title { width:min(48vw,450px); } .splash-tagline { width:min(52vw,480px); } }
+          @media (prefers-reduced-motion:reduce) { .splash-art,.splash-progress:after { animation:none !important; } }
+        `}</style>
+        <img className="splash-art splash-top" src="/top_blue_yellow_swoosh.png" alt="" />
+        <img className="splash-art splash-city" src="/background_buildings_trees.png" alt="" />
+        <img className="splash-art splash-building" src="/building_main.png" alt="مبنى العمارة" />
+        <img className="splash-art splash-title" src="/title_arabic.png" alt="العمارة" />
+        <img className="splash-art splash-tagline" src="/tagline_arabic.png" alt="نظام إدارة العقارات والملاك" />
+        <img className="splash-art splash-waves" src="/bottom_blue_yellow_waves.png" alt="" />
+        <div className="splash-progress" aria-hidden="true" />
       </div>
     );
   }
