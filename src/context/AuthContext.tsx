@@ -206,10 +206,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const normalizePhoneForAuth = (value: string) => {
-    const digits = value.replace(/\\D/g, '');
-    if (/^01[0125]\\d{8}$/.test(digits)) return '+2' + digits;
-    if (/^201[0125]\\d{8}$/.test(digits)) return '+' + digits;
-    if (/^00201[0125]\\d{8}$/.test(digits)) return '+' + digits.slice(2);
+    const digits = value.replace(/\D/g, '');
+    if (/^01[0125]\d{8}$/.test(digits)) return '+2' + digits;
+    if (/^201[0125]\d{8}$/.test(digits)) return '+' + digits;
+    if (/^00201[0125]\d{8}$/.test(digits)) return '+' + digits.slice(2);
     throw new Error('أدخل رقم موبايل مصري صحيح.');
   };
 
