@@ -1,5 +1,13 @@
 apply plugin: 'com.android.application'
-apply plugin: 'com.google.gms.google-services'
+
+// Apply Google Services only when its configuration file is present.
+// This keeps builds working in environments that do not provide Firebase config.
+def googleServicesConfig = file('google-services.json')
+if (googleServicesConfig.exists()) {
+    apply plugin: 'com.google.gms.google-services'
+} else {
+    logger.lifecycle('google-services.json not found; skipping Google Services plugin for this build.')
+}
 
 android {
     namespace = "app.bunyan.residential"
