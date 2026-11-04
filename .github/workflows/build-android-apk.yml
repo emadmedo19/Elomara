@@ -6,6 +6,7 @@ on:
       - main
       - migration/supabase-backend
       - ui-redesign-v2
+      - feature/multi-tenant-buildings
   workflow_dispatch:
 
 permissions:

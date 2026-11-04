@@ -144,7 +144,7 @@ begin
   if not public.can_manage_bunyan_building(target_building_id) then
     raise exception 'Not authorized to manage this building';
   end if;
-  if normalized_email !~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' then
+  if normalized_email !~ '^[^@[:space:]]+@[^@[:space:]]+[.][^@[:space:]]+$' then
     raise exception 'A valid email address is required';
   end if;
   if not exists (
@@ -175,6 +175,7 @@ as $function$
 declare
   current_id uuid := auth.uid();
   current_email text;
+  email_confirmed_at timestamptz;
   invite_row public.building_invites%rowtype;
   apartment_owner boolean;
   profile_row public.profiles%rowtype;
@@ -183,8 +184,11 @@ begin
     raise exception 'Authentication required';
   end if;
 
-  select lower(u.email) into current_email
+  select lower(u.email), u.email_confirmed_at into current_email, email_confirmed_at
   from auth.users u where u.id = current_id;
+  if email_confirmed_at is null then
+    raise exception 'Confirm your email before accepting an invitation';
+  end if;
 
   select * into invite_row
   from public.building_invites i

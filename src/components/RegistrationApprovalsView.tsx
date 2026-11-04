@@ -102,6 +102,7 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
   const roleLabel = (row: UserRow) => row.disabled_at ? 'حساب معطّل' :
     row.role === 'super_admin' ? 'مدير كامل' :
     row.role === 'assistant_admin' ? 'مساعد مدير' :
+    row.role === 'building_admin' ? 'مدير عقار' :
     row.role === 'owner' ? 'مالك وحدة' :
     row.role === 'tenant' ? 'مستخدم عادي' : 'طلب جديد';
 
