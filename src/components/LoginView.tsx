@@ -249,7 +249,7 @@ export const LoginView: React.FC = () => {
                   <li>كل مدير يرى بيانات عقاره فقط، ولا يمكنه الوصول إلى بيانات العقارات الأخرى.</li>
                 </ul>
               </div>
-              <p className="fotouh-login-footnote"><ShieldCheck/> الحسابات الجديدة تنتظر موافقة إدارة العقار قبل الدخول.</p>
+              <p className="fotouh-login-footnote"><ShieldCheck/> بعد إنشاء عقارك أو قبول دعوة صالحة، يتم ربط حسابك بالعقار وتُحدد صلاحياتك تلقائيًا.</p>
             </>
           )}
         </div>
