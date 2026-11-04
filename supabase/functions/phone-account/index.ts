@@ -16,10 +16,12 @@ function normalizePhone(value: string): string {
   if (/^00201[0125]\d{8}$/.test(digits)) return "+" + digits.slice(2);
   throw new Error("أدخل رقم موبايل مصري صحيح.");
 }
+async function sha256Hex(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map(x => x.toString(16).padStart(2, "0")).join("");
+}
 async function accountEmail(phone: string) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(phone));
-  const hash = [...new Uint8Array(digest)].map(x => x.toString(16).padStart(2, "0")).join("");
-  return "resident-" + hash + "@accounts.elomara.invalid";
+  return "resident-" + await sha256Hex(phone) + "@accounts.elomara.invalid";
 }
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -39,6 +41,22 @@ Deno.serve(async (req: Request) => {
     const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!url || !key) throw new Error("Auth service is not configured");
     const admin = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+    const forwardedFor = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    const connectingIp = req.headers.get("cf-connecting-ip")?.trim();
+    const clientIp = connectingIp || forwardedFor || "";
+    const phoneKeyHash = await sha256Hex("phone:" + phone);
+    const ipKeyHash = clientIp ? await sha256Hex("ip:" + clientIp) : null;
+    const { data: allowed, error: rateLimitError } = await admin.rpc("consume_phone_signup_rate_limit", {
+      phone_key_hash: phoneKeyHash,
+      ip_key_hash: ipKeyHash,
+    });
+    if (rateLimitError) {
+      console.error("phone-account rate limit check failed", rateLimitError.message);
+      return json({ error: "خدمة التسجيل غير متاحة مؤقتًا. حاول لاحقًا." }, 503);
+    }
+    if (allowed !== true) {
+      return json({ error: "تم تجاوز عدد محاولات إنشاء الحساب. حاول مرة أخرى بعد ساعة." }, 429);
+    }
     const email = await accountEmail(phone);
     const { data, error } = await admin.auth.admin.createUser({
       email, password, email_confirm: true,
