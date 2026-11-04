@@ -27,7 +27,9 @@ interface AuthContextType {
   authError: string | null;
   signUpWithEmail: (email: string, pass: string, fullName: string) => Promise<boolean>;
   resendSignupConfirmation: (email: string) => Promise<boolean>;
-  signInWithEmail: (email: string, pass: string) => Promise<void>;\n  signUpWithPhone: (phone: string, pass: string, fullName: string) => Promise<boolean>;\n  signInWithPhone: (phone: string, pass: string) => Promise<void>;
+  signInWithEmail: (email: string, pass: string) => Promise<void>;
+  signUpWithPhone: (phone: string, pass: string, fullName: string) => Promise<boolean>;
+  signInWithPhone: (phone: string, pass: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
