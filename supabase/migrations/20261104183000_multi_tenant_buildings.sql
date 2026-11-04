@@ -77,9 +77,15 @@ declare
   current_id uuid := auth.uid();
   new_building_id uuid;
   profile_row public.profiles%rowtype;
+  email_confirmed_at timestamptz;
 begin
   if current_id is null then
     raise exception 'Authentication required';
+  end if;
+  select u.email_confirmed_at into email_confirmed_at
+  from auth.users u where u.id = current_id;
+  if email_confirmed_at is null then
+    raise exception 'Confirm your email before creating a building';
   end if;
   if nullif(trim(building_name), '') is null then
     raise exception 'Building name is required';
