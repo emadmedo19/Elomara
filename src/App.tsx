@@ -597,7 +597,7 @@ export default function App() {
     notes?: string;
     receiptNumber?: string;
   }): Promise<boolean> => {
-    if (!user || !isAdmin || !['super_admin', 'assistant_admin'].includes(userProfile?.role || '')) {
+    if (!user || !isAdmin || !['super_admin', 'assistant_admin', 'building_admin'].includes(userProfile?.role || '')) {
       showToast('عذراً، تسجيل المدفوعات متاح فقط لمدير العمارة المعتمد.', 'error');
       return false;
     }
