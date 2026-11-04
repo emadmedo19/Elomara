@@ -107,42 +107,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const completeOAuthCallback = async (callbackUrl: string) => {
       if (processedOAuthCallbacks.has(callbackUrl)) return;
       processedOAuthCallbacks.add(callbackUrl);
+
+      let sessionEstablished = false;
       try {
         const callback = new URL(callbackUrl);
         if (callback.protocol !== 'app.bunyan.residential:' || callback.hostname !== 'login-callback') return;
 
+        setAuthError(null);
         setIsLoading(true);
-        await Browser.close().catch(() => undefined);
+
         const oauthError = callback.searchParams.get('error_description') || callback.searchParams.get('error');
         if (oauthError) throw new Error(oauthError);
 
         const code = callback.searchParams.get('code');
         if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
-          return;
-        }
-
-        const hash = new URLSearchParams(callback.hash.replace(/^#/, ''));
-        const accessToken = hash.get('access_token');
-        const refreshToken = hash.get('refresh_token');
-        if (accessToken && refreshToken) {
-          const { error } = await supabase.auth.setSession({
+          if (!data.session?.user) throw new Error('تم الرجوع من Google لكن لم يتم إنشاء جلسة دخول.');
+          sessionEstablished = true;
+          await loadProfile(data.session.user);
+        } else {
+          const hash = new URLSearchParams(callback.hash.replace(/^#/, ''));
+          const accessToken = hash.get('access_token');
+          const refreshToken = hash.get('refresh_token');
+          if (!accessToken || !refreshToken) {
+            throw new Error('لم يصل رمز تسجيل الدخول من Google. حاول تسجيل الدخول مرة أخرى.');
+          }
+          const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
           if (error) throw error;
-          return;
+          if (!data.session?.user) throw new Error('تم الرجوع من Google لكن لم يتم إنشاء جلسة دخول.');
+          sessionEstablished = true;
+          await loadProfile(data.session.user);
         }
 
-        throw new Error('لم يصل رمز تسجيل الدخول من Google. حاول تسجيل الدخول مرة أخرى.');
+        // Close the Custom Tab only after Supabase has persisted the session
+        // and the account profile has been loaded in the native app.
+        await Browser.close().catch(() => undefined);
       } catch (error) {
         if (active) setAuthError(friendlyError(error));
+        console.error('Google OAuth callback failed:', error);
       } finally {
-        if (active) setIsLoading(false);
+        if (active && !sessionEstablished) setIsLoading(false);
       }
     };
-
     let appUrlListener: ReturnType<typeof CapacitorApp.addListener> | null = null;
     if (Capacitor.isNativePlatform()) {
       appUrlListener = CapacitorApp.addListener('appUrlOpen', ({ url }) => {
