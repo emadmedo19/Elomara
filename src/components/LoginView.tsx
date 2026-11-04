@@ -37,7 +37,7 @@ export const LoginView: React.FC = () => {
     if (isSignUp && !fullName.trim()) return setLocalValidation('يرجى إدخال الاسم بالكامل.');
     if (isSignUp) {
       const created = await signUpWithEmail(email, password, fullName);
-      if (created) setSuccessMessage('تم إرسال طلب إنشاء الحساب. راجع بريدك الإلكتروني ثم انتظر موافقة إدارة العقار.');
+      if (created) setSuccessMessage('تم إنشاء الحساب. أكّد بريدك الإلكتروني، ثم ارجع للتطبيق لإنشاء عمارتك أو الانضمام إلى عمارة بكود دعوة.');
     } else await signInWithEmail(email, password);
   };
   const switchMode = (signup: boolean) => {
