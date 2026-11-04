@@ -27,7 +27,50 @@ declare
 begin
   delete from public.phone_signup_rate_limits where updated_at < current_time - interval '2 days';
 
-  if phone_key_hash ! '^[a-f0-9]{64}$' then
+  if phone_key_hash !~ '^[a-f0-9]{64}
+    raise exception 'Invalid phone rate-limit key';
+  end if;
+
+  insert into public.phone_signup_rate_limits(rate_key, window_started_at, attempts, updated_at)
+  values ('phone:' || phone_key_hash, current_time, 1, current_time)
+  on conflict (rate_key) do update
+    set attempts = case
+          when public.phone_signup_rate_limits.window_started_at <= current_time - interval '1 hour' then 1
+          else public.phone_signup_rate_limits.attempts + 1
+        end,
+        window_started_at = case
+          when public.phone_signup_rate_limits.window_started_at <= current_time - interval '1 hour' then current_time
+          else public.phone_signup_rate_limits.window_started_at
+        end,
+        updated_at = current_time
+  returning attempts into phone_attempts;
+
+  if ip_key_hash is not null then
+    if ip_key_hash !~ '^[a-f0-9]{64}$' then
+      raise exception 'Invalid IP rate-limit key';
+    end if;
+    insert into public.phone_signup_rate_limits(rate_key, window_started_at, attempts, updated_at)
+    values ('ip:' || ip_key_hash, current_time, 1, current_time)
+    on conflict (rate_key) do update
+      set attempts = case
+            when public.phone_signup_rate_limits.window_started_at <= current_time - interval '1 hour' then 1
+            else public.phone_signup_rate_limits.attempts + 1
+          end,
+          window_started_at = case
+            when public.phone_signup_rate_limits.window_started_at <= current_time - interval '1 hour' then current_time
+            else public.phone_signup_rate_limits.window_started_at
+          end,
+          updated_at = current_time
+    returning attempts into ip_attempts;
+  end if;
+
+  return phone_attempts <= 5 and (ip_key_hash is null or ip_attempts <= 30);
+end;
+$function$;
+
+revoke all on function public.consume_phone_signup_rate_limit(text, text) from public, anon, authenticated;
+grant execute on function public.consume_phone_signup_rate_limit(text, text) to service_role;
+ then
     raise exception 'Invalid phone rate-limit key';
   end if;
 
