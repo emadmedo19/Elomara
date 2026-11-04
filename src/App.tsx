@@ -72,7 +72,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setShowIntroSplash(false), 5000);
+    const timer = window.setTimeout(() => setShowIntroSplash(false), 6200);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -1046,25 +1046,25 @@ export default function App() {
       <div className="elomara-intro" dir="rtl" aria-label="العمارة">
         <style>{`
           @keyframes splashFade { from { opacity: 0 } to { opacity: 1 } }
-          @keyframes splashBuilding { from { opacity: 0; transform:translate(-50%,28px) scale(.92) } to { opacity: 1; transform:translate(-50%,0) scale(1) } }
-          @keyframes splashText { from { opacity: 0; transform:translate(-50%,16px) } to { opacity: 1; transform:translate(-50%,0) } }
-          @keyframes splashCityLeft { from { opacity:0; transform:translateX(-100%) } to { opacity:1; transform:translateX(0) } }
-          @keyframes splashCityRight { from { opacity:0; transform:translateX(100%) } to { opacity:1; transform:translateX(0) } }
+          @keyframes splashBuilding { from { opacity: 0; transform:translate(-50%,22px) scale(.94) } to { opacity: 1; transform:translate(-50%,0) scale(1) } }
+          @keyframes splashText { from { opacity: 0; transform:translate(-50%,14px) } to { opacity: 1; transform:translate(-50%,0) } }
+          @keyframes splashCityLeft { from { opacity:0; transform:translateX(-105%) } to { opacity:1; transform:translateX(0) } }
+          @keyframes splashCityRight { from { opacity:0; transform:translateX(105%) } to { opacity:1; transform:translateX(0) } }
           @keyframes splashProgress { from { transform: translateX(120%) } to { transform: translateX(-120%) } }
           .elomara-intro { position:fixed; inset:0; z-index:9999; width:100%; height:100vh; height:100dvh; overflow:hidden; isolation:isolate; background:radial-gradient(ellipse at 50% 43%,#fff 0%,#eaf7ff 57%,#b9e2fb 100%); }
           .splash-art { position:absolute; display:block; object-fit:contain; pointer-events:none; user-select:none; opacity:0; }
-          .splash-top { top:0; left:0; width:100%; height:20%; object-position:top left; animation:splashFade .7s ease .45s both; }
-          .splash-city { left:0; bottom:0; width:100%; height:31%; object-position:center bottom; }
-          .splash-city-left { clip-path:inset(0 50% 0 0); animation:splashCityLeft 1s cubic-bezier(.2,.8,.2,1) 2.55s both; }
-          .splash-city-right { clip-path:inset(0 0 0 50%); animation:splashCityRight 1s cubic-bezier(.2,.8,.2,1) 2.55s both; }
-          .splash-waves { left:0; bottom:0; width:100%; height:14%; object-position:center bottom; animation:splashFade .7s ease 3s both; }
-          .splash-building { left:50%; top:14%; width:min(72vw,390px); height:38%; animation:splashBuilding .9s cubic-bezier(.2,.8,.2,1) .85s both; }
-          .splash-title { left:50%; top:55%; width:min(76vw,410px); height:11%; animation:splashText .7s ease 1.65s both; }
-          .splash-tagline { left:50%; top:68%; width:min(78vw,430px); height:7%; animation:splashText .7s ease 1.95s both; }
+          .splash-top { top:0; left:0; width:100%; height:20%; object-position:top left; animation:splashFade .8s ease 1.1s both; }
+          .splash-city { left:0; bottom:0; width:100%; height:27%; object-position:center bottom; }
+          .splash-city-left { clip-path:inset(0 50% 0 0); animation:splashCityLeft 1.15s cubic-bezier(.2,.8,.2,1) 4.1s both; }
+          .splash-city-right { clip-path:inset(0 0 0 50%); animation:splashCityRight 1.15s cubic-bezier(.2,.8,.2,1) 4.1s both; }
+          .splash-waves { left:0; bottom:0; width:100%; height:12%; object-position:center bottom; animation:splashFade .8s ease 4.7s both; }
+          .splash-building { left:50%; top:12%; width:min(70vw,370px); height:37%; object-position:center top; clip-path:inset(0 0 7% 0); animation:splashBuilding 1s cubic-bezier(.2,.8,.2,1) 1.55s both; }
+          .splash-title { left:50%; top:54%; width:min(76vw,410px); height:11%; animation:splashText .8s ease 2.8s both; }
+          .splash-tagline { left:50%; top:68%; width:min(78vw,430px); height:7%; animation:splashText .8s ease 3.15s both; }
           .splash-progress { position:absolute; z-index:5; left:50%; bottom:max(22px,env(safe-area-inset-bottom)); transform:translateX(-50%); width:92px; height:4px; border-radius:99px; overflow:hidden; background:#b8d7eb; }
           .splash-progress:after { content:""; display:block; width:42%; height:100%; border-radius:inherit; background:#f4bd20; animation:splashProgress 1.15s ease-in-out infinite; }
-          @media (max-height:650px) { .splash-building { top:10%; height:35%; } .splash-title { top:49%; height:11%; } .splash-tagline { top:62%; height:7%; } .splash-city { height:29%; } }
-          @media (min-width:700px) { .splash-building { width:min(45vw,420px); } .splash-title { width:min(48vw,450px); } .splash-tagline { width:min(52vw,480px); } }
+          @media (max-height:650px) { .splash-building { top:10%; height:34%; } .splash-title { top:48%; height:11%; } .splash-tagline { top:62%; height:7%; } .splash-city { height:25%; } }
+          @media (min-width:700px) { .splash-building { width:min(45vw,400px); } .splash-title { width:min(48vw,450px); } .splash-tagline { width:min(52vw,480px); } }
           @media (prefers-reduced-motion:reduce) { .splash-art,.splash-progress:after { animation:none !important; opacity:1; } }
         `}</style>
         <img className="splash-art splash-top" src="/top_blue_yellow_swoosh.png" alt="" />
