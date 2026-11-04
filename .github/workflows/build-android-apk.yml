@@ -2,8 +2,6 @@ name: Build العمارة Android APK
 
 on:
   push:
-    branches:
-      - migration/multi-tenant-isolation
     tags:
       - 'apk-v*'
   workflow_dispatch:
