@@ -62,7 +62,7 @@ export const LoginView: React.FC = () => {
           </div>
           <div className="fotouh-login-intro">
             <h2>إدارة كاملة للعمارة: <span>تحصيل، مصروفات، صيانة، وتقارير.</span></h2>
-            <p>سجّل الدخول بحسابك للوصول إلى لوحة العمارة. يتم ربط حسابك بعمارة وشقة بعد اعتماد مدير النظام.</p>
+            <p>سجّل الدخول بحسابك للوصول إلى لوحة العمارة. أنشئ عقارك المستقل أو انضم إلى عقار آخر بدعوة من مديره.</p>
           </div>
         </div>
         <div className="fotouh-feature-grid">
@@ -137,7 +137,7 @@ export const LoginView: React.FC = () => {
               {showEmailForm && (
                 <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
                   <div className="mb-4 flex items-center justify-between">
-                    <strong className="text-sm text-[#123c40]">{isSignUp ? 'إنشاء حساب ساكن جديد' : 'الدخول بالبريد الإلكتروني'}</strong>
+                    <strong className="text-sm text-[#123c40]">{isSignUp ? 'إنشاء حساب جديد' : 'الدخول بالبريد الإلكتروني'}</strong>
                     <button type="button" onClick={() => setShowEmailForm(false)} className="text-xs text-slate-400">إغلاق</button>
                   </div>
                   <form onSubmit={handleSubmit} className="space-y-3">
@@ -158,9 +158,9 @@ export const LoginView: React.FC = () => {
               <div className="fotouh-login-help">
                 <strong>كيف يعمل الوصول؟</strong>
                 <ul>
-                  <li>الحساب الجديد يبدأ بحالة «بانتظار الاعتماد».</li>
-                  <li>مدير النظام يعتمد الحساب ويحدد دوره وعمارة وشقته.</li>
-                  <li>الساكن يرى شقته ومدفوعاته فقط، ولا يمكنه قراءة بيانات غيره.</li>
+                  <li>الحساب الجديد يبدأ بتأكيد البريد الإلكتروني.</li>
+                  <li>بعد تأكيد البريد، يمكنك إنشاء عقار جديد وتصبح مديره أو قبول دعوة للانضمام.</li>
+                  <li>كل مدير يرى بيانات عقاره فقط، ولا يمكنه الوصول إلى بيانات العقارات الأخرى.</li>
                 </ul>
               </div>
               <p className="fotouh-login-footnote"><ShieldCheck/> الحسابات الجديدة تنتظر موافقة إدارة العقار قبل الدخول.</p>
