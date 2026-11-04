@@ -36,7 +36,7 @@ export const LoginView: React.FC = () => {
     if (phoneMode && !phone.trim()) return setLocalValidation('يرجى إدخال رقم الموبايل.');
     if (!phoneMode && !email.trim()) return setLocalValidation('يرجى إدخال البريد الإلكتروني.');
     if (!password) return setLocalValidation('يرجى إدخال كلمة المرور.');
-    if (password.length < 6) return setLocalValidation('كلمة المرور يجب ألا تقل عن 6 أحرف.');
+    if (password.length < (phoneMode && isSignUp ? 8 : 6)) return setLocalValidation(phoneMode && isSignUp ? 'كلمة المرور يجب ألا تقل عن 8 أحرف.' : 'كلمة المرور يجب ألا تقل عن 6 أحرف.');
     if (isSignUp && !fullName.trim()) return setLocalValidation('يرجى إدخال الاسم بالكامل.');
     if (phoneMode) {
       if (isSignUp && !fullName.trim()) return setLocalValidation('يرجى إدخال الاسم بالكامل.');
@@ -156,7 +156,7 @@ export const LoginView: React.FC = () => {
                   <form onSubmit={handleSubmit} className="space-y-3">
                     {isSignUp && <label className="fotouh-field"><span>الاسم بالكامل</span><div><UserRound/><input value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="الاسم كما سيظهر في التطبيق"/></div></label>}
                     {phoneMode ? <label className="fotouh-field"><span>رقم الموبايل</span><div><UserRound/><input type="tel" inputMode="tel" dir="ltr" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="01xxxxxxxxx"/></div></label> : <label className="fotouh-field"><span>البريد الإلكتروني</span><div><Mail/><input type="email" dir="ltr" value={email} onChange={e=>setEmail(e.target.value)} placeholder="name@example.com"/></div></label>}
-                    <label className="fotouh-field"><span>كلمة المرور</span><div><Lock/><input type={showPassword?'text':'password'} dir="ltr" value={password} onChange={e=>setPassword(e.target.value)} placeholder="6 أحرف على الأقل"/><button type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?<EyeOff/>:<Eye/>}</button></div></label>
+                    <label className="fotouh-field"><span>كلمة المرور</span><div><Lock/><input type={showPassword?'text':'password'} dir="ltr" value={password} onChange={e=>setPassword(e.target.value)} placeholder={phoneMode && isSignUp ? "8 أحرف على الأقل" : "6 أحرف على الأقل"}/><button type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?<EyeOff/>:<Eye/>}</button></div></label>
                     {(authError || localValidation) && <p className="fotouh-message error"><AlertCircle/>{authError || localValidation}</p>}
                     {successMessage && <p className="fotouh-message success"><CheckCircle2/>{successMessage}</p>}
                     <button type="submit" disabled={isLoading} className="fotouh-primary-button w-full">{isLoading?'جارٍ التحقق...':isSignUp?'إنشاء حساب جديد':'تسجيل الدخول'}</button>
