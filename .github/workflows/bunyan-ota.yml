@@ -50,8 +50,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
-            echo "::warning::SUPABASE_SERVICE_ROLE_KEY is missing; OTA bundle was built but not uploaded. Add this repository secret to enable publishing."
-            exit 0
+            echo "::error::SUPABASE_SERVICE_ROLE_KEY is missing; refusing to report a successful OTA publish without uploading."
+            exit 1
           fi
 
           upload_file() {
