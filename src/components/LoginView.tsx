@@ -26,6 +26,8 @@ export const LoginView: React.FC = () => {
   const [floorsCount, setFloorsCount] = useState('');
   const [creatingBuilding, setCreatingBuilding] = useState(false);
   const [buildingError, setBuildingError] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [acceptingInvite, setAcceptingInvite] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); clearError(); setLocalValidation(null); setSuccessMessage(null);
@@ -92,7 +94,18 @@ export const LoginView: React.FC = () => {
                   if (error) setBuildingError(error.message);
                   else window.location.reload();
                 }}>
-                  <p className="text-sm leading-7 text-slate-500">حسابك هيكون مدير العقار، وبياناته وأعضاؤه هيبقوا منفصلين عن باقي العقارات.</p>
+                  <div className="rounded-xl border border-teal-200 bg-teal-50 p-3 space-y-2">
+                    <b className="text-sm text-teal-900">عندك كود دعوة من مدير عقار؟</b>
+                    <input value={inviteCode} onChange={e=>setInviteCode(e.target.value)} placeholder="الصق كود الدعوة هنا" className="w-full rounded-lg border border-teal-200 bg-white p-3 text-sm" dir="ltr"/>
+                    <button type="button" disabled={acceptingInvite || !inviteCode.trim()} onClick={async()=>{
+                      setBuildingError(''); setAcceptingInvite(true);
+                      const { error } = await supabase.rpc('accept_building_invite', { target_invite_code: inviteCode.trim() });
+                      setAcceptingInvite(false);
+                      if (error) setBuildingError(error.message);
+                      else window.location.reload();
+                    }} className="w-full rounded-lg bg-teal-700 p-3 text-sm font-bold text-white disabled:opacity-50">{acceptingInvite ? 'جارٍ قبول الدعوة...' : 'قبول الدعوة والانضمام للعقار'}</button>
+                  </div>
+                  <p className="text-sm leading-7 text-slate-500">أو أنشئ عقارك الخاص. حسابك هيكون مدير العقار، وبياناته وأعضاؤه هيبقوا منفصلين عن باقي العقارات.</p>
                   <label className="fotouh-field"><span>اسم العقار</span><div><Building2/><input value={buildingName} onChange={e=>setBuildingName(e.target.value)} placeholder="مثال: عمارة النخيل" required /></div></label>
                   <label className="fotouh-field"><span>العنوان</span><div><Building2/><input value={buildingAddress} onChange={e=>setBuildingAddress(e.target.value)} placeholder="المنطقة والشارع" /></div></label>
                   <label className="fotouh-field"><span>عدد الوحدات</span><div><Users/><input type="number" min="0" value={unitsCount} onChange={e=>setUnitsCount(e.target.value)} placeholder="عدد الشقق" /></div></label>
