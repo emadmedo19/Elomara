@@ -39,7 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
   const navItems = [
     { id: 'dashboard', label: 'الرئيسية', icon: LayoutDashboard },
     { id: 'collections', label: 'الشقق والتحصيل', icon: Building2 },
-    ...(isSuperAdmin ? [{ id: 'approvals', label: 'طلبات الانضمام', icon: UserCheck }] : []),
+    ...(isAdmin ? [{ id: 'approvals', label: isSuperAdmin ? 'طلبات الانضمام' : 'إدارة السكان', icon: UserCheck }] : []),
     { id: 'expenses', label: 'المصروفات', icon: Receipt },
   ];
   const moreItems = [
