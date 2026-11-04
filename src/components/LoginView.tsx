@@ -9,12 +9,14 @@ import {
 
 export const LoginView: React.FC = () => {
   const {
-    signUpWithEmail, resendSignupConfirmation, signInWithEmail, signUpWithPhone, signInWithPhone, signInWithGoogle,
+    signUpWithEmail, resendSignupConfirmation, signInWithEmail, signUpWithPhone, verifyPhoneSignup, signInWithPhone, signInWithGoogle,
     authError, isLoading, clearError, user, userProfile, isAdmin, signOut,
   } = useAuth();
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [phoneMode, setPhoneMode] = useState(false);
+  const [phoneOtpRequested, setPhoneOtpRequested] = useState(false);
+  const [phoneOtp, setPhoneOtp] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -34,15 +36,23 @@ export const LoginView: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); clearError(); setLocalValidation(null); setSuccessMessage(null);
     if (phoneMode && !phone.trim()) return setLocalValidation('يرجى إدخال رقم الموبايل.');
+    if (phoneMode && isSignUp && phoneOtpRequested) {
+      if (!/^\\d{6}$/.test(phoneOtp.trim())) return setLocalValidation('أدخل رمز التحقق المكوّن من 6 أرقام.');
+      const verified = await verifyPhoneSignup(phone, phoneOtp);
+      if (verified) {
+        setPhoneOtpRequested(false); setPhoneOtp(''); setIsSignUp(false);
+        setSuccessMessage('تم تأكيد رقم الموبايل وإنشاء الحساب بنجاح. يمكنك الآن قبول دعوة العقار.');
+      }
+      return;
+    }
     if (!phoneMode && !email.trim()) return setLocalValidation('يرجى إدخال البريد الإلكتروني.');
     if (!password) return setLocalValidation('يرجى إدخال كلمة المرور.');
     if (password.length < (phoneMode && isSignUp ? 8 : 6)) return setLocalValidation(phoneMode && isSignUp ? 'كلمة المرور يجب ألا تقل عن 8 أحرف.' : 'كلمة المرور يجب ألا تقل عن 6 أحرف.');
     if (isSignUp && !fullName.trim()) return setLocalValidation('يرجى إدخال الاسم بالكامل.');
     if (phoneMode) {
-      if (isSignUp && !fullName.trim()) return setLocalValidation('يرجى إدخال الاسم بالكامل.');
       if (isSignUp) {
         const created = await signUpWithPhone(phone, password, fullName);
-        if (created) { setIsSignUp(false); setSuccessMessage('تم إنشاء الحساب. سجّل الدخول بنفس رقم الموبايل وكلمة المرور للانضمام إلى العمارة.'); }
+        if (created) { setPhoneOtpRequested(true); setSuccessMessage('أرسلنا رمز تحقق إلى رقم الموبايل. أدخل الرمز لإكمال إنشاء الحساب.'); }
       } else await signInWithPhone(phone, password);
     } else if (isSignUp) {
       const created = await signUpWithEmail(email, password, fullName);
@@ -50,7 +60,7 @@ export const LoginView: React.FC = () => {
     } else await signInWithEmail(email, password);
   };
   const switchMode = (signup: boolean) => {
-    setIsSignUp(signup); setShowEmailForm(true); setLocalValidation(null); setSuccessMessage(null); clearError();
+    setIsSignUp(signup); setPhoneOtpRequested(false); setPhoneOtp(''); setShowEmailForm(true); setLocalValidation(null); setSuccessMessage(null); clearError();
   };
   const handleGoogleSignIn = async () => { clearError(); setLocalValidation(null); setSuccessMessage(null); await signInWithGoogle(); };
   const handleResendConfirmation = async () => {
@@ -154,12 +164,18 @@ export const LoginView: React.FC = () => {
                     <button type="button" onClick={() => setShowEmailForm(false)} className="text-xs text-slate-400">إغلاق</button>
                   </div>
                   <form onSubmit={handleSubmit} className="space-y-3">
-                    {isSignUp && <label className="fotouh-field"><span>الاسم بالكامل</span><div><UserRound/><input value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="الاسم كما سيظهر في التطبيق"/></div></label>}
-                    {phoneMode ? <label className="fotouh-field"><span>رقم الموبايل</span><div><UserRound/><input type="tel" inputMode="tel" dir="ltr" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="01xxxxxxxxx"/></div></label> : <label className="fotouh-field"><span>البريد الإلكتروني</span><div><Mail/><input type="email" dir="ltr" value={email} onChange={e=>setEmail(e.target.value)} placeholder="name@example.com"/></div></label>}
-                    <label className="fotouh-field"><span>كلمة المرور</span><div><Lock/><input type={showPassword?'text':'password'} dir="ltr" value={password} onChange={e=>setPassword(e.target.value)} placeholder={phoneMode && isSignUp ? "8 أحرف على الأقل" : "6 أحرف على الأقل"}/><button type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?<EyeOff/>:<Eye/>}</button></div></label>
+                    {phoneMode && isSignUp && phoneOtpRequested ? (
+                      <label className="fotouh-field"><span>رمز التحقق المرسل إلى {phone}</span><div><ShieldCheck/><input type="text" inputMode="numeric" autoComplete="one-time-code" dir="ltr" maxLength={6} value={phoneOtp} onChange={e=>setPhoneOtp(e.target.value.replace(/\\D/g,'').slice(0,6))} placeholder="000000"/></div></label>
+                    ) : (
+                      <>
+                        {isSignUp && <label className="fotouh-field"><span>الاسم بالكامل</span><div><UserRound/><input value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="الاسم كما سيظهر في التطبيق"/></div></label>}
+                        {phoneMode ? <label className="fotouh-field"><span>رقم الموبايل</span><div><UserRound/><input type="tel" inputMode="tel" dir="ltr" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="01xxxxxxxxx"/></div></label> : <label className="fotouh-field"><span>البريد الإلكتروني</span><div><Mail/><input type="email" dir="ltr" value={email} onChange={e=>setEmail(e.target.value)} placeholder="name@example.com"/></div></label>}
+                        <label className="fotouh-field"><span>كلمة المرور</span><div><Lock/><input type={showPassword?'text':'password'} dir="ltr" value={password} onChange={e=>setPassword(e.target.value)} placeholder={phoneMode && isSignUp ? "8 أحرف على الأقل" : "6 أحرف على الأقل"}/><button type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?<EyeOff/>:<Eye/>}</button></div></label>
+                      </>
+                    )}
                     {(authError || localValidation) && <p className="fotouh-message error"><AlertCircle/>{authError || localValidation}</p>}
                     {successMessage && <p className="fotouh-message success"><CheckCircle2/>{successMessage}</p>}
-                    <button type="submit" disabled={isLoading} className="fotouh-primary-button w-full">{isLoading?'جارٍ التحقق...':isSignUp?'إنشاء حساب جديد':'تسجيل الدخول'}</button>
+                    <button type="submit" disabled={isLoading} className="fotouh-primary-button w-full">{isLoading?'جارٍ التحقق...':phoneMode && isSignUp && phoneOtpRequested?'تأكيد رقم الموبايل':isSignUp?'إنشاء حساب جديد':'تسجيل الدخول'}</button>
                     {!phoneMode && isSignUp && successMessage && <button type="button" onClick={()=>void handleResendConfirmation()} className="w-full text-xs font-bold text-teal-700"><MailCheck className="ml-1 inline h-4 w-4"/>إعادة إرسال تأكيد البريد</button>}
                   </form>
                   <div className="mt-4 flex justify-between gap-3 text-xs font-bold text-teal-800">
@@ -171,7 +187,7 @@ export const LoginView: React.FC = () => {
               <div className="fotouh-login-help">
                 <strong>كيف يعمل الوصول؟</strong>
                 <ul>
-                  <li>يمكنك إنشاء حساب بالبريد الإلكتروني مع تأكيده، أو برقم الموبايل وكلمة مرور دون رسالة SMS.</li>
+                  <li>يمكنك إنشاء حساب بالبريد الإلكتروني مع تأكيده، أو برقم الموبايل بعد تأكيده برمز SMS.</li>
                   <li>بعد تسجيل الدخول، يمكنك إنشاء عقار جديد وتصبح مديره أو قبول دعوة للانضمام باستخدام نفس رقم الموبايل أو البريد المدعو.</li>
                   <li>كل مدير يرى بيانات عقاره فقط، ولا يمكنه الوصول إلى بيانات العقارات الأخرى.</li>
                 </ul>
