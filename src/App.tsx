@@ -1045,28 +1045,28 @@ export default function App() {
     return (
       <div className="elomara-intro" dir="rtl" aria-label="العمارة">
         <style>{`
-          @keyframes introBuilding { from { opacity:0; transform:translate(-50%,24px) scale(.94) } to { opacity:1; transform:translate(-50%,0) scale(1) } }
-          @keyframes introLogo { from { opacity:0; transform:translate(-50%,16px) } to { opacity:1; transform:translate(-50%,0) } }
-          @keyframes introLeft { from { opacity:0; transform:translateX(-100%) } to { opacity:1; transform:translateX(0) } }
-          @keyframes introRight { from { opacity:0; transform:translateX(100%) } to { opacity:1; transform:translateX(0) } }
+          @keyframes introBuilding { from { opacity:0; transform:translate(-50%,18px) } to { opacity:1; transform:translate(-50%,0) } }
+          @keyframes introLogo { from { opacity:0; transform:translate(-50%,14px) scale(.97) } to { opacity:1; transform:translate(-50%,0) scale(1) } }
+          @keyframes introLeft { from { opacity:0; transform:translate(-100%,0) } to { opacity:1; transform:translate(0,0) } }
+          @keyframes introRight { from { opacity:0; transform:translate(100%,0) } to { opacity:1; transform:translate(0,0) } }
           @keyframes introProgress { from { transform:translateX(120%) } to { transform:translateX(-120%) } }
           .elomara-intro { position:fixed; inset:0; z-index:9999; width:100%; height:100vh; height:100dvh; overflow:hidden; isolation:isolate; background:#eaf7ff url('/file_00000000c36c8210b0b6f7e8328f6e69.png') center center / 100% 100% no-repeat; }
           .intro-layer { position:absolute; display:block; object-fit:contain; pointer-events:none; user-select:none; opacity:0; }
-          .intro-building { left:50%; top:12%; width:min(70vw,370px); height:39%; object-position:center center; animation:introBuilding 1s cubic-bezier(.2,.8,.2,1) .75s both; }
-          .intro-title { left:50%; top:53%; width:min(82vw,440px); height:15%; animation:introLogo .8s ease 1.8s both; }
-          .intro-tagline { left:50%; top:68%; width:min(80vw,430px); height:7%; animation:introLogo .8s ease 2.05s both; }
-          .intro-city { bottom:5%; width:52%; height:23%; }
-          .intro-city-left { left:0; object-position:left bottom; animation:introLeft 1.1s cubic-bezier(.2,.8,.2,1) 3s both; }
-          .intro-city-right { right:0; object-position:right bottom; animation:introRight 1.1s cubic-bezier(.2,.8,.2,1) 3s both; }
+          /* The uploaded building PNG has large transparent margins; enlarge its canvas so the visible artwork is properly sized. */
+          .intro-building { left:50%; top:-17vh; width:auto; max-width:none; height:160vh; object-fit:fill; animation:introBuilding 1s cubic-bezier(.2,.8,.2,1) .75s both; }
+          /* One combined title/tagline asset keeps the Arabic logo intact and prevents gaps or clipping. */
+          .intro-title { left:50%; top:62%; width:min(88vw,520px); height:auto; max-height:24vh; animation:introLogo .8s ease 1.8s both; }
+          .intro-city { bottom:0; width:52%; height:23%; }
+          .intro-city-left { left:0; bottom:-4vh; object-position:left bottom; animation:introLeft 1.1s cubic-bezier(.2,.8,.2,1) 3s both; }
+          .intro-city-right { right:0; bottom:0; object-position:right bottom; animation:introRight 1.1s cubic-bezier(.2,.8,.2,1) 3s both; }
           .intro-progress { position:absolute; z-index:5; left:50%; bottom:max(22px,env(safe-area-inset-bottom)); transform:translateX(-50%); width:92px; height:4px; border-radius:99px; overflow:hidden; background:#b8d7eb; }
           .intro-progress:after { content:""; display:block; width:42%; height:100%; border-radius:inherit; background:#f4bd20; animation:introProgress 1.15s ease-in-out infinite; }
-          @media (max-height:650px) { .intro-building { top:9%; height:36%; } .intro-title { top:48%; height:14%; } .intro-tagline { top:63%; } .intro-city { height:20%; } }
-          @media (min-width:700px) { .intro-building { width:min(45vw,400px); } .intro-title { width:min(48vw,450px); } .intro-tagline { width:min(52vw,480px); } }
+          @media (max-height:650px) { .intro-building { top:-14vh; height:145vh; } .intro-title { top:59%; max-height:23vh; } .intro-city { height:20%; } .intro-city-left { bottom:-3.5vh; } }
+          @media (min-width:700px) { .intro-building { height:145vh; } .intro-title { width:min(48vw,520px); } }
           @media (prefers-reduced-motion:reduce) { .intro-layer,.intro-progress:after { animation:none !important; opacity:1; } }
         `}</style>
         <img className="intro-layer intro-building" src="/layer1_center_building_fixed.png" alt="مبنى العمارة" />
-        <img className="intro-layer intro-title" src="/title_arabic.png" alt="العمارة" />
-        <img className="intro-layer intro-tagline" src="/tagline_arabic.png" alt="نظام إدارة العقارات والملاك" />
+        <img className="intro-layer intro-title" src="/layer2_text_yellow.png" alt="العمارة - نظام إدارة العقارات والملاك" />
         <img className="intro-layer intro-city intro-city-left" src="/layer4_left_buildings.png" alt="" />
         <img className="intro-layer intro-city intro-city-right" src="/layer3_right_buildings.png" alt="" />
         <div className="intro-progress" aria-hidden="true" />
