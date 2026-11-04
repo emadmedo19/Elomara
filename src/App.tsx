@@ -71,12 +71,6 @@ export default function App() {
     return () => { cancelled = true; };
   }, []);
 
-  const [showIntro, setShowIntro] = useState(true);
-  useEffect(() => {
-    const introTimer = window.setTimeout(() => setShowIntro(false), 3200);
-    return () => window.clearTimeout(introTimer);
-  }, []);
-
   // 1. Persistent State Initialization
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [currentBuildingId, setCurrentBuildingIdState] = useState<string>('');
@@ -1039,21 +1033,6 @@ export default function App() {
     setSettings(getStoredSettings());
     showToast('تمت استعادة كافة البيانات وتحديث الواجهة بنجاح!');
   };
-
-  // Independent opening screen: use the supplied artwork unchanged as one image.
-  if (showIntro) {
-    return (
-      <div className="architecture-intro-screen" dir="rtl" aria-label="العمارة">
-        <style>{`
-          .architecture-intro-screen{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#dcecf5}
-          .architecture-intro-art{width:100%;height:100%;object-fit:contain;animation:architecture-intro-enter 2.8s cubic-bezier(.2,.7,.2,1) both}
-          @keyframes architecture-intro-enter{0%{opacity:0;transform:scale(1.035)}18%{opacity:1}100%{opacity:1;transform:scale(1)}}
-          @media(prefers-reduced-motion:reduce){.architecture-intro-art{animation:none}}
-        `}</style>
-        <img src="/architecture-splash.jpg" alt="العمارة - نظام إدارة العقارات والملاك" className="architecture-intro-art" />
-      </div>
-    );
-  }
 
   // Auth Protection Gate
   if (isAuthLoading) {
