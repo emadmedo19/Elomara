@@ -32,6 +32,9 @@ export const LoginView: React.FC = () => {
   const [buildingError, setBuildingError] = useState('');
   const [inviteCode, setInviteCode] = useState(() => new URLSearchParams(window.location.search).get('invite') || '');
   const [acceptingInvite, setAcceptingInvite] = useState(false);
+  const [inviteExistingAccount, setInviteExistingAccount] = useState(false);
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [invitePasswordConfirm, setInvitePasswordConfirm] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); clearError(); setLocalValidation(null); setSuccessMessage(null);
@@ -69,6 +72,42 @@ export const LoginView: React.FC = () => {
     if (sent) setSuccessMessage('تمت إعادة إرسال رسالة التأكيد. راجع البريد الوارد ومجلد الرسائل غير المرغوب فيها.');
   };
 
+  const handleInviteSubmit = async (createAccount: boolean) => {
+    clearError(); setLocalValidation(null); setInviteBusy(true);
+    try {
+      if (!password) throw new Error('اكتب كلمة المرور أولاً.');
+      let invitePhone = phone.trim();
+      if (createAccount) {
+        if (password.length < 8) throw new Error('كلمة المرور يجب ألا تقل عن 8 أحرف.');
+        if (password !== invitePasswordConfirm) throw new Error('تأكيد كلمة المرور غير مطابق.');
+        const { data, error } = await supabase.functions.invoke('create-invited-phone-account', {
+          body: { invite_code: inviteCode.trim(), password },
+        });
+        if (error) throw error;
+        if (data?.code === 'USER_EXISTS') {
+          setInviteExistingAccount(true);
+          throw new Error(data.error || 'هذا الرقم لديه حساب بالفعل. سجّل الدخول بحسابك الحالي.');
+        }
+        if (!data?.phone) throw new Error(data?.error || 'تعذر إنشاء الحساب من رابط الدعوة.');
+        invitePhone = data.phone;
+      } else if (!invitePhone) {
+        throw new Error('اكتب رقم الموبايل المرتبط بالدعوة.');
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({ phone: invitePhone, password });
+      if (signInError) throw signInError;
+      const { error: acceptError } = await supabase.rpc('accept_building_phone_invite', {
+        target_invite_code: inviteCode.trim(),
+      });
+      if (acceptError) throw acceptError;
+      window.location.reload();
+    } catch (error) {
+      setLocalValidation(error instanceof Error ? error.message : 'تعذر قبول الدعوة. حاول مرة أخرى.');
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
   return (
     <div dir="rtl" className="fotouh-login min-h-screen w-full">
       <section className="fotouh-login-hero">
@@ -94,7 +133,20 @@ export const LoginView: React.FC = () => {
 
       <section className="fotouh-login-lower">
         <div className="fotouh-login-card">
-          {user && !isAdmin ? (
+          {!user && inviteCode.trim().toUpperCase().startsWith('PH-') ? (
+            <div className="space-y-4 py-3 text-right">
+              <div className="fotouh-login-card-icon mx-auto"><ShieldCheck className="h-8 w-8"/></div>
+              <h2 className="text-center text-xl font-bold text-[#123c40]">دعوة للانضمام إلى العمارة</h2>
+              <p className="text-center text-sm leading-7 text-slate-500">مدير العقار دعاك للانضمام إلى شقتك. أنشئ كلمة مرور لإكمال التسجيل وقبول الدعوة، من غير رسالة SMS.</p>
+              {inviteExistingAccount && <label className="fotouh-field"><span>رقم الموبايل المسجل بالدعوة</span><div><UserRound/><input type="tel" inputMode="tel" dir="ltr" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="01xxxxxxxxx"/></div></label>}
+              <label className="fotouh-field"><span>{inviteExistingAccount ? 'كلمة مرور حسابك' : 'أنشئ كلمة مرور (8 أحرف على الأقل)'}</span><div><Lock/><input type="password" dir="ltr" value={password} onChange={e=>setPassword(e.target.value)} placeholder="كلمة المرور"/></div></label>
+              {!inviteExistingAccount && <label className="fotouh-field"><span>تأكيد كلمة المرور</span><div><Lock/><input type="password" dir="ltr" value={invitePasswordConfirm} onChange={e=>setInvitePasswordConfirm(e.target.value)} placeholder="أعد كتابة كلمة المرور"/></div></label>}
+              {(authError || localValidation) && <p className="fotouh-message error"><AlertCircle/>{localValidation || authError}</p>}
+              <button type="button" onClick={()=>void handleInviteSubmit(!inviteExistingAccount)} disabled={inviteBusy} className="fotouh-primary-button w-full">{inviteBusy ? 'جارٍ تجهيز الحساب وقبول الدعوة...' : inviteExistingAccount ? 'تسجيل الدخول وقبول الدعوة' : 'إنشاء الحساب وقبول الدعوة'}</button>
+              <button type="button" onClick={()=>{setInviteExistingAccount(v=>!v);setLocalValidation(null);setPassword('');setInvitePasswordConfirm('');}} className="w-full text-sm font-bold text-teal-700">{inviteExistingAccount ? 'ليس لدي حساب — إنشاء حساب جديد' : 'لدي حساب بالفعل — تسجيل الدخول'}</button>
+              <p className="text-xs leading-6 text-slate-400">الرابط مخصص لرقم الموبايل الذي أرسله المدير، صالح لمدة 48 ساعة، ويُستخدم مرة واحدة. احتفظ به ولا تشاركه مع غيرك.</p>
+            </div>
+          ) : user && !isAdmin ? (
             <div className="space-y-5 py-4 text-center">
               <div className="fotouh-login-card-icon"><ShieldCheck className="h-8 w-8"/></div>
               <h2>{userProfile?.role === 'pending' && userProfile?.status === 'pending' ? 'أنشئ عقارك وابدأ الإدارة' : 'تم تسجيل حسابك بنجاح'}</h2>
