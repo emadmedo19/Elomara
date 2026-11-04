@@ -80,7 +80,7 @@ export default function App() {
   const [showIntroSplash, setShowIntroSplash] = useState(true);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [currentBuildingId, setCurrentBuildingIdState] = useState<string>('');
-  const { user, userProfile, isAdmin, isLoading: isAuthLoading } = useAuth();
+  const { user, userProfile, isAdmin, isSuperAdmin, isLoading: isAuthLoading } = useAuth();
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [role, setRole] = useState<UserRole>('manager');
   
@@ -420,7 +420,7 @@ export default function App() {
 
   // 7. BUILDINGS CRUD
   const handleAddBuilding = async (newBldData: Omit<Building, 'id'>) => {
-    if (!user || !isAdmin) { showToast('لا توجد صلاحية لإضافة عمارة.', 'error'); return; }
+    if (!user || !isSuperAdmin) { showToast('إضافة عقار جديد متاحة للمدير الرئيسي فقط. مدير العقار يدير عقاره الحالي.', 'error'); return; }
     const { data, error } = await supabase.from('buildings').insert({
       name: newBldData.name, address: newBldData.address, total_units: newBldData.totalUnits,
       total_floors: newBldData.totalFloors ?? null, balance: 0, monthly_target: newBldData.monthlyTarget,
