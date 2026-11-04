@@ -29,6 +29,7 @@ interface AuthContextType {
   resendSignupConfirmation: (email: string) => Promise<boolean>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithPhone: (phone: string, pass: string, fullName: string) => Promise<boolean>;
+  verifyPhoneSignup: (phone: string, token: string) => Promise<boolean>;
   signInWithPhone: (phone: string, pass: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -205,37 +206,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const normalizePhoneForAuth = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    if (/^01[0125]\d{8}$/.test(digits)) return '+2' + digits;
-    if (/^201[0125]\d{8}$/.test(digits)) return '+' + digits;
-    if (/^00201[0125]\d{8}$/.test(digits)) return '+' + digits.slice(2);
+    const digits = value.replace(/\\D/g, '');
+    if (/^01[0125]\\d{8}$/.test(digits)) return '+2' + digits;
+    if (/^201[0125]\\d{8}$/.test(digits)) return '+' + digits;
+    if (/^00201[0125]\\d{8}$/.test(digits)) return '+' + digits.slice(2);
     throw new Error('أدخل رقم موبايل مصري صحيح.');
   };
-  const phoneAlias = async (phone: string) => {
-    const normalized = normalizePhoneForAuth(phone);
-    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(normalized));
-    const hash = [...new Uint8Array(digest)].map(x => x.toString(16).padStart(2, '0')).join('');
-    return 'resident-' + hash + '@accounts.elomara.invalid';
-  };
+
   const signUpWithPhone = async (phone: string, password: string, fullName: string): Promise<boolean> => {
     setAuthError(null); setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('phone-account', {
-        body: { phone, password, fullName },
+      const normalizedPhone = normalizePhoneForAuth(phone);
+      const { error } = await supabase.auth.signUp({
+        phone: normalizedPhone,
+        password,
+        options: { data: { full_name: fullName.trim() } },
       });
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
       setIsLoading(false);
       return true;
     } catch (error) {
       setAuthError(friendlyError(error)); setIsLoading(false); return false;
     }
   };
+
+  const verifyPhoneSignup = async (phone: string, token: string): Promise<boolean> => {
+    setAuthError(null); setIsLoading(true);
+    try {
+      const normalizedPhone = normalizePhoneForAuth(phone);
+      const { error } = await supabase.auth.verifyOtp({
+        phone: normalizedPhone,
+        token: token.trim(),
+        type: 'sms',
+      });
+      if (error) throw error;
+      setIsLoading(false);
+      return true;
+    } catch (error) {
+      setAuthError(friendlyError(error)); setIsLoading(false); return false;
+    }
+  };
+
   const signInWithPhone = async (phone: string, password: string) => {
     setAuthError(null); setIsLoading(true);
     try {
-      const email = await phoneAlias(phone);
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const normalizedPhone = normalizePhoneForAuth(phone);
+      const { error } = await supabase.auth.signInWithPassword({ phone: normalizedPhone, password });
       if (error) throw error;
     } catch (error) { setAuthError(friendlyError(error)); setIsLoading(false); }
   };
@@ -268,7 +284,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null); setUserProfile(null); setRole(null); setIsAdmin(false); setIsSuperAdmin(false);
   };
   return <AuthContext.Provider value={{ user, userProfile, role, isAdmin, isSuperAdmin, isLoading, authError,
-    signUpWithEmail, resendSignupConfirmation, signInWithEmail, signUpWithPhone, signInWithPhone, signInWithGoogle, signOut, clearError: () => setAuthError(null) }}>
+    signUpWithEmail, resendSignupConfirmation, signInWithEmail, signUpWithPhone, verifyPhoneSignup, signInWithPhone, signInWithGoogle, signOut, clearError: () => setAuthError(null) }}>
     {children}
   </AuthContext.Provider>;
 };
