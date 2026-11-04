@@ -2,11 +2,8 @@ name: Build العمارة Android APK
 
 on:
   push:
-    branches:
-      - main
-      - migration/supabase-backend
-      - ui-redesign-v2
-      - migration/multi-tenant-isolation
+    tags:
+      - 'apk-v*'
   workflow_dispatch:
 
 permissions:
