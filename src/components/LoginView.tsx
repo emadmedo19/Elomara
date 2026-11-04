@@ -94,7 +94,12 @@ export const LoginView: React.FC = () => {
         throw new Error('اكتب رقم الموبايل المرتبط بالدعوة.');
       }
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({ phone: invitePhone, password });
+      const inviteDigits = invitePhone.replace(/\D/g, '');
+      const normalizedInvitePhone = inviteDigits.startsWith('0020') ? '+' + inviteDigits.slice(2)
+        : inviteDigits.startsWith('20') ? '+' + inviteDigits
+        : inviteDigits.startsWith('0') ? '+2' + inviteDigits : '+' + inviteDigits;
+      if (!/^\+201[0125]\d{8}$/.test(normalizedInvitePhone)) throw new Error('رقم الموبايل المرتبط بالدعوة غير صحيح.');
+      const { error: signInError } = await supabase.auth.signInWithPassword({ phone: normalizedInvitePhone, password });
       if (signInError) throw signInError;
       const { error: acceptError } = await supabase.rpc('accept_building_phone_invite', {
         target_invite_code: inviteCode.trim(),
