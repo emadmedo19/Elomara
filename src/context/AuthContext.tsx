@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
@@ -57,8 +57,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const profileLoadSequence = useRef(0);
 
   const loadProfile = async (currentUser: User | null) => {
+    const requestId = ++profileLoadSequence.current;
     setUser(currentUser);
     if (!currentUser) {
       setUserProfile(null); setRole(null); setIsAdmin(false); setIsSuperAdmin(false); setIsLoading(false);
@@ -70,10 +72,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { error: bootstrapError } = await supabase.rpc('bootstrap_first_super_admin');
         if (bootstrapError) console.warn('First-admin bootstrap unavailable:', bootstrapError.message);
       }
+      if (requestId !== profileLoadSequence.current) return;
       const { data, error } = await supabase.from('profiles')
         .select('id, full_name, phone, role, building_id, apartment_id, approved, disabled_at')
         .eq('id', currentUser.id).maybeSingle();
       if (error) throw error;
+      if (requestId !== profileLoadSequence.current) return;
       const profile: UserProfile | null = data ? {
         uid: data.id, email: currentUser.email ?? null,
         displayName: data.full_name || currentUser.user_metadata?.full_name || currentUser.email || null,
@@ -87,10 +91,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAdmin(Boolean(admin && profile?.status === 'active'));
       setIsSuperAdmin(profile?.role === 'super_admin');
     } catch (error) {
+      if (requestId !== profileLoadSequence.current) return;
       console.error('Supabase profile loading failed:', error);
       setUserProfile(null); setRole(null); setIsAdmin(false); setIsSuperAdmin(false);
       setAuthError('تم تسجيل الدخول لكن تعذر تحميل صلاحيات الحساب. راجع إعدادات Supabase.');
-    } finally { setIsLoading(false); }
+    } finally {
+      if (requestId === profileLoadSequence.current) setIsLoading(false);
+    }
   };
 
   useEffect(() => {
