@@ -1046,18 +1046,21 @@ export default function App() {
       <div className="elomara-intro" dir="rtl" aria-label="العمارة">
         <style>{`
           @keyframes splashFade { from { opacity: 0 } to { opacity: 1 } }
-          @keyframes splashBuilding { from { opacity: 0; transform: translateY(24px) scale(.94) } to { opacity: 1; transform: translateY(0) scale(1) } }
-          @keyframes splashText { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: translateY(0) } }
-          @keyframes splashDrift { from { transform: translateX(-2%) } to { transform: translateX(2%) } }
+          @keyframes splashBuilding { from { opacity: 0; transform:translate(-50%,24px) scale(.94) } to { opacity: 1; transform:translate(-50%,0) scale(1) } }
+          @keyframes splashText { from { opacity: 0; transform:translate(-50%,18px) } to { opacity: 1; transform:translate(-50%,0) } }
+          @keyframes splashCityLeft { from { opacity:0; transform:translateX(-100%) } to { opacity:1; transform:translateX(0) } }
+          @keyframes splashCityRight { from { opacity:0; transform:translateX(100%) } to { opacity:1; transform:translateX(0) } }
           @keyframes splashProgress { from { transform: translateX(120%) } to { transform: translateX(-120%) } }
           .elomara-intro { position:fixed; inset:0; z-index:9999; width:100%; height:100vh; height:100dvh; overflow:hidden; isolation:isolate; background:radial-gradient(ellipse at 50% 43%,#fff 0%,#eaf7ff 57%,#b9e2fb 100%); }
           .splash-art { position:absolute; display:block; object-fit:contain; pointer-events:none; user-select:none; }
           .splash-top { top:0; left:0; width:100%; height:20%; object-position:top left; animation:splashFade .8s ease both; }
-          .splash-city { left:0; bottom:0; width:100%; height:31%; object-position:center bottom; animation:splashFade 1s ease .2s both; }
+          .splash-city { left:0; bottom:0; width:100%; height:31%; object-position:center bottom; }
+          .splash-city-left { clip-path:inset(0 50% 0 0); animation:splashCityLeft 1.1s cubic-bezier(.2,.8,.2,1) .2s both; }
+          .splash-city-right { clip-path:inset(0 0 0 50%); animation:splashCityRight 1.1s cubic-bezier(.2,.8,.2,1) .2s both; }
           .splash-waves { left:0; bottom:0; width:100%; height:14%; object-position:center bottom; animation:splashFade 1s ease .3s both; }
-          .splash-building { left:50%; top:15%; transform:translateX(-50%); width:min(72vw,390px); height:42%; animation:splashBuilding .9s cubic-bezier(.2,.8,.2,1) .15s both; }
-          .splash-title { left:50%; top:57%; transform:translateX(-50%); width:min(76vw,410px); height:12%; animation:splashText .7s ease .65s both; }
-          .splash-tagline { left:50%; top:70%; transform:translateX(-50%); width:min(78vw,430px); height:7%; animation:splashText .7s ease .85s both; }
+          .splash-building { left:50%; top:15%; width:min(72vw,390px); height:42%; animation:splashBuilding .9s cubic-bezier(.2,.8,.2,1) .15s both; }
+          .splash-title { left:50%; top:57%; width:min(76vw,410px); height:12%; animation:splashText .7s ease .65s both; }
+          .splash-tagline { left:50%; top:70%; width:min(78vw,430px); height:7%; animation:splashText .7s ease .85s both; }
           .splash-progress { position:absolute; z-index:5; left:50%; bottom:max(22px,env(safe-area-inset-bottom)); transform:translateX(-50%); width:92px; height:4px; border-radius:99px; overflow:hidden; background:#b8d7eb; }
           .splash-progress:after { content:""; display:block; width:42%; height:100%; border-radius:inherit; background:#f4bd20; animation:splashProgress 1.15s ease-in-out infinite; }
           @media (max-height:650px) { .splash-building { top:10%; height:40%; } .splash-title { top:51%; height:12%; } .splash-tagline { top:64%; height:7%; } .splash-city { height:29%; } }
@@ -1065,7 +1068,8 @@ export default function App() {
           @media (prefers-reduced-motion:reduce) { .splash-art,.splash-progress:after { animation:none !important; } }
         `}</style>
         <img className="splash-art splash-top" src="/top_blue_yellow_swoosh.png" alt="" />
-        <img className="splash-art splash-city" src="/background_buildings_trees.png" alt="" />
+        <img className="splash-art splash-city splash-city-left" src="/background_buildings_trees.png" alt="" />
+        <img className="splash-art splash-city splash-city-right" src="/background_buildings_trees.png" alt="" />
         <img className="splash-art splash-building" src="/building_main.png" alt="مبنى العمارة" />
         <img className="splash-art splash-title" src="/title_arabic.png" alt="العمارة" />
         <img className="splash-art splash-tagline" src="/tagline_arabic.png" alt="نظام إدارة العقارات والملاك" />
