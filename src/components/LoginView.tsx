@@ -37,7 +37,7 @@ export const LoginView: React.FC = () => {
     if (isSignUp && !fullName.trim()) return setLocalValidation('يرجى إدخال الاسم بالكامل.');
     if (isSignUp) {
       const created = await signUpWithEmail(email, password, fullName);
-      if (created) setSuccessMessage('تم إرسال طلب إنشاء الحساب. راجع بريدك الإلكتروني ثم انتظر موافقة إدارة العقار.');
+      if (created) setSuccessMessage('تم إنشاء الحساب. أكد بريدك الإلكتروني، ثم ارجع للتطبيق لإنشاء عقارك أو قبول دعوة الانضمام.');
     } else await signInWithEmail(email, password);
   };
   const switchMode = (signup: boolean) => {
@@ -163,7 +163,7 @@ export const LoginView: React.FC = () => {
                   <li>الساكن يرى شقته ومدفوعاته فقط، ولا يمكنه قراءة بيانات غيره.</li>
                 </ul>
               </div>
-              <p className="fotouh-login-footnote"><ShieldCheck/> الحسابات الجديدة تنتظر موافقة إدارة العقار قبل الدخول.</p>
+              <p className="fotouh-login-footnote"><ShieldCheck/> بعد تأكيد البريد، يمكنك إنشاء عقارك أو الانضمام إلى عقار بدعوة.</p>
             </>
           )}
         </div>
