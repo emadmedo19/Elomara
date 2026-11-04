@@ -25,7 +25,7 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
   const [notice, setNotice] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const { userProfile } = useAuth();
-  const isBuildingAdmin = userProfile?.role === 'building_admin';
+  const isBuildingAdmin = userProfile?.role === 'building_admin' || userProfile?.role === 'assistant_admin';
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteApartmentId, setInviteApartmentId] = useState('');
   const [createdInviteCode, setCreatedInviteCode] = useState('');
