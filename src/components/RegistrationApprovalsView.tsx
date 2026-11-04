@@ -98,7 +98,7 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
     setBusyId(null);
   };
 
-  const pendingCount = rows.filter(r => !r.disabled_at && (!r.approved || !r.building_id || (r.role !== 'super_admin' && !r.apartment_id))).length;
+  const pendingCount = rows.filter(r => !r.disabled_at && (!r.approved || !r.building_id || (!['super_admin', 'assistant_admin', 'building_admin'].includes(r.role) && !r.apartment_id))).length;
   const roleLabel = (row: UserRow) => row.disabled_at ? 'حساب معطّل' :
     row.role === 'super_admin' ? 'مدير كامل' :
     row.role === 'assistant_admin' ? 'مساعد مدير' :
@@ -133,7 +133,7 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
     {loading ? <div className="bg-white rounded-2xl p-8 text-center">جارٍ تحميل الحسابات...</div> :
       rows.length === 0 ? <div className="bg-white rounded-2xl border p-8 text-center"><CheckCircle2 className="w-9 h-9 text-teal-500 mx-auto mb-2" /><b>لا توجد حسابات مسجلة.</b></div> :
       rows.map(row => {
-        const isPending = !row.disabled_at && (!row.approved || !row.building_id || (row.role !== 'super_admin' && !row.apartment_id));
+        const isPending = !row.disabled_at && (!row.approved || !row.building_id || (!['super_admin', 'assistant_admin', 'building_admin'].includes(row.role) && !row.apartment_id));
         const isSelf = row.user_id === currentUserId;
         return <article key={row.user_id} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-sm">
           <div className="flex items-start justify-between gap-3">
