@@ -27,6 +27,7 @@ as $function$
     from public.profiles p
     where p.id = (select auth.uid())
       and p.approved = true
+      and p.disabled_at is null
       and (
         p.role = 'super_admin'
         or (
@@ -99,7 +100,7 @@ begin
   where id = current_id
   for update;
 
-  if not found or profile_row.role <> 'pending' or profile_row.approved then
+  if not found or profile_row.role <> 'pending' or profile_row.approved or profile_row.disabled_at is not null then
     raise exception 'This account is not eligible to create a building';
   end if;
   if profile_row.building_id is not null then
@@ -228,6 +229,7 @@ begin
   from public.profiles p where p.id = current_id for update;
 
   if not found or profile_row.role <> 'pending' or profile_row.approved
+     or profile_row.disabled_at is not null
      or profile_row.building_id is not null then
     raise exception 'This account is already assigned or is not eligible';
   end if;
@@ -365,7 +367,8 @@ begin
     and role = 'pending'
     and approved = false
     and building_id is null
-    and apartment_id is null;
+    and apartment_id is null
+    and disabled_at is null;
 
   return found;
 end;
