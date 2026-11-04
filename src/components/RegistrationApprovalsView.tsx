@@ -110,7 +110,7 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
     <div className="rounded-3xl bg-[#10283a] text-white p-5 shadow-lg border border-teal-500/20">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3"><div className="w-12 h-12 rounded-2xl bg-teal-500/15 flex items-center justify-center"><ShieldCheck className="w-6 h-6 text-teal-300" /></div>
-          <div><h2 className="text-xl font-bold">{isBuildingAdmin ? 'إدارة سكان العقار' : 'إدارة المستخدمين والصلاحيات'}</h2><p className="text-sm text-slate-300 mt-1">{isBuildingAdmin ? 'دعوة السكان ومتابعة الحسابات المرتبطة بعقارك فقط.' : 'عرض الحسابات المسجلة، قبول الطلبات، وإدارة الصلاحيات.'}</p></div>
+          <div><h2 className="text-xl font-bold">إدارة المستخدمين والصلاحيات</h2><p className="text-sm text-slate-300 mt-1">عرض كل الحسابات المسجلة، قبول الطلبات، وتعديل الصلاحيات.</p></div>
         </div>
         <button onClick={() => void load()} disabled={loading || busyId !== null} className="p-3 rounded-xl bg-white/10"><RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} /></button>
       </div>
