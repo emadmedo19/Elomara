@@ -60,8 +60,8 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
       if (code) {
         setCreatedInviteCode(code);
         const inviteUrl = new URL(window.location.href); inviteUrl.searchParams.set('invite', code);
-        const digits = invitePhone.replace(/\\D/g, '').replace(/^0/, '20');
-        const message = 'أهلاً ' + inviteName + '، دي دعوة للانضمام إلى تطبيق العمارة.' + '\\n\\nرابط الدعوة: ' + inviteUrl.toString() + '\\nكود الدعوة: ' + code + '\\n\\nالدعوة صالحة لمدة 48 ساعة، ولازم تنشئ حساب برقم الموبايل نفسه وتستخدمه عند تسجيل الدخول.';
+        const digits = invitePhone.replace(/\D/g, '').replace(/^0/, '20');
+        const message = 'أهلاً ' + inviteName + '، دي دعوة للانضمام إلى تطبيق العمارة.' + '\n\nرابط الدعوة: ' + inviteUrl.toString() + '\nكود الدعوة: ' + code + '\n\nالدعوة صالحة لمدة 48 ساعة، ولازم تنشئ حساب برقم الموبايل نفسه وتستخدمه عند تسجيل الدخول.';
         setWhatsappInviteUrl('https://wa.me/' + digits + '?text=' + encodeURIComponent(message));
         setNotice('تم إنشاء الدعوة. ابعتها للساكن على واتساب؛ ينشئ حسابًا بنفس الرقم وكلمة مرور، ثم يقبل الدعوة.');
       } else setError('لم يتم استلام كود الدعوة.');
