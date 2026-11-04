@@ -71,7 +71,13 @@ export default function App() {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowIntroSplash(false), 3600);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   // 1. Persistent State Initialization
+  const [showIntroSplash, setShowIntroSplash] = useState(true);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [currentBuildingId, setCurrentBuildingIdState] = useState<string>('');
   const { user, userProfile, isAdmin, isLoading: isAuthLoading } = useAuth();
@@ -1033,6 +1039,25 @@ export default function App() {
     setSettings(getStoredSettings());
     showToast('تمت استعادة كافة البيانات وتحديث الواجهة بنجاح!');
   };
+
+  // Independent animated intro; existing auth and data gates run immediately after it.
+  if (showIntroSplash) {
+    return (
+      <div className="elomara-intro" dir="rtl">
+        <style>{'@keyframes introLogo{0%{opacity:0;transform:scale(.6) rotate(-8deg)}70%{opacity:1;transform:scale(1.08)}100%{opacity:1;transform:scale(1)}}@keyframes introUp{from{opacity:0;transform:translateY(45px)}to{opacity:1;transform:translateY(0)}}@keyframes introLeft{from{opacity:0;transform:translate(-55px,35px)}to{opacity:1;transform:translate(0,0)}}@keyframes introRight{from{opacity:0;transform:translate(55px,35px)}to{opacity:1;transform:translate(0,0)}}@keyframes introLoad{from{transform:translateX(120%)}to{transform:translateX(-120%)}}.elomara-intro{position:fixed;inset:0;z-index:9999;overflow:hidden;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#edf8fc 0%,#dceef5 60%,#c5e1eb 100%);color:#124454}.elomara-intro:before,.elomara-intro:after{content:"";position:absolute;left:-12%;width:124%;height:100px;border-radius:50%;border:2px solid #65adc5;opacity:.35}.elomara-intro:before{top:-65px;box-shadow:0 14px 0 -5px #e5bd5c}.elomara-intro:after{bottom:-75px;box-shadow:0 -14px 0 -5px #e5bd5c}.intro-center{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;text-align:center;padding-bottom:60px}.intro-logo{width:116px;height:116px;padding:9px;border-radius:30px;background:#ffffffd9;border:1px solid white;box-shadow:0 18px 44px #2c78932b;animation:introLogo .9s cubic-bezier(.2,.8,.2,1) .55s both}.intro-logo img{width:100%;height:100%;object-fit:contain;border-radius:22px}.intro-name{margin-top:18px;font-size:clamp(36px,8vw,48px);font-weight:950;letter-spacing:-.05em;animation:introUp .65s ease 1.2s both}.intro-tag{margin-top:8px;color:#497889;font-size:14px;font-weight:650;animation:introUp .65s ease 1.45s both}.intro-skyline{position:absolute;bottom:0;left:0;right:0;height:31%;display:flex;justify-content:space-between;align-items:end;z-index:2;pointer-events:none}.intro-group{height:100%;width:48%;display:flex;align-items:end;gap:5px}.intro-group.left{justify-content:start;padding-left:2%;animation:introLeft .85s ease .1s both}.intro-group.right{justify-content:end;padding-right:2%;animation:introRight .85s ease .2s both}.intro-tower{position:relative;width:clamp(27px,7vw,58px);border:1px solid #83b9c8;border-bottom:0;border-radius:5px 5px 0 0;background:linear-gradient(#fff,#9fcbd7);box-shadow:inset 0 8px 16px #fff9}.intro-tower:after{content:"";position:absolute;inset:12px 7px 8px;background:repeating-linear-gradient(90deg,transparent 0 8px,#609db1 8px 11px),repeating-linear-gradient(0deg,transparent 0 13px,#609db1 13px 16px);opacity:.5}.intro-tower.t1{height:43%}.intro-tower.t2{height:64%}.intro-tower.t3{height:34%}.intro-tower.t4{height:76%}.intro-tower.t5{height:51%}.intro-loading{position:absolute;bottom:27px;z-index:4;width:94px;height:3px;border-radius:5px;background:#9bbdca;overflow:hidden}.intro-loading:after{content:"";display:block;width:40%;height:100%;background:#d4a63d;animation:introLoad 1.2s ease-in-out infinite}'}</style>
+        <div className="intro-center">
+          <div className="intro-logo"><img src="/icon.png" alt="شعار العمارة" /></div>
+          <h1 className="intro-name">العمارة</h1>
+          <p className="intro-tag">نظام إدارة العقارات والملاك</p>
+        </div>
+        <div className="intro-skyline" aria-hidden="true">
+          <div className="intro-group left"><i className="intro-tower t1"/><i className="intro-tower t2"/><i className="intro-tower t3"/><i className="intro-tower t5"/></div>
+          <div className="intro-group right"><i className="intro-tower t3"/><i className="intro-tower t4"/><i className="intro-tower t1"/><i className="intro-tower t5"/></div>
+        </div>
+        <div className="intro-loading"/>
+      </div>
+    );
+  }
 
   // Auth Protection Gate
   if (isAuthLoading) {
