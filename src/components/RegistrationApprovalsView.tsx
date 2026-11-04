@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Clock3, RefreshCw, ShieldCheck, UserRound, AlertCircle, Crown, Trash2, UserCheck, Shield } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Apartment } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface UserRow {
   user_id: string;
@@ -23,18 +24,43 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { userProfile } = useAuth();
+  const isBuildingAdmin = userProfile?.role === 'building_admin';
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteApartmentId, setInviteApartmentId] = useState('');
+  const [createdInviteCode, setCreatedInviteCode] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
     const { data: authData } = await supabase.auth.getUser();
     setCurrentUserId(authData.user?.id ?? null);
-    const { data, error: requestError } = await supabase.rpc('list_all_bunyan_users');
+    const { data, error: requestError } = await supabase.rpc(isBuildingAdmin ? 'list_building_users' : 'list_all_bunyan_users');
     if (requestError) { setError(requestError.message); setRows([]); }
     else setRows((data || []) as UserRow[]);
     setLoading(false);
-  }, []);
+  }, [isBuildingAdmin]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const createInvite = async () => {
+    if (!inviteEmail.trim() || !inviteApartmentId || !userProfile?.buildingId) {
+      setError('اكتب البريد الإلكتروني واختار الشقة.');
+      return;
+    }
+    setBusyId('invite'); setError(''); setNotice(''); setCreatedInviteCode('');
+    const { data, error: inviteError } = await supabase.rpc('create_building_invite', {
+      target_building_id: userProfile.buildingId,
+      target_apartment_id: inviteApartmentId,
+      target_email: inviteEmail.trim(),
+    });
+    if (inviteError) setError(inviteError.message);
+    else {
+      const code = Array.isArray(data) ? data[0]?.invite_code : data?.invite_code;
+      if (code) { setCreatedInviteCode(code); setNotice('تم إنشاء الدعوة. ابعت الكود للشخص على نفس البريد المحدد.'); }
+      else setError('لم يتم استلام كود الدعوة.');
+    }
+    setBusyId(null);
+  };
 
   const approve = async (id: string) => {
     const apartmentId = assignments[id];
@@ -92,6 +118,15 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
         <span className="flex items-center gap-2"><Clock3 className="w-4 h-4" />{pendingCount} طلب يحتاج مراجعة</span>
       </div>
     </div>
+    {isBuildingAdmin && <div className="rounded-2xl border border-teal-200 bg-white p-4 space-y-3">
+      <div><h3 className="font-bold text-slate-800">دعوة ساكن أو مالك جديد</h3><p className="mt-1 text-xs text-slate-500">الدعوة صالحة 7 أيام، ولا يمكن استخدامها إلا من البريد المحدد.</p></div>
+      <input type="email" dir="ltr" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)} placeholder="resident@example.com" className="w-full rounded-xl border border-slate-300 p-3 text-sm"/>
+      <select value={inviteApartmentId} onChange={e=>setInviteApartmentId(e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm">
+        <option value="">اختار الشقة</option>{apartments.map(a=><option key={a.id} value={a.id}>شقة {a.unitNumber} — الدور {a.floor}</option>)}
+      </select>
+      <button onClick={()=>void createInvite()} disabled={busyId!==null || !inviteEmail.trim() || !inviteApartmentId} className="w-full rounded-xl bg-teal-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busyId==='invite'?'جارٍ إنشاء الدعوة...':'إنشاء دعوة'}</button>
+      {createdInviteCode && <div className="rounded-xl bg-slate-50 p-3 text-sm"><p className="mb-2 font-semibold">كود الدعوة</p><code dir="ltr" className="break-all">{createdInviteCode}</code><button onClick={()=>{void navigator.clipboard?.writeText(createdInviteCode);}} className="mt-2 block text-teal-700 font-bold">نسخ الكود</button></div>}
+    </div>}
     {error && <div className="rounded-xl bg-rose-50 text-rose-700 border border-rose-200 p-3 text-sm flex gap-2"><AlertCircle className="w-5 h-5 shrink-0" />{error}</div>}
     {notice && <div className="rounded-xl bg-teal-50 text-teal-800 border border-teal-200 p-3 text-sm">{notice}</div>}
     {loading ? <div className="bg-white rounded-2xl p-8 text-center">جارٍ تحميل الحسابات...</div> :
@@ -111,10 +146,10 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
             </select>
             <button onClick={() => void approve(row.user_id)} disabled={busyId !== null || !assignments[row.user_id]} className="w-full rounded-xl bg-teal-600 hover:bg-teal-700 text-white px-5 py-3 font-bold text-sm disabled:opacity-50">{busyId === row.user_id ? 'جارٍ الحفظ...' : 'قبول عادي وتخصيص الشقة'}</button>
           </div>}
-          {!row.disabled_at && row.role !== 'super_admin' && <button onClick={() => void changeRole(row,'super_admin')} disabled={busyId !== null || isSelf} className="w-full rounded-xl bg-amber-500 hover:bg-amber-600 text-white px-4 py-3 font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2"><Crown className="w-4 h-4" />تحويل إلى مدير كامل</button>}
-          {!row.disabled_at && row.role === 'super_admin' && <button onClick={() => void changeRole(row,'tenant')} disabled={busyId !== null || isSelf} className="w-full rounded-xl bg-slate-700 hover:bg-slate-800 text-white px-4 py-3 font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2"><Shield className="w-4 h-4" />إرجاع إلى مستخدم عادي</button>}
-          {!row.disabled_at && <button onClick={() => void disableUser(row)} disabled={busyId !== null || isSelf} className="w-full rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 px-4 py-3 font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2"><Trash2 className="w-4 h-4" />حذف / تعطيل الحساب</button>}
-          {row.disabled_at && <button onClick={() => void changeRole(row,'tenant')} disabled={busyId !== null} className="w-full rounded-xl bg-teal-600 hover:bg-teal-700 text-white px-4 py-3 font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2"><UserCheck className="w-4 h-4" />إعادة تفعيل كمستخدم عادي</button>}
+          {!isBuildingAdmin && !row.disabled_at && row.role !== 'super_admin' && <button onClick={() => void changeRole(row,'super_admin')} disabled={busyId !== null || isSelf} className="w-full rounded-xl bg-amber-500 hover:bg-amber-600 text-white px-4 py-3 font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2"><Crown className="w-4 h-4" />تحويل إلى مدير كامل</button>}
+          {!isBuildingAdmin && !row.disabled_at && row.role === 'super_admin' && <button onClick={() => void changeRole(row,'tenant')} disabled={busyId !== null || isSelf} className="w-full rounded-xl bg-slate-700 hover:bg-slate-800 text-white px-4 py-3 font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2"><Shield className="w-4 h-4" />إرجاع إلى مستخدم عادي</button>}
+          {!isBuildingAdmin && !row.disabled_at && <button onClick={() => void disableUser(row)} disabled={busyId !== null || isSelf} className="w-full rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 px-4 py-3 font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2"><Trash2 className="w-4 h-4" />حذف / تعطيل الحساب</button>}
+          {!isBuildingAdmin && row.disabled_at && <button onClick={() => void changeRole(row,'tenant')} disabled={busyId !== null} className="w-full rounded-xl bg-teal-600 hover:bg-teal-700 text-white px-4 py-3 font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2"><UserCheck className="w-4 h-4" />إعادة تفعيل كمستخدم عادي</button>}
         </article>;
       })}
     {apartments.length === 0 && <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-xl">أضف الشقق أولًا حتى تتمكن من تخصيص حسابات السكان.</p>}
