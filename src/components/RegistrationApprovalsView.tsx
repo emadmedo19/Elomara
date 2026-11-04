@@ -26,9 +26,11 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const { userProfile } = useAuth();
   const isBuildingAdmin = userProfile?.role === 'building_admin' || userProfile?.role === 'assistant_admin';
-  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteName, setInviteName] = useState('');
+  const [invitePhone, setInvitePhone] = useState('');
   const [inviteApartmentId, setInviteApartmentId] = useState('');
   const [createdInviteCode, setCreatedInviteCode] = useState('');
+  const [whatsappInviteUrl, setWhatsappInviteUrl] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -43,25 +45,29 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
   useEffect(() => { void load(); }, [load]);
 
   const createInvite = async () => {
-    if (!inviteEmail.trim() || !inviteApartmentId || !userProfile?.buildingId) {
-      setError('اكتب البريد الإلكتروني واختار الشقة.');
-      return;
+    if (!inviteName.trim() || !invitePhone.trim() || !inviteApartmentId || !userProfile?.buildingId) {
+      setError('اكتب اسم الساكن ورقم موبايله واختار الشقة.'); return;
     }
-    setBusyId('invite'); setError(''); setNotice(''); setCreatedInviteCode('');
-    const { data, error: inviteError } = await supabase.rpc('create_building_invite', {
-      target_building_id: userProfile.buildingId,
-      target_apartment_id: inviteApartmentId,
-      target_email: inviteEmail.trim(),
+    setBusyId('invite'); setError(''); setNotice(''); setCreatedInviteCode(''); setWhatsappInviteUrl('');
+    const { data, error: inviteError } = await supabase.rpc('create_building_phone_invite', {
+      target_building_id: userProfile.buildingId, target_apartment_id: inviteApartmentId,
+      target_phone: invitePhone.trim(), target_name: inviteName.trim(),
     });
     if (inviteError) setError(inviteError.message);
     else {
-      const code = Array.isArray(data) ? data[0]?.invite_code : data?.invite_code;
-      if (code) { setCreatedInviteCode(code); setNotice('تم إنشاء الدعوة. ابعت الكود للشخص على نفس البريد المحدد.'); }
-      else setError('لم يتم استلام كود الدعوة.');
+      const result = Array.isArray(data) ? data[0] : data;
+      const code = result?.invite_code;
+      if (code) {
+        setCreatedInviteCode(code);
+        const inviteUrl = new URL(window.location.href); inviteUrl.searchParams.set('invite', code);
+        const digits = invitePhone.replace(/\\D/g, '').replace(/^0/, '20');
+        const message = 'أهلاً ' + inviteName + '، دي دعوة للانضمام إلى تطبيق العمارة.' + '\\n\\nرابط الدعوة: ' + inviteUrl.toString() + '\\nكود الدعوة: ' + code + '\\n\\nالدعوة صالحة لمدة 48 ساعة، ولازم تسجل بنفس رقم الموبايل وتؤكده لاستكمال الانضمام.';
+        setWhatsappInviteUrl('https://wa.me/' + digits + '?text=' + encodeURIComponent(message));
+        setNotice('تم إنشاء دعوة الهاتف. ابعتها للساكن على واتساب؛ ولازم يؤكد نفس الرقم قبل قبولها.');
+      } else setError('لم يتم استلام كود الدعوة.');
     }
     setBusyId(null);
   };
-
   const approve = async (id: string) => {
     const apartmentId = assignments[id];
     if (!apartmentId) { setError('اختار الشقة الأول قبل اعتماد الحساب.'); return; }
@@ -120,13 +126,14 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
       </div>
     </div>
     {isBuildingAdmin && <div className="rounded-2xl border border-teal-200 bg-white p-4 space-y-3">
-      <div><h3 className="font-bold text-slate-800">دعوة ساكن أو مالك جديد</h3><p className="mt-1 text-xs text-slate-500">الدعوة صالحة 7 أيام، ولا يمكن استخدامها إلا من البريد المحدد.</p></div>
-      <input type="email" dir="ltr" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)} placeholder="resident@example.com" className="w-full rounded-xl border border-slate-300 p-3 text-sm"/>
+      <div><h3 className="font-bold text-slate-800">دعوة ساكن أو مالك جديد</h3><p className="mt-1 text-xs text-slate-500">بالاسم ورقم الموبايل، والدعوة صالحة 48 ساعة ومخصصة لعمارة وشقة ورقم واحد.</p></div>
+      <input type="text" value={inviteName} onChange={e=>setInviteName(e.target.value)} placeholder="اسم الساكن بالكامل" className="w-full rounded-xl border border-slate-300 p-3 text-sm"/>
+      <input type="tel" inputMode="tel" dir="ltr" value={invitePhone} onChange={e=>setInvitePhone(e.target.value)} placeholder="01xxxxxxxxx" className="w-full rounded-xl border border-slate-300 p-3 text-sm"/>
       <select value={inviteApartmentId} onChange={e=>setInviteApartmentId(e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm">
         <option value="">اختار الشقة</option>{apartments.map(a=><option key={a.id} value={a.id}>شقة {a.unitNumber} — الدور {a.floor}</option>)}
       </select>
-      <button onClick={()=>void createInvite()} disabled={busyId!==null || !inviteEmail.trim() || !inviteApartmentId} className="w-full rounded-xl bg-teal-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busyId==='invite'?'جارٍ إنشاء الدعوة...':'إنشاء دعوة'}</button>
-      {createdInviteCode && <div className="rounded-xl bg-slate-50 p-3 text-sm"><p className="mb-2 font-semibold">كود الدعوة</p><code dir="ltr" className="break-all">{createdInviteCode}</code><button onClick={()=>{void navigator.clipboard?.writeText(createdInviteCode);}} className="mt-2 block text-teal-700 font-bold">نسخ الكود</button></div>}
+      <button onClick={()=>void createInvite()} disabled={busyId!==null || !inviteName.trim() || !invitePhone.trim() || !inviteApartmentId} className="w-full rounded-xl bg-teal-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busyId==="invite"?"جارٍ إنشاء الدعوة...":"إنشاء دعوة واتساب"}</button>
+      {createdInviteCode && <div className="rounded-xl bg-slate-50 p-3 text-sm space-y-2"><p className="font-semibold">كود الدعوة</p><code dir="ltr" className="block break-all">{createdInviteCode}</code><button onClick={()=>{void navigator.clipboard?.writeText(createdInviteCode);}} className="block text-teal-700 font-bold">نسخ الكود</button>{whatsappInviteUrl && <a href={whatsappInviteUrl} target="_blank" rel="noopener noreferrer" className="block rounded-xl bg-[#128C7E] px-4 py-3 text-center font-bold text-white">إرسال الدعوة على واتساب</a>}<p className="text-xs text-amber-700">قبول الدعوة يتطلب حسابًا موثقًا بنفس رقم الموبايل.</p></div>}
     </div>}
     {error && <div className="rounded-xl bg-rose-50 text-rose-700 border border-rose-200 p-3 text-sm flex gap-2"><AlertCircle className="w-5 h-5 shrink-0" />{error}</div>}
     {notice && <div className="rounded-xl bg-teal-50 text-teal-800 border border-teal-200 p-3 text-sm">{notice}</div>}
