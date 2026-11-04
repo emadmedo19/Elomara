@@ -37,7 +37,7 @@ export const LoginView: React.FC = () => {
     e.preventDefault(); clearError(); setLocalValidation(null); setSuccessMessage(null);
     if (phoneMode && !phone.trim()) return setLocalValidation('يرجى إدخال رقم الموبايل.');
     if (phoneMode && isSignUp && phoneOtpRequested) {
-      if (!/^\\d{6}$/.test(phoneOtp.trim())) return setLocalValidation('أدخل رمز التحقق المكوّن من 6 أرقام.');
+      if (!/^\d{6}$/.test(phoneOtp.trim())) return setLocalValidation('أدخل رمز التحقق المكوّن من 6 أرقام.');
       const verified = await verifyPhoneSignup(phone, phoneOtp);
       if (verified) {
         setPhoneOtpRequested(false); setPhoneOtp(''); setIsSignUp(false);
@@ -165,7 +165,7 @@ export const LoginView: React.FC = () => {
                   </div>
                   <form onSubmit={handleSubmit} className="space-y-3">
                     {phoneMode && isSignUp && phoneOtpRequested ? (
-                      <label className="fotouh-field"><span>رمز التحقق المرسل إلى {phone}</span><div><ShieldCheck/><input type="text" inputMode="numeric" autoComplete="one-time-code" dir="ltr" maxLength={6} value={phoneOtp} onChange={e=>setPhoneOtp(e.target.value.replace(/\\D/g,'').slice(0,6))} placeholder="000000"/></div></label>
+                      <label className="fotouh-field"><span>رمز التحقق المرسل إلى {phone}</span><div><ShieldCheck/><input type="text" inputMode="numeric" autoComplete="one-time-code" dir="ltr" maxLength={6} value={phoneOtp} onChange={e=>setPhoneOtp(e.target.value.replace(/\D/g,'').slice(0,6))} placeholder="000000"/></div></label>
                     ) : (
                       <>
                         {isSignUp && <label className="fotouh-field"><span>الاسم بالكامل</span><div><UserRound/><input value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="الاسم كما سيظهر في التطبيق"/></div></label>}
