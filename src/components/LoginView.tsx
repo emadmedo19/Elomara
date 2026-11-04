@@ -26,7 +26,7 @@ export const LoginView: React.FC = () => {
   const [floorsCount, setFloorsCount] = useState('');
   const [creatingBuilding, setCreatingBuilding] = useState(false);
   const [buildingError, setBuildingError] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
+  const [inviteCode, setInviteCode] = useState(() => new URLSearchParams(window.location.search).get('invite') || '');
   const [acceptingInvite, setAcceptingInvite] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,10 +96,13 @@ export const LoginView: React.FC = () => {
                 }}>
                   <div className="rounded-xl border border-teal-200 bg-teal-50 p-3 space-y-2">
                     <b className="text-sm text-teal-900">عندك كود دعوة من مدير عقار؟</b>
-                    <input value={inviteCode} onChange={e=>setInviteCode(e.target.value)} placeholder="الصق كود الدعوة هنا" className="w-full rounded-lg border border-teal-200 bg-white p-3 text-sm" dir="ltr"/>
+                    <input value={inviteCode} onChange={e=>setInviteCode(e.target.value)} placeholder="الصق كود الدعوة هنا (الهاتف أو البريد)" className="w-full rounded-lg border border-teal-200 bg-white p-3 text-sm" dir="ltr"/>
                     <button type="button" disabled={acceptingInvite || !inviteCode.trim()} onClick={async()=>{
                       setBuildingError(''); setAcceptingInvite(true);
-                      const { error } = await supabase.rpc('accept_building_invite', { target_invite_code: inviteCode.trim() });
+                      const isPhoneInvite = inviteCode.trim().startsWith('PH-');
+                      const { error } = isPhoneInvite
+                        ? await supabase.rpc('accept_building_phone_invite', { target_invite_code: inviteCode.trim() })
+                        : await supabase.rpc('accept_building_invite', { target_invite_code: inviteCode.trim() });
                       setAcceptingInvite(false);
                       if (error) setBuildingError(error.message);
                       else window.location.reload();
