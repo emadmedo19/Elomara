@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import {
   Lock, Mail, Eye, EyeOff, LogIn, ShieldCheck, AlertCircle, CheckCircle2,
@@ -19,6 +20,14 @@ export const LoginView: React.FC = () => {
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [localValidation, setLocalValidation] = useState<string | null>(null);
+  const [buildingName, setBuildingName] = useState('');
+  const [buildingAddress, setBuildingAddress] = useState('');
+  const [unitsCount, setUnitsCount] = useState('');
+  const [floorsCount, setFloorsCount] = useState('');
+  const [creatingBuilding, setCreatingBuilding] = useState(false);
+  const [buildingError, setBuildingError] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [acceptingInvite, setAcceptingInvite] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); clearError(); setLocalValidation(null); setSuccessMessage(null);
@@ -69,8 +78,44 @@ export const LoginView: React.FC = () => {
           {user && !isAdmin ? (
             <div className="space-y-5 py-4 text-center">
               <div className="fotouh-login-card-icon"><ShieldCheck className="h-8 w-8"/></div>
-              <h2>تم تسجيل حسابك بنجاح</h2>
-              <p className="leading-8 text-slate-500">{userProfile?.status === 'suspended' ? 'الحساب موقوف حاليًا. تواصل مع إدارة العقار.' : userProfile?.status === 'active' ? 'تم اعتماد حسابك، لكن لم يتم ربط حسابك بعمارة وشقة حتى الآن. تواصل مع المدير.' : 'حسابك في انتظار موافقة مدير العقار. هتقدر تستخدم التطبيق فور اعتماد الحساب.'}</p>
+              <h2>{userProfile?.role === 'pending' && userProfile?.status === 'pending' ? 'أنشئ عقارك وابدأ الإدارة' : 'تم تسجيل حسابك بنجاح'}</h2>
+              {userProfile?.role === 'pending' && userProfile?.status === 'pending' ? (
+                <form className="space-y-3 text-right" onSubmit={async (e) => {
+                  e.preventDefault(); setBuildingError('');
+                  if (!buildingName.trim()) { setBuildingError('اكتب اسم العقار أولاً.'); return; }
+                  setCreatingBuilding(true);
+                  const { error } = await supabase.rpc('create_building_for_current_user', {
+                    building_name: buildingName.trim(),
+                    building_address: buildingAddress.trim(),
+                    units_count: Math.max(0, Number(unitsCount) || 0),
+                    floors_count: floorsCount.trim() ? Math.max(0, Number(floorsCount) || 0) : null,
+                  });
+                  setCreatingBuilding(false);
+                  if (error) setBuildingError(error.message);
+                  else window.location.reload();
+                }}>
+                  <div className="rounded-xl border border-teal-200 bg-teal-50 p-3 space-y-2">
+                    <b className="text-sm text-teal-900">عندك كود دعوة من مدير عقار؟</b>
+                    <input value={inviteCode} onChange={e=>setInviteCode(e.target.value)} placeholder="الصق كود الدعوة هنا" className="w-full rounded-lg border border-teal-200 bg-white p-3 text-sm" dir="ltr"/>
+                    <button type="button" disabled={acceptingInvite || !inviteCode.trim()} onClick={async()=>{
+                      setBuildingError(''); setAcceptingInvite(true);
+                      const { error } = await supabase.rpc('accept_building_invite', { target_invite_code: inviteCode.trim() });
+                      setAcceptingInvite(false);
+                      if (error) setBuildingError(error.message);
+                      else window.location.reload();
+                    }} className="w-full rounded-lg bg-teal-700 p-3 text-sm font-bold text-white disabled:opacity-50">{acceptingInvite ? 'جارٍ قبول الدعوة...' : 'قبول الدعوة والانضمام للعقار'}</button>
+                  </div>
+                  <p className="text-sm leading-7 text-slate-500">أو أنشئ عقارك الخاص. حسابك هيكون مدير العقار، وبياناته وأعضاؤه هيبقوا منفصلين عن باقي العقارات.</p>
+                  <label className="fotouh-field"><span>اسم العقار</span><div><Building2/><input value={buildingName} onChange={e=>setBuildingName(e.target.value)} placeholder="مثال: عمارة النخيل" required /></div></label>
+                  <label className="fotouh-field"><span>العنوان</span><div><Building2/><input value={buildingAddress} onChange={e=>setBuildingAddress(e.target.value)} placeholder="المنطقة والشارع" /></div></label>
+                  <label className="fotouh-field"><span>عدد الوحدات</span><div><Users/><input type="number" min="0" value={unitsCount} onChange={e=>setUnitsCount(e.target.value)} placeholder="عدد الشقق" /></div></label>
+                  <label className="fotouh-field"><span>عدد الأدوار</span><div><Building2/><input type="number" min="0" value={floorsCount} onChange={e=>setFloorsCount(e.target.value)} placeholder="اختياري" /></div></label>
+                  {buildingError && <p className="fotouh-message error"><AlertCircle/>{buildingError}</p>}
+                  <button type="submit" disabled={creatingBuilding} className="fotouh-primary-button w-full">{creatingBuilding ? 'جارٍ إنشاء العقار...' : 'إنشاء العقار وفتح لوحة الإدارة'}</button>
+                </form>
+              ) : (
+                <p className="leading-8 text-slate-500">{userProfile?.status === 'suspended' ? 'الحساب موقوف حاليًا. تواصل مع إدارة العقار.' : userProfile?.status === 'active' ? 'تم اعتماد حسابك، لكن لم يتم ربط حسابك بعمارة وشقة حتى الآن. تواصل مع المدير.' : 'حسابك في انتظار موافقة مدير العقار أو دعوة للانضمام إلى عقار.'}</p>
+              )}
               <p className="text-xs text-slate-400" dir="ltr">{user.email}</p>
               <button onClick={signOut} className="fotouh-primary-button w-full">تسجيل الخروج</button>
             </div>
