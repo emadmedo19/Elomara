@@ -333,8 +333,11 @@ set search_path = ''
 as $function$
 declare
   target_building_id uuid;
+  target_is_owner boolean;
+  target_email_confirmed_at timestamptz;
 begin
-  select a.building_id into target_building_id
+  select a.building_id, a.is_owner
+    into target_building_id, target_is_owner
   from public.apartments a
   where a.id = target_apartment_id;
 
@@ -346,8 +349,14 @@ begin
     raise exception 'Not authorized to approve users for this building';
   end if;
 
+  select u.email_confirmed_at into target_email_confirmed_at
+  from auth.users u where u.id = target_user_id;
+  if target_email_confirmed_at is null then
+    raise exception 'The resident must confirm their email before approval';
+  end if;
+
   update public.profiles
-  set role = 'tenant',
+  set role = case when coalesce(target_is_owner, false) then 'owner' else 'tenant' end,
       approved = true,
       building_id = target_building_id,
       apartment_id = target_apartment_id,
