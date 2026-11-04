@@ -11,7 +11,7 @@ export interface UserProfile {
   uid: string;
   email: string | null;
   displayName: string | null;
-  role: 'super_admin' | 'assistant_admin' | 'owner' | 'tenant' | 'pending';
+  role: 'super_admin' | 'assistant_admin' | 'building_admin' | 'owner' | 'tenant' | 'pending';
   apartmentId?: string;
   buildingId?: string;
   phone?: string;
@@ -80,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         status: data.approved || data.role === 'super_admin' || data.role === 'assistant_admin' ? 'active' : 'pending',
       } : null;
       setUserProfile(profile); setRole(profile?.role ?? null);
-      const admin = profile?.role === 'super_admin' || profile?.role === 'assistant_admin';
+      const admin = profile?.role === 'super_admin' || profile?.role === 'assistant_admin' || profile?.role === 'building_admin';
       setIsAdmin(Boolean(admin && profile?.status === 'active'));
       setIsSuperAdmin(profile?.role === 'super_admin');
     } catch (error) {
