@@ -144,7 +144,7 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
         const isSelf = row.user_id === currentUserId;
         return <article key={row.user_id} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-sm">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0"><UserRound className="w-8 h-8 text-slate-500 shrink-0" /><div className="min-w-0"><b>{row.full_name || 'مستخدم جديد'}</b><p className="text-sm text-slate-500 break-all" dir="ltr">{row.email}</p><p className="text-xs text-slate-400 mt-1">تاريخ التسجيل: {new Date(row.registered_at).toLocaleDateString('ar-EG')}</p></div></div>
+            <div className="flex items-center gap-3 min-w-0"><UserRound className="w-8 h-8 text-slate-500 shrink-0" /><div className="min-w-0"><b>{row.full_name || 'مستخدم جديد'}</b><p className="text-sm text-slate-500 break-all" dir="ltr">{(row.email?.startsWith('resident-') ? 'حساب برقم الموبايل' : row.email || '')}</p><p className="text-xs text-slate-400 mt-1">تاريخ التسجيل: {new Date(row.registered_at).toLocaleDateString('ar-EG')}</p></div></div>
             <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${row.disabled_at ? 'bg-rose-100 text-rose-700' : row.role === 'super_admin' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>{roleLabel(row)}</span>
           </div>
           {isPending && <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 space-y-2">
