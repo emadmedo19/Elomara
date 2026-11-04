@@ -27,7 +27,7 @@ interface AuthContextType {
   authError: string | null;
   signUpWithEmail: (email: string, pass: string, fullName: string) => Promise<boolean>;
   resendSignupConfirmation: (email: string) => Promise<boolean>;
-  signInWithEmail: (email: string, pass: string) => Promise<void>;
+  signInWithEmail: (email: string, pass: string) => Promise<void>;\n  signUpWithPhone: (phone: string, pass: string, fullName: string) => Promise<boolean>;\n  signInWithPhone: (phone: string, pass: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
@@ -202,6 +202,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error) { setAuthError(friendlyError(error)); setIsLoading(false); }
   };
 
+  const normalizePhoneForAuth = (value: string) => {
+    const digits = value.replace(/\\D/g, '');
+    if (/^01[0125]\\d{8}$/.test(digits)) return '+2' + digits;
+    if (/^201[0125]\\d{8}$/.test(digits)) return '+' + digits;
+    if (/^00201[0125]\\d{8}$/.test(digits)) return '+' + digits.slice(2);
+    throw new Error('أدخل رقم موبايل مصري صحيح.');
+  };
+  const phoneAlias = async (phone: string) => {
+    const normalized = normalizePhoneForAuth(phone);
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(normalized));
+    const hash = [...new Uint8Array(digest)].map(x => x.toString(16).padStart(2, '0')).join('');
+    return 'resident-' + hash + '@accounts.elomara.invalid';
+  };
+  const signUpWithPhone = async (phone: string, password: string, fullName: string): Promise<boolean> => {
+    setAuthError(null); setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('phone-account', {
+        body: { phone, password, fullName },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setIsLoading(false);
+      return true;
+    } catch (error) {
+      setAuthError(friendlyError(error)); setIsLoading(false); return false;
+    }
+  };
+  const signInWithPhone = async (phone: string, password: string) => {
+    setAuthError(null); setIsLoading(true);
+    try {
+      const email = await phoneAlias(phone);
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    } catch (error) { setAuthError(friendlyError(error)); setIsLoading(false); }
+  };
+
   const signInWithGoogle = async () => {
     setAuthError(null);
     setIsLoading(true);
@@ -230,7 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null); setUserProfile(null); setRole(null); setIsAdmin(false); setIsSuperAdmin(false);
   };
   return <AuthContext.Provider value={{ user, userProfile, role, isAdmin, isSuperAdmin, isLoading, authError,
-    signUpWithEmail, resendSignupConfirmation, signInWithEmail, signInWithGoogle, signOut, clearError: () => setAuthError(null) }}>
+    signUpWithEmail, resendSignupConfirmation, signInWithEmail, signUpWithPhone, signInWithPhone, signInWithGoogle, signOut, clearError: () => setAuthError(null) }}>
     {children}
   </AuthContext.Provider>;
 };
