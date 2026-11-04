@@ -441,7 +441,8 @@ begin
        where building_id = p_building_id
        group by apartment_id
     ) p on p.apartment_id = a.id
-   where a.building_id = p_building_id;
+   where a.building_id = p_building_id
+     and (v_profile.role in ('super_admin','assistant_admin','building_admin') or a.id = v_profile.apartment_id);
 
   select coalesce(sum(greatest(
       (a.monthly_fee * greatest(coalesce(a.overdue_months,0),1))
@@ -455,7 +456,8 @@ begin
        where building_id = p_building_id
        group by apartment_id
     ) p on p.apartment_id = a.id
-   where a.building_id = p_building_id;
+   where a.building_id = p_building_id
+     and (v_profile.role in ('super_admin','assistant_admin','building_admin') or a.id = v_profile.apartment_id);
 
   select coalesce(jsonb_agg(jsonb_build_object(
       'month', to_char(m.month_start,'YYYY-MM'),
