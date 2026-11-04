@@ -128,7 +128,7 @@ export const LoginView: React.FC = () => {
               ) : (
                 <p className="leading-8 text-slate-500">{userProfile?.status === 'suspended' ? 'الحساب موقوف حاليًا. تواصل مع إدارة العقار.' : userProfile?.status === 'active' ? 'تم اعتماد حسابك، لكن لم يتم ربط حسابك بعمارة وشقة حتى الآن. تواصل مع المدير.' : 'حسابك في انتظار موافقة مدير العقار أو دعوة للانضمام إلى عقار.'}</p>
               )}
-              <p className="text-xs text-slate-400" dir="ltr">{user.email}</p>
+              <p className="text-xs text-slate-400" dir="ltr">{userProfile?.phone || (user.email?.startsWith('resident-') ? 'حساب برقم الموبايل' : user.email)}</p>
               <button onClick={signOut} className="fotouh-primary-button w-full">تسجيل الخروج</button>
             </div>
           ) : (
@@ -171,8 +171,8 @@ export const LoginView: React.FC = () => {
               <div className="fotouh-login-help">
                 <strong>كيف يعمل الوصول؟</strong>
                 <ul>
-                  <li>الحساب الجديد يبدأ بتأكيد البريد الإلكتروني.</li>
-                  <li>بعد تأكيد البريد، يمكنك إنشاء عقار جديد وتصبح مديره أو قبول دعوة للانضمام.</li>
+                  <li>يمكنك إنشاء حساب بالبريد الإلكتروني مع تأكيده، أو برقم الموبايل وكلمة مرور دون رسالة SMS.</li>
+                  <li>بعد تسجيل الدخول، يمكنك إنشاء عقار جديد وتصبح مديره أو قبول دعوة للانضمام باستخدام نفس رقم الموبايل أو البريد المدعو.</li>
                   <li>كل مدير يرى بيانات عقاره فقط، ولا يمكنه الوصول إلى بيانات العقارات الأخرى.</li>
                 </ul>
               </div>
