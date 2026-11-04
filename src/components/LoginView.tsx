@@ -37,7 +37,7 @@ export const LoginView: React.FC = () => {
     if (isSignUp && !fullName.trim()) return setLocalValidation('يرجى إدخال الاسم بالكامل.');
     if (isSignUp) {
       const created = await signUpWithEmail(email, password, fullName);
-      if (created) setSuccessMessage('تم إرسال طلب إنشاء الحساب. راجع بريدك الإلكتروني ثم انتظر موافقة إدارة العقار.');
+      if (created) setSuccessMessage('تم إنشاء الحساب. أكّد بريدك الإلكتروني، وبعدها سجّل الدخول لإنشاء عقارك وإدارة العمارة بنفسك.');
     } else await signInWithEmail(email, password);
   };
   const switchMode = (signup: boolean) => {
@@ -163,7 +163,7 @@ export const LoginView: React.FC = () => {
                   <li>كل مدير يرى بيانات عقاره فقط، ولا يمكنه الوصول إلى بيانات العقارات الأخرى.</li>
                 </ul>
               </div>
-              <p className="fotouh-login-footnote"><ShieldCheck/> الحسابات الجديدة تنتظر موافقة إدارة العقار قبل الدخول.</p>
+              <p className="fotouh-login-footnote"><ShieldCheck/> بعد تأكيد البريد، أنشئ عقارك لتصبح مديره أو استخدم كود دعوة للانضمام إلى عقار قائم.</p>
             </>
           )}
         </div>
