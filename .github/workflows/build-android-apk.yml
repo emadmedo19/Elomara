@@ -7,6 +7,7 @@ on:
       - migration/supabase-backend
       - ui-redesign-v2
       - feature/multi-tenant-buildings
+      - fix/resident-portal-mobile-layout
   workflow_dispatch:
 
 permissions:

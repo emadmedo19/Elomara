@@ -527,3 +527,110 @@ body { background: var(--fotouh-page); color: #263c43; }
   width:22px !important;
   height:22px !important;
 }
+
+
+/* Resident portal mobile overflow + fixed bottom navigation repair */
+.fotouh-portal {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+  box-sizing: border-box;
+}
+.fotouh-portal,
+.fotouh-portal *,
+.fotouh-portal *::before,
+.fotouh-portal *::after {
+  box-sizing: border-box;
+}
+.fotouh-portal > header,
+.fotouh-portal > main {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.fotouh-portal > header > div:first-child {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.fotouh-portal main {
+  min-width: 0;
+  overflow-x: clip;
+}
+.fotouh-portal main > section,
+.fotouh-portal main > section > *,
+.fotouh-portal main .grid > *,
+.fotouh-portal main article,
+.fotouh-portal main form {
+  min-width: 0;
+  max-width: 100%;
+}
+/* Resident email addresses and other long unbroken values must wrap, not widen the page. */
+.fotouh-portal main h2,
+.fotouh-portal main h3,
+.fotouh-portal main p,
+.fotouh-portal main b,
+.fotouh-portal main strong,
+.fotouh-portal main span,
+.fotouh-portal main a {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+.fotouh-portal .resident-bottom-nav {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 50;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding-top: 6px;
+  padding-left: max(8px, env(safe-area-inset-left));
+  padding-right: max(8px, env(safe-area-inset-right));
+  box-sizing: border-box;
+}
+.fotouh-portal .resident-bottom-nav > div:not([role="menu"]) {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+  max-width: 560px;
+  min-width: 0;
+  margin-inline: auto;
+  gap: 4px;
+  padding: 4px 0 2px;
+}
+.fotouh-portal .resident-bottom-nav > div > button {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  padding-inline: 2px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.fotouh-portal .resident-bottom-nav > div > button svg {
+  flex: 0 0 auto;
+}
+@media (max-width: 640px) {
+  .fotouh-portal > header > div:first-child {
+    padding-inline: 12px;
+  }
+  .fotouh-portal main {
+    padding-inline: 12px !important;
+    padding-bottom: calc(108px + env(safe-area-inset-bottom)) !important;
+  }
+  .fotouh-portal main h2 {
+    font-size: clamp(1.05rem, 5vw, 1.5rem);
+    line-height: 1.55;
+  }
+  .fotouh-portal .resident-bottom-nav > div:not([role="menu"]) {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    padding-inline: 0 !important;
+  }
+  .fotouh-portal .resident-bottom-nav > div > button {
+    min-height: 54px;
+    gap: 3px;
+    font-size: 10px;
+    line-height: 1.35;
+  }
+}
