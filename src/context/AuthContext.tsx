@@ -68,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (bootstrapError) console.warn('First-admin bootstrap unavailable:', bootstrapError.message);
       }
       const { data, error } = await supabase.from('profiles')
-        .select('id, full_name, phone, role, building_id, apartment_id, approved')
+        .select('id, full_name, phone, role, building_id, apartment_id, approved, disabled_at')
         .eq('id', currentUser.id).maybeSingle();
       if (error) throw error;
       const profile: UserProfile | null = data ? {
@@ -77,7 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: data.role as UserProfile['role'],
         buildingId: data.building_id || undefined, apartmentId: data.apartment_id || undefined,
         phone: data.phone || undefined,
-        status: data.approved || data.role === 'super_admin' || data.role === 'assistant_admin' ? 'active' : 'pending',
+        status: data.disabled_at ? 'suspended' : (data.approved || data.role === 'super_admin' || data.role === 'assistant_admin') ? 'active' : 'pending',
       } : null;
       setUserProfile(profile); setRole(profile?.role ?? null);
       const admin = profile?.role === 'super_admin' || profile?.role === 'assistant_admin' || profile?.role === 'building_admin';
