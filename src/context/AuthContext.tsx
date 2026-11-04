@@ -148,8 +148,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (active) window.setTimeout(() => { if (active) void loadProfile(session?.user ?? null); }, 0);
     }).catch(error => { if (active) { setAuthError(friendlyError(error)); setIsLoading(false); } });
+    // Keep Supabase's auth callback synchronous. Calling Supabase APIs
+    // (profile queries / RPCs) directly while the auth lock is held can
+    // deadlock during native OAuth deep-link completion.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) void loadProfile(session?.user ?? null);
+      if (!active) return;
+      const nextUser = session?.user ?? null;
+      window.setTimeout(() => {
+        if (active) void loadProfile(nextUser);
+      }, 0);
     });
     return () => {
       active = false;
