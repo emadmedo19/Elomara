@@ -113,6 +113,13 @@ export const LoginView: React.FC = () => {
               <h2 className="text-xl font-bold">تم إنشاء العمارة بنجاح</h2>
               <p className="text-sm text-slate-500">جارٍ تجهيز لوحة الإدارة...</p>
             </div>
+          ) : !userProfile ? (
+            <div className="space-y-4 py-6 text-center">
+              <div className="fotouh-login-card-icon"><AlertCircle className="h-8 w-8"/></div>
+              <h2 className="text-xl font-bold">تعذر تحميل بيانات الحساب</h2>
+              <p className="text-sm leading-7 text-slate-500">{authError || 'لم يتم العثور على ملف حسابك. سجّل الخروج ثم حاول الدخول مرة أخرى.'}</p>
+              <button onClick={signOut} className="fotouh-primary-button w-full"><LogOut className="h-4 w-4"/> تسجيل الخروج</button>
+            </div>
           ) : userProfile?.status === 'suspended' ? (
             <div className="space-y-4 py-6 text-center">
               <AlertCircle className="mx-auto h-12 w-12 text-rose-600"/>
