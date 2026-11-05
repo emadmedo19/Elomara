@@ -83,7 +83,7 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
 
     try {
       if (document.fonts?.ready) await document.fonts.ready;
-      await NativePrinter.printWebView({ name: `كشف حساب ${building.name || 'برج الفتوح'}` });
+      await NativePrinter.printWebView({ name: `كشف حساب ${building.name || 'العمارة'}` });
     } catch (error) {
       console.error('Native printing failed:', error);
       setPdfError('تعذر فتح شاشة الطباعة. تأكد من تثبيت خدمة الطباعة على الهاتف ثم حاول مرة أخرى.');
