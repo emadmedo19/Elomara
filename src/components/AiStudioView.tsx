@@ -84,7 +84,6 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
 
   // Pinned state feedback
   const [isPinned, setIsPinned] = useState(false);
-  const [showGenerator, setShowGenerator] = useState(false);
 
   // Pre-set building templates
   const templates = [
@@ -165,7 +164,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
             <span className="rounded-xl bg-teal-50 p-2 text-teal-700"><Megaphone className="h-5 w-5" /></span>
             <div><h2 className="text-sm font-black text-slate-900">قائمة إعلانات العمارة</h2><p className="text-[11px] text-slate-500">الإعلانات المنشورة على لوحة السكان</p></div>
           </div>
-          <button type="button" onClick={() => { setShowGenerator(true); document.getElementById('announcement-generator')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} className="shrink-0 rounded-xl bg-[#0f2537] px-3 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#1a3852]">＋ توليد نموذج جاهز</button>
+          <button type="button" onClick={() => { document.getElementById('announcement-generator')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} className="shrink-0 rounded-xl bg-[#0f2537] px-3 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#1a3852]">＋ توليد نموذج جاهز</button>
         </div>
         {announcements.length ? <div className="space-y-2">
           {announcements.map(item => <article key={item.id} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
@@ -198,7 +197,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
       </div>
 
       {/* Main Two-Column Studio Canvas */}
-      <div id="announcement-generator" className={`grid grid-cols-1 lg:grid-cols-12 gap-5 ${showGenerator ? '' : ''}`}>
+      <div id="announcement-generator" className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Left Column: Prompting & Configuration */}
         <div className="lg:col-span-5 space-y-4">
           {/* Creation Mode Switcher */}
