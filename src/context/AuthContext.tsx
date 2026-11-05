@@ -20,7 +20,6 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   role: UserProfile['role'] | null;
   isAdmin: boolean;
-  isSuperAdmin: boolean;
   isLoading: boolean;
   authError: string | null;
   signInWithGoogle: () => Promise<void>;
@@ -42,14 +41,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [role, setRole] = useState<UserProfile['role'] | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
   const loadProfile = async (currentUser: User | null) => {
     setUser(currentUser);
     if (!currentUser) {
-      setUserProfile(null); setRole(null); setIsAdmin(false); setIsSuperAdmin(false); setIsLoading(false);
+      setUserProfile(null); setRole(null); setIsAdmin(false); setIsLoading(false);
       return;
     }
     setIsLoading(true);
@@ -69,10 +67,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserProfile(profile); setRole(profile?.role ?? null);
       const admin = profile?.role === 'building_admin';
       setIsAdmin(Boolean(admin && profile?.status === 'active'));
-      setIsSuperAdmin(false);
     } catch (error) {
       console.error('Supabase profile loading failed:', error);
-      setUserProfile(null); setRole(null); setIsAdmin(false); setIsSuperAdmin(false);
+      setUserProfile(null); setRole(null); setIsAdmin(false);
       setAuthError('تم تسجيل الدخول لكن تعذر تحميل صلاحيات الحساب. راجع إعدادات Supabase.');
     } finally { setIsLoading(false); }
   };
@@ -170,7 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthError(null);
     const { error } = await supabase.auth.signOut();
     if (error) setAuthError(friendlyError(error));
-    setUser(null); setUserProfile(null); setRole(null); setIsAdmin(false); setIsSuperAdmin(false);
+    setUser(null); setUserProfile(null); setRole(null); setIsAdmin(false);
   };
   return <AuthContext.Provider value={{ user, userProfile, role, isAdmin, isSuperAdmin, isLoading, authError,
     signInWithGoogle, signOut, clearError: () => setAuthError(null) }}>
