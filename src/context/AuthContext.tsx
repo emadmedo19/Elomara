@@ -23,9 +23,6 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   isLoading: boolean;
   authError: string | null;
-  signUpWithEmail: (email: string, pass: string, fullName: string) => Promise<boolean>;
-  resendSignupConfirmation: (email: string) => Promise<boolean>;
-  signInWithEmail: (email: string, pass: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
@@ -37,10 +34,6 @@ const getAuthRedirectUrl = () => Capacitor.isNativePlatform()
 
 const friendlyError = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
-  if (message.includes('Invalid login credentials')) return 'بيانات الدخول غير صحيحة.';
-  if (message.includes('Email not confirmed')) return 'أكد بريدك الإلكتروني من رسالة التفعيل أولاً.';
-  if (message.includes('User already registered')) return 'البريد الإلكتروني مسجل بالفعل. جرّب تسجيل الدخول.';
-  if (message.toLowerCase().includes('password should be at least')) return 'كلمة المرور يجب ألا تقل عن 6 أحرف.';
   return message || 'حصل خطأ غير متوقع. حاول مرة أخرى.';
 };
 
@@ -152,40 +145,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const signUpWithEmail = async (email: string, password: string, fullName: string): Promise<boolean> => {
-    setAuthError(null); setIsLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: { data: { full_name: fullName.trim() } },
-    });
-    if (error) { setAuthError(friendlyError(error)); setIsLoading(false); return false; }
-    setIsLoading(false);
-    return true;
-  };
-
-  const resendSignupConfirmation = async (email: string): Promise<boolean> => {
-    setAuthError(null); setIsLoading(true);
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email: email.trim(),
-      options: { emailRedirectTo: getAuthRedirectUrl() },
-    });
-    if (error) {
-      setAuthError(friendlyError(error));
-      setIsLoading(false);
-      return false;
-    }
-    setIsLoading(false);
-    return true;
-  };
-
-  const signInWithEmail = async (email: string, password: string) => {
-    setAuthError(null); setIsLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    if (error) { setAuthError(friendlyError(error)); setIsLoading(false); }
-  };
-
   const signInWithGoogle = async () => {
     setAuthError(null);
     setIsLoading(true);
@@ -214,7 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null); setUserProfile(null); setRole(null); setIsAdmin(false); setIsSuperAdmin(false);
   };
   return <AuthContext.Provider value={{ user, userProfile, role, isAdmin, isSuperAdmin, isLoading, authError,
-    signUpWithEmail, resendSignupConfirmation, signInWithEmail, signInWithGoogle, signOut, clearError: () => setAuthError(null) }}>
+    signInWithGoogle, signOut, clearError: () => setAuthError(null) }}>
     {children}
   </AuthContext.Provider>;
 };
