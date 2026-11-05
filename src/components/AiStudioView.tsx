@@ -3,7 +3,7 @@ import { Announcement } from '../types';
 import { supabase } from '../lib/supabase';
 import { 
   Sparkles, Image as ImageIcon, Wand2, Download, Pin, 
-  RefreshCw, Check, AlertCircle, Layers, Palette
+  RefreshCw, Check, AlertCircle, Layers, Palette, Trash2, Megaphone
 } from 'lucide-react';
 
 const escapeXml = (value: string) => value.replace(/[&<>"']/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[ch] || ch));
@@ -61,12 +61,16 @@ const buildAnnouncementPoster = (prompt: string, buildingName: string, aspectRat
 
 interface AiStudioViewProps {
   buildingName: string;
+  announcements: Announcement[];
   onPinAnnouncement: (announcement: Omit<Announcement, 'id'>) => Promise<boolean>;
+  onDeleteAnnouncement: (announcementId: string) => Promise<void>;
 }
 
 export const AiStudioView: React.FC<AiStudioViewProps> = ({
   buildingName,
+  announcements,
   onPinAnnouncement,
+  onDeleteAnnouncement,
 }) => {
   const [prompt, setPrompt] = useState(
     'تصميم لوحة إعلان رسمية أنيقة لعمارة سكنية: تنبيه موعد الصيانة الدورية للمصعد غداً الأربعاء، ألوان كحلية وذهبية فاخرة، خط عربي واضح'
@@ -80,29 +84,18 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
 
   // Pinned state feedback
   const [isPinned, setIsPinned] = useState(false);
+  const [showGenerator, setShowGenerator] = useState(false);
 
   // Pre-set building templates
   const templates = [
-    {
-      title: 'صيانة المصعد الدورية',
-      prompt: 'تصميم لوحة إعلان رسمية فاخرة: تنبيه بموعد الصيانة الدورية لمصعد عمارة سكنية راقية، أيقونة مصعد، ألوان كحلية وبيضاء راقية مع شريط تحذيري ذهبي',
-      aspectRatio: '1:1',
-    },
-    {
-      title: 'نظافة المداخل والممرات',
-      prompt: 'ملصق توعوي وإرشادي لنظافة مدخل عمارة سكنية وممرات السلالم، أسلوب عصري أنيق، تصميم احترافي بألوان خضراء وكحلية هادئة',
-      aspectRatio: '3:4',
-    },
-    {
-      title: 'تنظيم مواقف السيارات بالجراج',
-      prompt: 'لوحة إرشادية لموقف سيارات عمارة سكنية: الالتزام بالأماكن المخصصة لكل شقة وعدم الوقوف في الممرات، تصميم حديث واضح',
-      aspectRatio: '16:9',
-    },
-    {
-      title: 'دعوة الجمعية العمومية للملاك',
-      prompt: 'تصميم بطاقة دعوة رسمية فاخرة لحضور اجتماع الجمعية العمومية السنوية لاتحاد شاغلي العقار، طابع مؤسسي مميز',
-      aspectRatio: '1:1',
-    },
+    { title: 'صيانة المصعد الدورية', prompt: 'نحيط السادة السكان علماً بأنه سيتم إجراء أعمال الصيانة الدورية للمصعد يوم [التاريخ] من الساعة [الوقت]. ونرجو اتخاذ الاحتياطات اللازمة خلال فترة الصيانة. شكراً لتعاونكم.', aspectRatio: '1:1' },
+    { title: 'انقطاع المياه', prompt: 'تنويه للسادة السكان: سيتم قطع المياه يوم [التاريخ] من الساعة [الوقت] وحتى [الوقت]، وذلك لإجراء أعمال الصيانة اللازمة. نرجو تدبير احتياجاتكم مسبقاً. شكراً لتعاونكم.', aspectRatio: '3:4' },
+    { title: 'انقطاع الكهرباء', prompt: 'إخطار هام: سيتم فصل التيار الكهربائي عن العقار يوم [التاريخ] من الساعة [الوقت] لإجراء أعمال الصيانة. يرجى فصل الأجهزة الكهربائية قبل الموعد. إدارة العمارة.', aspectRatio: '1:1' },
+    { title: 'نظافة المداخل والممرات', prompt: 'السادة السكان، نرجو المحافظة على نظافة مدخل العمارة والسلالم والممرات، وعدم ترك القمامة أو المتعلقات الشخصية في الأماكن المشتركة. نظافة العمارة مسؤولية الجميع.', aspectRatio: '3:4' },
+    { title: 'تنظيم مواقف الجراج', prompt: 'تنبيه للسادة السكان: يرجى الالتزام بالأماكن المخصصة لانتظار السيارات وعدم إعاقة الممرات أو مداخل الجراج، حفاظاً على سهولة الحركة وحقوق جميع السكان.', aspectRatio: '16:9' },
+    { title: 'اجتماع السكان', prompt: 'دعوة للسادة الملاك والسكان لحضور اجتماع العمارة يوم [التاريخ] الساعة [الوقت] في [المكان]، لمناقشة الأمور المشتركة وخطة الصيانة والخدمات. حضوركم مهم.', aspectRatio: '1:1' },
+    { title: 'تذكير بسداد الاشتراك', prompt: 'السادة السكان، نرجو التكرم بسداد الاشتراك الشهري عن شهر [الشهر] في موعد أقصاه [التاريخ]، للمساعدة في انتظام خدمات العمارة وسداد الالتزامات. شكراً لتعاونكم.', aspectRatio: '1:1' },
+    { title: 'تعليمات الهدوء', prompt: 'حرصاً على راحة الجميع، نرجو تجنب الضوضاء والأصوات المرتفعة، خاصة خلال أوقات الراحة من [الوقت] إلى [الوقت]. نشكر لكم حسن تعاونكم.', aspectRatio: '3:4' },
   ];
 
   const handleGenerate = async (customPrompt?: string) => {
@@ -166,6 +159,22 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
 
   return (
     <div className="space-y-4">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" dir="rtl">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="rounded-xl bg-teal-50 p-2 text-teal-700"><Megaphone className="h-5 w-5" /></span>
+            <div><h2 className="text-sm font-black text-slate-900">قائمة إعلانات العمارة</h2><p className="text-[11px] text-slate-500">الإعلانات المنشورة على لوحة السكان</p></div>
+          </div>
+          <button type="button" onClick={() => { setShowGenerator(true); document.getElementById('announcement-generator')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} className="shrink-0 rounded-xl bg-[#0f2537] px-3 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#1a3852]">＋ توليد نموذج جاهز</button>
+        </div>
+        {announcements.length ? <div className="space-y-2">
+          {announcements.map(item => <article key={item.id} className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+            {item.imageUrl ? <img src={item.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg border border-slate-200 object-cover" /> : <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-white text-teal-700"><Megaphone className="h-5 w-5" /></span>}
+            <div className="min-w-0 flex-1"><h3 className="truncate text-xs font-extrabold text-slate-800">{item.title}</h3><p className="mt-1 line-clamp-2 text-[11px] text-slate-500">{item.content}</p><time className="mt-1 block text-[10px] text-slate-400">{item.date ? new Date(item.date).toLocaleDateString('ar-EG') : ''}</time></div>
+            <button type="button" onClick={() => void onDeleteAnnouncement(item.id)} aria-label="حذف الإعلان" title="حذف الإعلان" className="rounded-lg p-2 text-rose-600 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button>
+          </article>)}
+        </div> : <p className="rounded-xl bg-slate-50 px-3 py-5 text-center text-xs text-slate-500">لا توجد إعلانات منشورة حتى الآن. ابدأ بتوليد أول نموذج جاهز.</p>}
+      </section>
       {/* Header Banner */}
       <div className="bg-gradient-to-l from-[#0f2537] via-[#1a3852] to-[#00668b] p-5 rounded-2xl text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -189,7 +198,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
       </div>
 
       {/* Main Two-Column Studio Canvas */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div id="announcement-generator" className={`grid grid-cols-1 lg:grid-cols-12 gap-5 ${showGenerator ? '' : ''}`}>
         {/* Left Column: Prompting & Configuration */}
         <div className="lg:col-span-5 space-y-4">
           {/* Creation Mode Switcher */}
