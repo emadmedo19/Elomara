@@ -1396,7 +1396,9 @@ export default function App() {
           {currentTab === 'image-studio' && (
             <AiStudioView
               buildingName={currentBuilding.name}
+              announcements={announcements.filter(item => !item.buildingId || item.buildingId === currentBuilding.id)}
               onPinAnnouncement={handlePinAnnouncement}
+              onDeleteAnnouncement={handleDeleteAnnouncement}
             />
           )}
         </main>
