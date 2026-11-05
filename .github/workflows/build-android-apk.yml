@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - migration/multi-tenant-isolation
+      - fix/auth-bootstrap-403-nov05
     tags:
       - 'apk-v*'
   workflow_dispatch:
