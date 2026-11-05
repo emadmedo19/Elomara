@@ -40,37 +40,8 @@ import { Capacitor } from '@capacitor/core';
 import { LiveUpdate } from '@capawesome/capacitor-live-update';
 
 export default function App() {
-  // OTA updates: mark the current bundle healthy, then stage a compatible web update.
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    let cancelled = false;
-    const checkForLiveUpdate = async () => {
-      try {
-        await LiveUpdate.ready();
-        const manifestUrl = 'https://yvoylicirtdarroqcxoq.supabase.co/storage/v1/object/public/bunyan-ota/latest.json';
-        const response = await fetch(manifestUrl, { cache: 'no-store' });
-        if (!response.ok) return;
-        const manifest = await response.json() as { bundleId?: string; url?: string; checksum?: string };
-        if (!manifest.bundleId || !manifest.url || cancelled) return;
-        const nativeBuildId = import.meta.env.VITE_BUILD_ID || '';
-        const { bundleId: currentBundleId } = await LiveUpdate.getCurrentBundle();
-        if (manifest.bundleId === nativeBuildId || manifest.bundleId === currentBundleId) return;
-        await LiveUpdate.downloadBundle({
-          url: manifest.url,
-          bundleId: manifest.bundleId,
-          ...(manifest.checksum ? { checksum: manifest.checksum } : {}),
-        });
-        if (cancelled) return;
-        await LiveUpdate.setNextBundle({ bundleId: manifest.bundleId });
-        console.info('[Bunyan OTA] Update downloaded; it will be applied on next app restart.');
-      } catch (error) {
-        console.warn('[Bunyan OTA] Update check failed; continuing with the installed app.', error);
-      }
-    };
-    void checkForLiveUpdate();
-    return () => { cancelled = true; };
-  }, []);
-
+  // Live Updates are initialized once in src/main.tsx. Keeping a second
+  // initializer here caused two concurrent ready/download flows on Android.
   useEffect(() => {
     const timer = window.setTimeout(() => setShowIntroSplash(false), 5600);
     return () => window.clearTimeout(timer);
