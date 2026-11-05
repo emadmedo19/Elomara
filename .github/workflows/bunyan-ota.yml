@@ -6,6 +6,7 @@ on:
       - main
       - migration/supabase-backend
       - migration/multi-tenant-isolation
+      - fix/auth-bootstrap-403-nov05
   workflow_dispatch:
 
 permissions:
