@@ -1,5 +1,13 @@
 package app.bunyan.residential;
 
+import android.content.Intent;
 import com.getcapacitor.BridgeActivity;
 
-public class MainActivity extends BridgeActivity {}
+public class MainActivity extends BridgeActivity {
+    @Override
+    protected void onNewIntent(Intent intent) {
+        // Keep the latest OAuth deep-link intent available to Capacitor plugins.
+        setIntent(intent);
+        super.onNewIntent(intent);
+    }
+}
