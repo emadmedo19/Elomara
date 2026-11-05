@@ -104,6 +104,13 @@ export const LoginView: React.FC = () => {
               <h2 className="text-xl font-bold">تم إنشاء العمارة بنجاح</h2>
               <p className="text-sm text-slate-500">جارٍ تجهيز لوحة الإدارة...</p>
             </div>
+          ) : userProfile?.status === 'suspended' ? (
+            <div className="space-y-4 py-6 text-center">
+              <AlertCircle className="mx-auto h-12 w-12 text-rose-600"/>
+              <h2 className="text-xl font-bold">الحساب موقوف</h2>
+              <p className="leading-8 text-slate-600">تم إيقاف هذا الحساب. تواصل مع إدارة العمارة إذا كنت تعتقد أن ذلك حدث بالخطأ.</p>
+              <button onClick={signOut} className="fotouh-primary-button w-full"><LogOut className="h-4 w-4"/> تسجيل الخروج</button>
+            </div>
           ) : requestStatus === 'pending' ? (
             <div className="space-y-4 py-6 text-center">
               <div className="fotouh-login-card-icon"><ShieldCheck className="h-8 w-8"/></div>
