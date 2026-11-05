@@ -60,14 +60,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', currentUser.id).maybeSingle();
       if (error) throw error;
       if (loadVersion !== profileLoadVersion.current) return;
-      const profile: UserProfile | null = data ? {
+      if (!data) throw new Error('لم يتم إنشاء ملف الحساب في قاعدة البيانات. أعد تسجيل الدخول، وإذا استمرت المشكلة راجع إعدادات تسجيل المستخدم.');
+      const profile: UserProfile | null = {
         uid: data.id, email: currentUser.email ?? null,
         displayName: data.full_name || currentUser.user_metadata?.full_name || currentUser.email || null,
         role: data.role as UserProfile['role'],
         buildingId: data.building_id || undefined, apartmentId: data.apartment_id || undefined,
         phone: data.phone || undefined,
         status: data.disabled_at ? 'suspended' : data.approved ? 'active' : 'pending',
-      } : null;
+      };
       setUserProfile(profile); setRole(profile?.role ?? null);
       const admin = profile?.role === 'building_admin';
       setIsAdmin(Boolean(admin && profile?.status === 'active'));
