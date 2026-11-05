@@ -62,7 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       const { data, error } = await supabase.from('profiles')
-        .select('id, full_name, phone, role, building_id, apartment_id, approved')
+        .select('id, full_name, phone, role, building_id, apartment_id, approved, disabled_at')
         .eq('id', currentUser.id).maybeSingle();
       if (error) throw error;
       const profile: UserProfile | null = data ? {
@@ -71,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: data.role as UserProfile['role'],
         buildingId: data.building_id || undefined, apartmentId: data.apartment_id || undefined,
         phone: data.phone || undefined,
-        status: data.approved ? 'active' : 'pending',
+        status: data.disabled_at ? 'suspended' : data.approved ? 'active' : 'pending',
       } : null;
       setUserProfile(profile); setRole(profile?.role ?? null);
       const admin = profile?.role === 'building_admin';
