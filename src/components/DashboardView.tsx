@@ -66,7 +66,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="mt-7 grid gap-6 md:grid-cols-[1.35fr_.65fr] md:items-end">
             <div>
               <p className="text-sm font-medium text-teal-100/80">الرصيد المتاح في خزينة</p>
-              <h1 className="mt-1 text-xl font-bold text-white">{building.name || 'برج الفتوح'}</h1>
+              <h1 className="mt-1 text-xl font-bold text-white">{building.name || 'العمارة'}</h1>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-4xl font-black tracking-tight tabular-nums sm:text-5xl">{money(building.balance)}</span>
                 <span className="text-sm font-bold text-teal-100">جنيه</span>
