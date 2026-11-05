@@ -14,9 +14,9 @@ export default defineConfig(() => {
         includeAssets: ['icon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {
           id: '/',
-          name: 'برج الفتوح - إدارة العمارات السكنية',
-          short_name: 'برج الفتوح',
-          description: 'نظام برج الفتوح لإدارة العمارات السكنية، الخزينة والمصروفات، واتحادات الشاغلين',
+          name: 'العمارة - إدارة العقارات السكنية',
+          short_name: 'العمارة',
+          description: 'نظام العمارة لإدارة العقارات السكنية، التحصيلات والمصروفات واتحادات الشاغلين',
           theme_color: '#0f2537',
           background_color: '#0f2537',
           display: 'standalone',
