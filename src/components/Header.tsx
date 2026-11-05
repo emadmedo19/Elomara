@@ -24,7 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
   buildings, currentBuilding, onSelectBuilding, onOpenBuildingManagement,
   onOpenSettings, onOpenLogin, currentTab, onSelectTab, unreadTicketCount = 0, unreadAnnouncementCount = 0,
 }) => {
-  const { user, isAdmin, isSuperAdmin, signOut } = useAuth();
+  const { user, isAdmin, signOut } = useAuth();
   const moreMenuRef = React.useRef<HTMLDetailsElement>(null);
   React.useEffect(() => {
     const close = (event: PointerEvent) => {
@@ -39,7 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
   const navItems = [
     { id: 'dashboard', label: 'الرئيسية', icon: LayoutDashboard },
     { id: 'collections', label: 'الشقق والتحصيل', icon: Building2 },
-    ...(isAdmin ? [{ id: 'approvals', label: isSuperAdmin ? 'طلبات الانضمام' : 'إدارة السكان', icon: UserCheck }] : []),
+    ...(isAdmin ? [{ id: 'approvals', label: 'طلبات الانضمام', icon: UserCheck }] : []),
     { id: 'expenses', label: 'المصروفات', icon: Receipt },
   ];
   const moreItems = [
@@ -69,7 +69,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
         <div className="mx-auto hidden max-w-7xl items-center justify-between px-6 pb-2 md:flex">
           <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500"><span className="text-slate-400">المكان الحالي</span><span>/</span><span className="text-teal-800">{activeItem?.label || 'لوحة الإدارة'}</span></div>
-          <span className="text-[10px] text-slate-400">{isSuperAdmin ? 'المدير الرئيسي' : isAdmin ? 'مدير العقار' : 'مستخدم'}</span>
+          <span className="text-[10px] text-slate-400">{isAdmin ? 'مدير العقار' : 'مستخدم'}</span>
         </div>
       </header>
 
