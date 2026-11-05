@@ -97,6 +97,15 @@ export const LoginView: React.FC = () => {
                 className="fotouh-google-button w-full">
                 <Chrome className="h-5 w-5 text-[#4285F4]"/> {isLoading ? 'جارٍ الاتصال بحساب Google...' : 'المتابعة باستخدام Google'}
               </button>
+              <div className="fotouh-login-help text-right">
+                <strong className="block text-slate-700">إرشادات التسجيل في العمارة</strong>
+                <ul>
+                  <li>سجّل الدخول أولًا بحساب Google.</li>
+                  <li>لو أنت مدير العمارة، اختار «أنا مدير عمارة» وأنشئ عمارتك.</li>
+                  <li>لو أنت ساكن، اختار «أنا ساكن» واكتب كود العمارة وبيانات شقتك.</li>
+                  <li>طلب الساكن بيتراجع من مدير العمارة، ومش هتظهر بيانات العمارة إلا بعد الموافقة.</li>
+                </ul>
+              </div>
             </div>
           ) : isAdmin ? (
             <div className="space-y-4 py-5 text-center">
