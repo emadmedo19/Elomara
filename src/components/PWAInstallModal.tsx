@@ -232,7 +232,7 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5 text-[11px] text-slate-600">
               <span className="font-bold text-slate-800 block">مميزات التطبيق المثبت على الهاتف:</span>
               <p>✓ يعمل بدون شريط المتصفح كأنه تطبيق Android أصلي.</p>
-              <p>✓ أيقونة مخصصة واسم «برج الفتوح» على شاشة هاتفك.</p>
+              <p>✓ أيقونة مخصصة واسم «العمارة» على شاشة هاتفك.</p>
               <p>✓ تخزين مؤقت للبيانات وسرعة فتح فورية.</p>
             </div>
           </div>
@@ -244,7 +244,7 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({
                 <span className="w-6 h-6 rounded-full bg-[#0f2537] text-white flex items-center justify-center text-xs">
                   1
                 </span>
-                <span>انسخ رابط تطبيق برج الفتوح:</span>
+                <span>انسخ رابط تطبيق العمارة:</span>
               </div>
               <div className="flex items-center gap-2">
                 <input
