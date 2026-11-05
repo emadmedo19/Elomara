@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
@@ -43,8 +43,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const profileLoadVersion = useRef(0);
+  const oauthCallbackInProgress = useRef(false);
 
   const loadProfile = async (currentUser: User | null) => {
+    const loadVersion = ++profileLoadVersion.current;
     setUser(currentUser);
     if (!currentUser) {
       setUserProfile(null); setRole(null); setIsAdmin(false); setIsLoading(false);
@@ -56,6 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .select('id, full_name, phone, role, building_id, apartment_id, approved, disabled_at')
         .eq('id', currentUser.id).maybeSingle();
       if (error) throw error;
+      if (loadVersion !== profileLoadVersion.current) return;
       const profile: UserProfile | null = data ? {
         uid: data.id, email: currentUser.email ?? null,
         displayName: data.full_name || currentUser.user_metadata?.full_name || currentUser.email || null,
@@ -68,16 +72,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const admin = profile?.role === 'building_admin';
       setIsAdmin(Boolean(admin && profile?.status === 'active'));
     } catch (error) {
-      console.error('Supabase profile loading failed:', error);
-      setUserProfile(null); setRole(null); setIsAdmin(false);
-      setAuthError('تم تسجيل الدخول لكن تعذر تحميل صلاحيات الحساب. راجع إعدادات Supabase.');
-    } finally { setIsLoading(false); }
+      if (loadVersion === profileLoadVersion.current) {
+        console.error('Supabase profile loading failed:', error);
+        setUserProfile(null); setRole(null); setIsAdmin(false);
+        setAuthError('تم تسجيل الدخول لكن تعذر تحميل صلاحيات الحساب. راجع إعدادات Supabase.');
+      }
+    } finally {
+      if (loadVersion === profileLoadVersion.current) setIsLoading(false);
+    }
   };
 
   useEffect(() => {
     let active = true;
     let authEventSeen = false;
-    let profileLoadVersion = 0;
     const processedOAuthCallbacks = new Set<string>();
 
     const completeOAuthCallback = async (callbackUrl: string) => {
@@ -87,6 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const callback = new URL(callbackUrl);
         if (callback.protocol !== 'app.bunyan.residential:' || callback.hostname !== 'login-callback') return;
 
+        oauthCallbackInProgress.current = true;
         setIsLoading(true);
         // Android closes the Custom Tab when it dispatches the app deep link.
         // Avoid closing it again while the Activity is being resumed.
@@ -97,26 +105,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
-          return;
-        }
+        } else {
 
-        const hash = new URLSearchParams(callback.hash.replace(/^#/, ''));
-        const accessToken = hash.get('access_token');
-        const refreshToken = hash.get('refresh_token');
-        if (accessToken && refreshToken) {
+          const hash = new URLSearchParams(callback.hash.replace(/^#/, ''));
+          const accessToken = hash.get('access_token');
+          const refreshToken = hash.get('refresh_token');
+          if (!accessToken || !refreshToken) {
+            throw new Error('لم يصل رمز تسجيل الدخول من Google. حاول تسجيل الدخول مرة أخرى.');
+          }
           const { error } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
           if (error) throw error;
-          return;
         }
 
-        throw new Error('لم يصل رمز تسجيل الدخول من Google. حاول تسجيل الدخول مرة أخرى.');
+        // Do not expose the login screen between token exchange and profile hydration.
+        // The auth event may race with this callback, so hydrate from the confirmed session too.
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!session?.user) throw new Error('تم تأكيد Google لكن لم يتم حفظ جلسة الدخول. حاول مرة أخرى.');
+        await loadProfile(session.user);
       } catch (error) {
         if (active) setAuthError(friendlyError(error));
       } finally {
-        if (active) setIsLoading(false);
+        oauthCallbackInProgress.current = false;
       }
     };
 
@@ -137,8 +150,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Google OAuth callback with a stale null session (which sent the app back to login).
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       authEventSeen = true;
+      // Ignore a stale null event while the OAuth callback is exchanging its code.
+      if (!session && oauthCallbackInProgress.current) return;
       if (active) window.setTimeout(() => {
-        if (active) void loadProfile(session?.user ?? null);
+        if (active && !(oauthCallbackInProgress.current && !session)) void loadProfile(session?.user ?? null);
       }, 0);
     });
 
