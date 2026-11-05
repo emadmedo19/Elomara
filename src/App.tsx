@@ -380,7 +380,7 @@ export default function App() {
 
       if (updateReady) {
         showToast('تم تنزيل تحديث جديد. اضغط موافق لإعادة تحميل التطبيق وتطبيقه الآن.', 'info');
-        if (window.confirm('تم تنزيل تحديث جديد لبرج الفتوح. هل تريد تطبيقه الآن؟ احفظ أي بيانات غير محفوظة قبل المتابعة.')) {
+        if (window.confirm('تم تنزيل تحديث جديد لالعمارة. هل تريد تطبيقه الآن؟ احفظ أي بيانات غير محفوظة قبل المتابعة.')) {
           await LiveUpdate.reload();
           return;
         }
@@ -1119,8 +1119,8 @@ export default function App() {
           <div className="w-20 h-20 mx-auto mb-5 rounded-2xl overflow-hidden bg-white/10 border border-white/20 p-1 shadow-lg">
             <img src="/icon.png" alt="شعار العمارة" className="w-full h-full rounded-xl object-cover" />
           </div>
-          <p className="text-teal-300 text-xs font-bold tracking-wide mb-2">برج الفتوح • إدارة العقارات</p>
-          <h1 className="text-2xl font-bold mb-3">أهلاً بيك في برج الفتوح</h1>
+          <p className="text-teal-300 text-xs font-bold tracking-wide mb-2">العمارة • إدارة العقارات</p>
+          <h1 className="text-2xl font-bold mb-3">أهلاً بيك في العمارة</h1>
           <p className="text-slate-300 text-sm leading-7 mb-6">
             حسابك جاهز، لكن لسه مفيش أي عمارات أو شقق أو سكان مسجلين.
             ابدأ بإضافة بيانات أول عمارة، وبعدها تقدر تضيف الشقق والسكان بنفسك.
