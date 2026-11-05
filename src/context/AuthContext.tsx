@@ -88,7 +88,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (callback.protocol !== 'app.bunyan.residential:' || callback.hostname !== 'login-callback') return;
 
         setIsLoading(true);
-        await Browser.close().catch(() => undefined);
+        // Android closes the Custom Tab when it dispatches the app deep link.
+        // Avoid closing it again while the Activity is being resumed.
         const oauthError = callback.searchParams.get('error_description') || callback.searchParams.get('error');
         if (oauthError) throw new Error(oauthError);
 
