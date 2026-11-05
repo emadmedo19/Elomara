@@ -76,6 +76,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let active = true;
+    let authEventSeen = false;
+    let profileLoadVersion = 0;
     const processedOAuthCallbacks = new Set<string>();
 
     const completeOAuthCallback = async (callbackUrl: string) => {
@@ -129,11 +131,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (active) window.setTimeout(() => { if (active) void loadProfile(session?.user ?? null); }, 0);
-    }).catch(error => { if (active) { setAuthError(friendlyError(error)); setIsLoading(false); } });
+    // Subscribe before reading the stored session. Supabase emits INITIAL_SESSION
+    // through this listener; a late getSession() result must not overwrite a newer
+    // Google OAuth callback with a stale null session (which sent the app back to login).
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) void loadProfile(session?.user ?? null);
+      authEventSeen = true;
+      if (active) window.setTimeout(() => {
+        if (active) void loadProfile(session?.user ?? null);
+      }, 0);
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (active && !authEventSeen) void loadProfile(session?.user ?? null);
+    }).catch(error => {
+      if (active) { setAuthError(friendlyError(error)); setIsLoading(false); }
     });
     return () => {
       active = false;
