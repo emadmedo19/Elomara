@@ -1,53 +1,66 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { AlertCircle, Building2, CheckCircle2, Chrome, LogOut, ShieldCheck, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import {
-  Lock, Mail, Eye, EyeOff, LogIn, ShieldCheck, AlertCircle, CheckCircle2,
-  UserRound, UserPlus, MailCheck, Chrome, Wallet, Users, Building2, Sparkles,
-  ArrowLeft, Receipt, Wrench, FileText
-} from 'lucide-react';
+
+type JoinRequestStatus = 'pending' | 'approved' | 'rejected' | null;
 
 export const LoginView: React.FC = () => {
-  const {
-    signUpWithEmail, resendSignupConfirmation, signInWithEmail, signInWithGoogle,
-    authError, isLoading, clearError, user, userProfile, isAdmin, signOut,
-  } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [showEmailForm, setShowEmailForm] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [localValidation, setLocalValidation] = useState<string | null>(null);
+  const { signInWithGoogle, authError, isLoading, clearError, user, userProfile, isAdmin, signOut } = useAuth();
   const [buildingName, setBuildingName] = useState('');
   const [buildingAddress, setBuildingAddress] = useState('');
-  const [unitsCount, setUnitsCount] = useState('');
+  const [unitsCount, setUnitsCount] = useState('0');
   const [floorsCount, setFloorsCount] = useState('');
-  const [creatingBuilding, setCreatingBuilding] = useState(false);
-  const [buildingError, setBuildingError] = useState('');
   const [inviteCode, setInviteCode] = useState('');
-  const [acceptingInvite, setAcceptingInvite] = useState(false);
+  const [fullName, setFullName] = useState(userProfile?.displayName || '');
+  const [requestedFloor, setRequestedFloor] = useState('');
+  const [requestedUnit, setRequestedUnit] = useState('');
+  const [residentType, setResidentType] = useState<'owner' | 'tenant'>('owner');
+  const [requestStatus, setRequestStatus] = useState<JoinRequestStatus>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); clearError(); setLocalValidation(null); setSuccessMessage(null);
-    if (!email.trim()) return setLocalValidation('يرجى إدخال البريد الإلكتروني.');
-    if (!password) return setLocalValidation('يرجى إدخال كلمة المرور.');
-    if (password.length < 6) return setLocalValidation('كلمة المرور يجب ألا تقل عن 6 أحرف.');
-    if (isSignUp && !fullName.trim()) return setLocalValidation('يرجى إدخال الاسم بالكامل.');
-    if (isSignUp) {
-      const created = await signUpWithEmail(email, password, fullName);
-      if (created) setSuccessMessage('تم إنشاء الحساب. أكد بريدك الإلكتروني، ثم ارجع للتطبيق لإنشاء عقارك أو قبول دعوة الانضمام.');
-    } else await signInWithEmail(email, password);
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    supabase.from('building_join_requests').select('status')
+      .eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => { if (active) setRequestStatus((data?.status as JoinRequestStatus) || null); });
+    return () => { active = false; };
+  }, [user?.id]);
+
+  const createBuilding = async (event: React.FormEvent) => {
+    event.preventDefault(); setError(''); setNotice('');
+    if (!buildingName.trim()) { setError('اكتب اسم العمارة.'); return; }
+    setBusy(true);
+    const { error: actionError } = await supabase.rpc('create_building_for_current_user', {
+      building_name: buildingName.trim(),
+      building_address: buildingAddress.trim(),
+      units_count: Math.max(0, Number(unitsCount) || 0),
+      floors_count: floorsCount.trim() ? Math.max(0, Number(floorsCount) || 0) : null,
+    });
+    setBusy(false);
+    if (actionError) setError(actionError.message);
+    else window.location.reload();
   };
-  const switchMode = (signup: boolean) => {
-    setIsSignUp(signup); setShowEmailForm(true); setLocalValidation(null); setSuccessMessage(null); clearError();
-  };
-  const handleGoogleSignIn = async () => { clearError(); setLocalValidation(null); setSuccessMessage(null); await signInWithGoogle(); };
-  const handleResendConfirmation = async () => {
-    clearError(); setSuccessMessage(null);
-    const sent = await resendSignupConfirmation(email);
-    if (sent) setSuccessMessage('تمت إعادة إرسال رسالة التأكيد. راجع البريد الوارد ومجلد الرسائل غير المرغوب فيها.');
+
+  const submitJoinRequest = async (event: React.FormEvent) => {
+    event.preventDefault(); setError(''); setNotice('');
+    if (!inviteCode.trim() || !fullName.trim() || !requestedFloor.trim() || !requestedUnit.trim()) {
+      setError('اكمل كود العمارة والاسم والدور ورقم الشقة.'); return;
+    }
+    setBusy(true);
+    const { error: actionError } = await supabase.rpc('submit_building_join_request', {
+      target_code: inviteCode.trim(),
+      applicant_full_name: fullName.trim(),
+      applicant_floor: Number(requestedFloor),
+      applicant_unit_number: requestedUnit.trim(),
+      applicant_resident_type: residentType,
+    });
+    setBusy(false);
+    if (actionError) setError(actionError.message);
+    else { setRequestStatus('pending'); setNotice('تم إرسال طلب الانضمام لمدير العمارة.'); }
   };
 
   return (
@@ -61,110 +74,77 @@ export const LoginView: React.FC = () => {
             <div><h1>العمارة</h1><p>إدارة العقارات السكنية</p></div>
           </div>
           <div className="fotouh-login-intro">
-            <h2>إدارة كاملة للعمارة: <span>تحصيل، مصروفات، صيانة، وتقارير.</span></h2>
-            <p>سجّل الدخول بحسابك للوصول إلى لوحة العمارة. يتم ربط حسابك بعمارة وشقة بعد اعتماد مدير النظام.</p>
+            <h2>إدارة العمارة بسهولة وأمان</h2>
+            <p>حساب Google واحد للدخول، مع صلاحيات مستقلة لكل عمارة.</p>
           </div>
         </div>
         <div className="fotouh-feature-grid">
-          <article><Wallet/><div><strong>تحصيلات ومحاسبة</strong><p>اشتراكات شهرية، سداد جزئي ومسبق، وكشف حساب لكل شقة.</p></div></article>
-          <article><Users/><div><strong>صلاحيات معزولة</strong><p>مدير رئيسي، مدير عقار، وساكن يرى شقته فقط.</p></div></article>
-          <article><ShieldCheck/><div><strong>عزل بين العمارات</strong><p>بيانات كل عمارة محمية بصلاحيات مستقلة على الخادم.</p></div></article>
-          <article><Sparkles/><div><strong>تقارير ومساعد ذكي</strong><p>تقارير شهرية وسنوية ومساعد يجيب من بياناتك.</p></div></article>
+          <article><Building2/><div><strong>إدارة العمارة</strong><p>مدير مستقل لكل عمارة.</p></div></article>
+          <article><Users/><div><strong>طلبات انضمام</strong><p>المدير يراجع كل ساكن قبل اعتماده.</p></div></article>
+          <article><ShieldCheck/><div><strong>خصوصية البيانات</strong><p>لا تظهر بيانات العمارة قبل الموافقة.</p></div></article>
         </div>
       </section>
 
       <section className="fotouh-login-lower">
         <div className="fotouh-login-card">
-          {user && !isAdmin ? (
+          {!user ? (
             <div className="space-y-5 py-4 text-center">
               <div className="fotouh-login-card-icon"><ShieldCheck className="h-8 w-8"/></div>
-              <h2>{userProfile?.role === 'pending' && userProfile?.status === 'pending' ? 'أنشئ عقارك وابدأ الإدارة' : 'تم تسجيل حسابك بنجاح'}</h2>
-              {userProfile?.role === 'pending' && userProfile?.status === 'pending' ? (
-                <form className="space-y-3 text-right" onSubmit={async (e) => {
-                  e.preventDefault(); setBuildingError('');
-                  if (!buildingName.trim()) { setBuildingError('اكتب اسم العقار أولاً.'); return; }
-                  setCreatingBuilding(true);
-                  const { error } = await supabase.rpc('create_building_for_current_user', {
-                    building_name: buildingName.trim(),
-                    building_address: buildingAddress.trim(),
-                    units_count: Math.max(0, Number(unitsCount) || 0),
-                    floors_count: floorsCount.trim() ? Math.max(0, Number(floorsCount) || 0) : null,
-                  });
-                  setCreatingBuilding(false);
-                  if (error) setBuildingError(error.message);
-                  else window.location.reload();
-                }}>
-                  <div className="rounded-xl border border-teal-200 bg-teal-50 p-3 space-y-2">
-                    <b className="text-sm text-teal-900">عندك كود دعوة من مدير عقار؟</b>
-                    <input value={inviteCode} onChange={e=>setInviteCode(e.target.value)} placeholder="الصق كود الدعوة هنا" className="w-full rounded-lg border border-teal-200 bg-white p-3 text-sm" dir="ltr"/>
-                    <button type="button" disabled={acceptingInvite || !inviteCode.trim()} onClick={async()=>{
-                      setBuildingError(''); setAcceptingInvite(true);
-                      const { error } = await supabase.rpc('accept_building_invite', { target_invite_code: inviteCode.trim() });
-                      setAcceptingInvite(false);
-                      if (error) setBuildingError(error.message);
-                      else window.location.reload();
-                    }} className="w-full rounded-lg bg-teal-700 p-3 text-sm font-bold text-white disabled:opacity-50">{acceptingInvite ? 'جارٍ قبول الدعوة...' : 'قبول الدعوة والانضمام للعقار'}</button>
-                  </div>
-                  <p className="text-sm leading-7 text-slate-500">أو أنشئ عقارك الخاص. حسابك هيكون مدير العقار، وبياناته وأعضاؤه هيبقوا منفصلين عن باقي العقارات.</p>
-                  <label className="fotouh-field"><span>اسم العقار</span><div><Building2/><input value={buildingName} onChange={e=>setBuildingName(e.target.value)} placeholder="مثال: عمارة النخيل" required /></div></label>
-                  <label className="fotouh-field"><span>العنوان</span><div><Building2/><input value={buildingAddress} onChange={e=>setBuildingAddress(e.target.value)} placeholder="المنطقة والشارع" /></div></label>
-                  <label className="fotouh-field"><span>عدد الوحدات</span><div><Users/><input type="number" min="0" value={unitsCount} onChange={e=>setUnitsCount(e.target.value)} placeholder="عدد الشقق" /></div></label>
-                  <label className="fotouh-field"><span>عدد الأدوار</span><div><Building2/><input type="number" min="0" value={floorsCount} onChange={e=>setFloorsCount(e.target.value)} placeholder="اختياري" /></div></label>
-                  {buildingError && <p className="fotouh-message error"><AlertCircle/>{buildingError}</p>}
-                  <button type="submit" disabled={creatingBuilding} className="fotouh-primary-button w-full">{creatingBuilding ? 'جارٍ إنشاء العقار...' : 'إنشاء العقار وفتح لوحة الإدارة'}</button>
-                </form>
-              ) : (
-                <p className="leading-8 text-slate-500">{userProfile?.status === 'suspended' ? 'الحساب موقوف حاليًا. تواصل مع إدارة العقار.' : userProfile?.status === 'active' ? 'تم اعتماد حسابك، لكن لم يتم ربط حسابك بعمارة وشقة حتى الآن. تواصل مع المدير.' : 'حسابك في انتظار موافقة مدير العقار أو دعوة للانضمام إلى عقار.'}</p>
-              )}
-              <p className="text-xs text-slate-400" dir="ltr">{user.email}</p>
-              <button onClick={signOut} className="fotouh-primary-button w-full">تسجيل الخروج</button>
-            </div>
-          ) : (
-            <>
-              <div className="fotouh-login-card-heading">
-                <div className="mx-auto mb-3 h-14 w-14 overflow-hidden rounded-2xl bg-white p-0.5 shadow-md ring-1 ring-slate-200">
-                  <img src="/icon.png" alt="شعار العمارة" className="h-full w-full rounded-xl object-cover" />
-                </div>
-                <h2>تسجيل الدخول</h2>
-                <p>بالبريد الإلكتروني أو بحساب Google. حساب واحد يعمل على كل أجهزتك.</p>
-              </div>
-              <button type="button" onClick={() => setShowEmailForm(v => !v)} className="fotouh-primary-button w-full">
-                <LogIn className="h-5 w-5"/> الدخول / إنشاء حساب
-              </button>
-              <button type="button" onClick={() => void handleGoogleSignIn()} disabled={isLoading} className="fotouh-google-button w-full">
+              <h2>مرحبًا بك في العمارة</h2>
+              <p className="text-sm leading-7 text-slate-500">سجّل الدخول أو أنشئ حسابك باستخدام Google للمتابعة.</p>
+              {authError && <p className="fotouh-message error"><AlertCircle/>{authError}</p>}
+              <button type="button" onClick={() => { clearError(); void signInWithGoogle(); }} disabled={isLoading}
+                className="fotouh-google-button w-full">
                 <Chrome className="h-5 w-5 text-[#4285F4]"/> {isLoading ? 'جارٍ الاتصال بحساب Google...' : 'المتابعة باستخدام Google'}
               </button>
-              {showEmailForm && (
-                <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
-                  <div className="mb-4 flex items-center justify-between">
-                    <strong className="text-sm text-[#123c40]">{isSignUp ? 'إنشاء حساب ساكن جديد' : 'الدخول بالبريد الإلكتروني'}</strong>
-                    <button type="button" onClick={() => setShowEmailForm(false)} className="text-xs text-slate-400">إغلاق</button>
-                  </div>
-                  <form onSubmit={handleSubmit} className="space-y-3">
-                    {isSignUp && <label className="fotouh-field"><span>الاسم بالكامل</span><div><UserRound/><input value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="الاسم كما سيظهر في التطبيق"/></div></label>}
-                    <label className="fotouh-field"><span>البريد الإلكتروني</span><div><Mail/><input type="email" dir="ltr" value={email} onChange={e=>setEmail(e.target.value)} placeholder="name@example.com"/></div></label>
-                    <label className="fotouh-field"><span>كلمة المرور</span><div><Lock/><input type={showPassword?'text':'password'} dir="ltr" value={password} onChange={e=>setPassword(e.target.value)} placeholder="6 أحرف على الأقل"/><button type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?<EyeOff/>:<Eye/>}</button></div></label>
-                    {(authError || localValidation) && <p className="fotouh-message error"><AlertCircle/>{authError || localValidation}</p>}
-                    {successMessage && <p className="fotouh-message success"><CheckCircle2/>{successMessage}</p>}
-                    <button type="submit" disabled={isLoading} className="fotouh-primary-button w-full">{isLoading?'جارٍ التحقق...':isSignUp?'إنشاء حساب جديد':'تسجيل الدخول'}</button>
-                    {isSignUp && successMessage && <button type="button" onClick={()=>void handleResendConfirmation()} className="w-full text-xs font-bold text-teal-700"><MailCheck className="ml-1 inline h-4 w-4"/>إعادة إرسال تأكيد البريد</button>}
-                  </form>
-                  <div className="mt-4 flex justify-between gap-3 text-xs font-bold text-teal-800">
-                    <button type="button" onClick={()=>switchMode(false)}>لديك حساب؟ دخول</button>
-                    <button type="button" onClick={()=>switchMode(true)}>إنشاء حساب جديد</button>
-                  </div>
-                </div>
-              )}
-              <div className="fotouh-login-help">
-                <strong>كيف يعمل الوصول؟</strong>
-                <ul>
-                  <li>الحساب الجديد يبدأ بحالة «بانتظار الاعتماد».</li>
-                  <li>مدير النظام يعتمد الحساب ويحدد دوره وعمارة وشقته.</li>
-                  <li>الساكن يرى شقته ومدفوعاته فقط، ولا يمكنه قراءة بيانات غيره.</li>
-                </ul>
+            </div>
+          ) : isAdmin ? (
+            <div className="space-y-4 py-5 text-center">
+              <CheckCircle2 className="mx-auto h-12 w-12 text-teal-600"/>
+              <h2 className="text-xl font-bold">تم إنشاء العمارة بنجاح</h2>
+              <p className="text-sm text-slate-500">جارٍ تجهيز لوحة الإدارة...</p>
+            </div>
+          ) : requestStatus === 'pending' ? (
+            <div className="space-y-4 py-6 text-center">
+              <div className="fotouh-login-card-icon"><ShieldCheck className="h-8 w-8"/></div>
+              <h2 className="text-xl font-bold">طلبك قيد المراجعة</h2>
+              <p className="leading-8 text-slate-600">تم إرسال طلب الانضمام بنجاح. هتقدر تشوف بيانات العمارة بعد موافقة مديرها.</p>
+              <span className="inline-block rounded-full bg-amber-50 px-4 py-2 text-sm font-bold text-amber-800">في انتظار موافقة مدير العمارة</span>
+              <button onClick={signOut} className="fotouh-primary-button w-full"><LogOut className="h-4 w-4"/> تسجيل الخروج</button>
+            </div>
+          ) : (
+            <div className="space-y-5 py-3">
+              <div className="text-center">
+                <div className="fotouh-login-card-icon"><Building2 className="h-8 w-8"/></div>
+                <h2 className="text-xl font-bold">اختار طريقة البدء</h2>
+                <p className="mt-2 text-sm text-slate-500">تقدر تنشئ عمارة جديدة أو تقدم طلب انضمام بكود العمارة.</p>
               </div>
-              <p className="fotouh-login-footnote"><ShieldCheck/> بعد تأكيد البريد، يمكنك إنشاء عقارك أو الانضمام إلى عقار بدعوة.</p>
-            </>
+              {error && <p className="fotouh-message error"><AlertCircle/>{error}</p>}
+              {notice && <p className="fotouh-message success"><CheckCircle2/>{notice}</p>}
+              <form onSubmit={createBuilding} className="space-y-3 rounded-2xl border border-slate-200 p-4">
+                <h3 className="font-bold text-slate-800">أنا مدير عمارة — إنشاء عمارة</h3>
+                <label className="fotouh-field"><span>اسم العمارة</span><div><Building2/><input value={buildingName} onChange={e=>setBuildingName(e.target.value)} placeholder="اسم العمارة" required/></div></label>
+                <label className="fotouh-field"><span>العنوان</span><div><Building2/><input value={buildingAddress} onChange={e=>setBuildingAddress(e.target.value)} placeholder="العنوان"/></div></label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="fotouh-field"><span>عدد الشقق</span><div><Users/><input type="number" min="0" value={unitsCount} onChange={e=>setUnitsCount(e.target.value)}/></div></label>
+                  <label className="fotouh-field"><span>عدد الأدوار</span><div><Building2/><input type="number" min="0" value={floorsCount} onChange={e=>setFloorsCount(e.target.value)} placeholder="اختياري"/></div></label>
+                </div>
+                <button type="submit" disabled={busy} className="fotouh-primary-button w-full">{busy ? 'جارٍ إنشاء العمارة...' : 'إنشاء العمارة'}</button>
+              </form>
+              <form onSubmit={submitJoinRequest} className="space-y-3 rounded-2xl border border-teal-200 bg-teal-50/50 p-4">
+                <h3 className="font-bold text-slate-800">أنا ساكن — الانضمام لعمارة</h3>
+                <label className="fotouh-field"><span>كود العمارة العام</span><div><Building2/><input dir="ltr" value={inviteCode} onChange={e=>setInviteCode(e.target.value)} placeholder="أدخل كود العمارة"/></div></label>
+                <label className="fotouh-field"><span>الاسم بالكامل</span><div><Users/><input value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="الاسم بالكامل"/></div></label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="fotouh-field"><span>الدور</span><div><input type="number" min="0" value={requestedFloor} onChange={e=>setRequestedFloor(e.target.value)} placeholder="رقم الدور"/></div></label>
+                  <label className="fotouh-field"><span>رقم الشقة</span><div><input value={requestedUnit} onChange={e=>setRequestedUnit(e.target.value)} placeholder="رقم الشقة"/></div></label>
+                </div>
+                <label className="fotouh-field"><span>الصفة</span><div><select value={residentType} onChange={e=>setResidentType(e.target.value as 'owner'|'tenant')}><option value="owner">مالك</option><option value="tenant">مستأجر</option></select></div></label>
+                <button type="submit" disabled={busy} className="fotouh-primary-button w-full">{busy ? 'جارٍ إرسال الطلب...' : 'إرسال طلب الانضمام'}</button>
+              </form>
+              <p className="text-center text-xs text-slate-400" dir="ltr">{user.email}</p>
+              <button onClick={signOut} className="w-full text-sm font-bold text-slate-500">تسجيل الخروج</button>
+            </div>
           )}
         </div>
       </section>
