@@ -23,6 +23,8 @@ interface AuthContextType {
   isLoading: boolean;
   authError: string | null;
   signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
 }
@@ -194,6 +196,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInWithEmail = async (email: string, password: string) => {
+    setAuthError(null);
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (error) throw error;
+      if (!data.user) throw new Error('لم يتم استلام بيانات الحساب بعد تسجيل الدخول.');
+      await loadProfile(data.user);
+    } catch (error) {
+      setAuthError(friendlyError(error));
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
+  const signUpWithEmail = async (email: string, password: string, fullName: string) => {
+    setAuthError(null);
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+        options: {
+          data: { full_name: fullName.trim() },
+          emailRedirectTo: getAuthRedirectUrl(),
+        },
+      });
+      if (error) throw error;
+      if (data.session?.user) {
+        await loadProfile(data.session.user);
+      } else {
+        setIsLoading(false);
+      }
+    } catch (error) {
+      setAuthError(friendlyError(error));
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
   const signOut = async () => {
     setAuthError(null);
     const { error } = await supabase.auth.signOut();
@@ -201,7 +246,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null); setUserProfile(null); setRole(null); setIsAdmin(false);
   };
   return <AuthContext.Provider value={{ user, userProfile, role, isAdmin, isLoading, authError,
-    signInWithGoogle, signOut, clearError: () => setAuthError(null) }}>
+    signInWithGoogle, signInWithEmail, signUpWithEmail, signOut, clearError: () => setAuthError(null) }}>
     {children}
   </AuthContext.Provider>;
 };
