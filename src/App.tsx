@@ -1044,17 +1044,16 @@ export default function App() {
     await persistTreasuryDelta(currentBuilding.id, totalCollected);
 
     if (payload.notifyResidents) {
-      const { data: announcement, error: announcementError } = await supabase.from('announcements').insert({
-        building_id: currentBuilding.id,
-        title: `تحصيل استثنائي: ${payload.title}`,
-        content: [payload.description, `المبلغ المطلوب لكل شقة: ${payload.amountMode === 'per_apartment' ? payload.perApartmentAmount.toLocaleString() + ' ج.م' : 'تم توزيع ' + payload.totalAmount.toLocaleString() + ' ج.م بالتساوي على الشقق المحددة'}`, `الشقق المستهدفة: ${targets.map(a => a.unitNumber).join('، ')}`].filter(Boolean).join('\n'),
-        announcement_type: 'general', pinned: true, created_by: user.id,
-      }).select('id').single();
-      if (announcementError || !announcement) {
-        showToast('تم تسجيل التحصيلات، لكن تعذر إنشاء إشعار السكان: ' + (announcementError?.message || 'خطأ غير معروف'), 'info');
-      } else {
-        const { error: pushError } = await supabase.functions.invoke('send-announcement-push', { body: { announcement_id: announcement.id } });
-        if (pushError) showToast('تم تسجيل التحصيلات، لكن خدمة الإشعارات لم تؤكد الإرسال.', 'info');
+      const { error: pushError } = await supabase.functions.invoke('send-announcement-push', {
+        body: {
+          event_type: 'exceptional_collection',
+          building_id: currentBuilding.id,
+          exceptional_collection_id: collection.id,
+        },
+      });
+      if (pushError) {
+        console.warn('[Exceptional collection] Push delivery failed:', pushError.message);
+        showToast('تم تسجيل التحصيلات، لكن خدمة الإشعارات لم تؤكد الإرسال.', 'info');
       }
     }
     showToast(`تم إنشاء التحصيل الاستثنائي وتسجيل ${newPayments.length} مستحقات بإجمالي ${totalCollected.toLocaleString()} ج.م.`);
