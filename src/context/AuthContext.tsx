@@ -127,7 +127,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!session?.user) throw new Error('تم تأكيد Google لكن لم يتم حفظ جلسة الدخول. حاول مرة أخرى.');
         await loadProfile(session.user);
       } catch (error) {
-        if (active) setAuthError(friendlyError(error));
+        if (active) {
+          setAuthError(friendlyError(error));
+          setIsLoading(false);
+        }
       } finally {
         oauthCallbackInProgress.current = false;
       }
