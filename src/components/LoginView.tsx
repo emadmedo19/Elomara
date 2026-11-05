@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 type JoinRequestStatus = 'pending' | 'approved' | 'rejected' | null;
 
 export const LoginView: React.FC = () => {
-  const { signInWithGoogle, authError, isLoading, clearError, user, userProfile, isAdmin, signOut } = useAuth();
+  const { signInWithGoogle, signUpWithPhone, verifyPhoneSignup, signInWithPhone, authError, isLoading, clearError, user, userProfile, isAdmin, signOut } = useAuth();
   const [buildingName, setBuildingName] = useState('');
   const [buildingAddress, setBuildingAddress] = useState('');
   const [unitsCount, setUnitsCount] = useState('0');
@@ -20,6 +20,13 @@ export const LoginView: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [phoneMode, setPhoneMode] = useState(false);
+  const [phoneSignup, setPhoneSignup] = useState(false);
+  const [phoneValue, setPhoneValue] = useState('');
+  const [phonePassword, setPhonePassword] = useState('');
+  const [phoneFullName, setPhoneFullName] = useState('');
+  const [phoneOtp, setPhoneOtp] = useState('');
+  const [phoneOtpRequested, setPhoneOtpRequested] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -29,6 +36,23 @@ export const LoginView: React.FC = () => {
       .then(({ data }) => { if (active) setRequestStatus((data?.status as JoinRequestStatus) || null); });
     return () => { active = false; };
   }, [user?.id]);
+
+
+  const submitPhoneAuth = async (event: React.FormEvent) => {
+    event.preventDefault(); setError(''); clearError();
+    if (!phoneValue.trim()) { setError('اكتب رقم الموبايل.'); return; }
+    if (phoneOtpRequested) {
+      if (!/^\d{6}$/.test(phoneOtp.trim())) { setError('أدخل رمز التحقق المكوّن من 6 أرقام.'); return; }
+      const verified = await verifyPhoneSignup(phoneValue, phoneOtp);
+      if (verified) { setPhoneOtpRequested(false); setPhoneSignup(false); setPhoneOtp(''); setNotice('تم تأكيد رقم الموبايل وإنشاء الحساب. أكمل إنشاء العمارة أو طلب الانضمام.'); }
+      return;
+    }
+    if (phonePassword.length < (phoneSignup ? 8 : 6)) { setError(phoneSignup ? 'كلمة المرور يجب ألا تقل عن 8 أحرف.' : 'كلمة المرور يجب ألا تقل عن 6 أحرف.'); return; }
+    if (phoneSignup && !phoneFullName.trim()) { setError('اكتب الاسم بالكامل.'); return; }
+    if (phoneSignup) {
+      if (await signUpWithPhone(phoneValue, phonePassword, phoneFullName)) setPhoneOtpRequested(true);
+    } else await signInWithPhone(phoneValue, phonePassword);
+  };
 
   const createBuilding = async (event: React.FormEvent) => {
     event.preventDefault(); setError(''); setNotice('');
@@ -97,6 +121,24 @@ export const LoginView: React.FC = () => {
                 className="fotouh-google-button w-full">
                 <Chrome className="h-5 w-5 text-[#4285F4]"/> {isLoading ? 'جارٍ الاتصال بحساب Google...' : 'المتابعة باستخدام Google'}
               </button>
+
+              <div className="my-4 border-t border-slate-200 pt-4 text-right">
+                <button type="button" onClick={() => { setPhoneMode(v => !v); setError(''); clearError(); }} className="w-full rounded-xl border border-teal-200 px-4 py-3 font-bold text-teal-800">
+                  {phoneMode ? 'إخفاء تسجيل الموبايل' : 'الدخول أو إنشاء حساب برقم الموبايل'}
+                </button>
+                {phoneMode && <form onSubmit={submitPhoneAuth} className="mt-4 space-y-3">
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => { setPhoneSignup(false); setPhoneOtpRequested(false); setError(''); }} className="flex-1 rounded-lg bg-slate-100 py-2 text-sm font-bold">تسجيل الدخول</button>
+                    <button type="button" onClick={() => { setPhoneSignup(true); setPhoneOtpRequested(false); setError(''); }} className="flex-1 rounded-lg bg-slate-100 py-2 text-sm font-bold">حساب جديد</button>
+                  </div>
+                  {phoneSignup && !phoneOtpRequested && <input value={phoneFullName} onChange={e=>setPhoneFullName(e.target.value)} placeholder="الاسم بالكامل" className="w-full rounded-xl border border-slate-200 p-3" required />}
+                  <input type="tel" inputMode="tel" dir="ltr" value={phoneValue} onChange={e=>setPhoneValue(e.target.value)} placeholder="01xxxxxxxxx" className="w-full rounded-xl border border-slate-200 p-3 text-left" required />
+                  {!phoneOtpRequested && <input type="password" dir="ltr" value={phonePassword} onChange={e=>setPhonePassword(e.target.value)} placeholder="كلمة المرور" className="w-full rounded-xl border border-slate-200 p-3 text-left" required />}
+                  {phoneOtpRequested && <input inputMode="numeric" dir="ltr" maxLength={6} value={phoneOtp} onChange={e=>setPhoneOtp(e.target.value.replace(/\D/g,'').slice(0,6))} placeholder="رمز التحقق المرسل للموبايل" className="w-full rounded-xl border border-slate-200 p-3 text-center tracking-widest" required />}
+                  {(error || authError) && <p className="fotouh-message error"><AlertCircle/>{error || authError}</p>}
+                  <button type="submit" disabled={isLoading} className="fotouh-primary-button w-full">{isLoading ? 'جارٍ التنفيذ...' : phoneOtpRequested ? 'تأكيد الرمز' : phoneSignup ? 'إنشاء الحساب وإرسال الرمز' : 'تسجيل الدخول بالموبايل'}</button>
+                </form>}
+              </div>
               <div className="fotouh-login-help text-right">
                 <strong className="block text-slate-700">إرشادات التسجيل في العمارة</strong>
                 <ul>
