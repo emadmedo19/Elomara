@@ -33,6 +33,9 @@ workflows:
       - name: Install npm dependencies
         script: |
           npm install --include=optional
+      - name: TypeScript type check
+        script: |
+          npm run lint
       - name: Build React application (Vite)
         script: |
           export VITE_BUILD_ID="${CM_COMMIT:-$(git rev-parse --short HEAD)}"
