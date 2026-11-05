@@ -22,6 +22,9 @@ interface AuthContextType {
   isAdmin: boolean;
   isLoading: boolean;
   authError: string | null;
+  isPasswordRecovery: boolean;
+  requestPasswordReset: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string, fullName: string) => Promise<void>;
@@ -45,6 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const profileLoadVersion = useRef(0);
   const oauthCallbackInProgress = useRef(false);
 
@@ -98,6 +102,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (callback.protocol !== 'app.bunyan.residential:' || callback.hostname !== 'login-callback') return;
 
         oauthCallbackInProgress.current = true;
+        const callbackHash = new URLSearchParams(callbackUrl.split('#')[1] || '');
+        if (callback.searchParams.get('type') === 'recovery' || callbackHash.get('type') === 'recovery') setIsPasswordRecovery(true);
         setIsLoading(true);
         // Android closes the Custom Tab when it dispatches the app deep link.
         // Avoid closing it again while the Activity is being resumed.
@@ -154,8 +160,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Subscribe before reading the stored session. Supabase emits INITIAL_SESSION
     // through this listener; a late getSession() result must not overwrite a newer
     // Google OAuth callback with a stale null session (which sent the app back to login).
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       authEventSeen = true;
+      if (event === 'PASSWORD_RECOVERY') setIsPasswordRecovery(true);
       // Ignore a stale null event while the OAuth callback is exchanging its code.
       if (!session && oauthCallbackInProgress.current) return;
       if (active) window.setTimeout(() => {
@@ -239,14 +246,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const requestPasswordReset = async (email: string) => {
+    setAuthError(null);
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) throw new Error('اكتب البريد الإلكتروني أولاً.');
+    const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+      redirectTo: getAuthRedirectUrl(),
+    });
+    if (error) {
+      setAuthError(friendlyError(error));
+      throw error;
+    }
+  };
+
+  const updatePassword = async (password: string) => {
+    setAuthError(null);
+    if (password.length < 8) throw new Error('كلمة المرور لازم تكون 8 أحرف على الأقل.');
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      setAuthError(friendlyError(error));
+      throw error;
+    }
+    setIsPasswordRecovery(false);
+  };
+
   const signOut = async () => {
     setAuthError(null);
     const { error } = await supabase.auth.signOut();
     if (error) setAuthError(friendlyError(error));
     setUser(null); setUserProfile(null); setRole(null); setIsAdmin(false);
   };
-  return <AuthContext.Provider value={{ user, userProfile, role, isAdmin, isLoading, authError,
-    signInWithGoogle, signInWithEmail, signUpWithEmail, signOut, clearError: () => setAuthError(null) }}>
+  return <AuthContext.Provider value={{ user, userProfile, role, isAdmin, isLoading, authError, isPasswordRecovery,
+    signInWithGoogle, signInWithEmail, signUpWithEmail, requestPasswordReset, updatePassword, signOut, clearError: () => setAuthError(null) }}>
     {children}
   </AuthContext.Provider>;
 };
