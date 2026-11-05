@@ -38,7 +38,7 @@ export const AiChatView: React.FC<AiChatViewProps> = ({ buildingName }) => {
     {
       id: 'welcome',
       role: 'model',
-      text: `أهلاً بك! أنا «مساعد برج الفتوح الذكي» لإدارة ${buildingName}.
+      text: `أهلاً بك! أنا «مساعد العمارة الذكي» لإدارة ${buildingName}.
 يمكنني مساعدتك فوراً في:
 • الاستشارات القانونية لاتحادات الشاغلين وحساب نسب الصيانة طبقاً للقانون المصري.
 • صياغة التنبيهات والإنذارات للمتأخرين عن سداد الاشتراكات.
@@ -130,7 +130,7 @@ export const AiChatView: React.FC<AiChatViewProps> = ({ buildingName }) => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-bold text-sm text-white">مساعد برج الفتوح الذكي (Gemini)</h2>
+              <h2 className="font-bold text-sm text-white">مساعد العمارة الذكي (Gemini)</h2>
               <span className="text-[10px] bg-teal-400/20 text-teal-300 px-2 py-0.5 rounded-full font-medium">
                 النموذج المجاني: Gemini 3.1 Flash-Lite
               </span>
