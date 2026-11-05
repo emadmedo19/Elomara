@@ -80,7 +80,12 @@ export default function App() {
   }, [buildings, currentBuildingId]);
 
   useEffect(() => {
-    if (!user || !isAdmin) { setBuildings([]); return; }
+    if (!user || !isAdmin) {
+      setBuildings([]); setApartments([]); setPayments([]); setExpenses([]); setTickets([]);
+      setBookings([]); setAnnouncements([]); setAuditLogs([]);
+      setSettings({ customGeminiApiKey: '', backendUrl: '' }); setCurrentBuildingIdState('');
+      return;
+    }
     let cancelled = false;
     const load = async () => {
       setIsDataLoading(true);
@@ -90,6 +95,10 @@ export default function App() {
       else {
         const rows: Building[] = (data || []).map((r: any) => ({ id:r.id,name:r.name,address:r.address || '',totalUnits:Number(r.total_units || 0),totalFloors:r.total_floors ?? undefined,balance:Number(r.balance || 0),monthlyTarget:Number(r.monthly_target || 0),reserveFund:Number(r.reserve_fund || 0),managerName:r.manager_name || '',managerPhone:r.manager_phone || '',manager2Name:r.manager2_name || '',manager2Phone:r.manager2_phone || '',manager3Name:r.manager3_name || '',manager3Phone:r.manager3_phone || '' }));
         setBuildings(rows); setCurrentBuildingIdState(rows[0]?.id || '');
+        if (!rows.length) {
+          setApartments([]); setPayments([]); setExpenses([]); setTickets([]); setBookings([]);
+          setAnnouncements([]); setAuditLogs([]); setSettings({ customGeminiApiKey: '', backendUrl: '' });
+        }
         if (rows.length) {
           const { data: apartmentRows, error: apartmentError } = await supabase.from('apartments')
             .select('id,building_id,unit_number,floor,resident_name,resident_phone,is_owner,monthly_fee,payment_status,overdue_months,last_payment_date,paid_amount,credit_balance')
