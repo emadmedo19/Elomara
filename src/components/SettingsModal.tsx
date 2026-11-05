@@ -286,7 +286,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* Footer Save Button */}
           <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
             <span className="text-[11px] text-slate-400">
-              {saveSuccess ? '✓ تم حفظ الإعدادات!' : 'برج الفتوح v2.1.0'}
+              {saveSuccess ? '✓ تم حفظ الإعدادات!' : 'العمارة v2.1.0'}
             </span>
             <div className="flex items-center gap-2">
               <button
