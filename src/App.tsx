@@ -32,6 +32,7 @@ import { PdfStatementModal } from './components/PdfStatementModal';
 import { BuildingManagementModal } from './components/BuildingManagementModal';
 import { SettingsModal } from './components/SettingsModal';
 import { RegistrationApprovalsView } from './components/RegistrationApprovalsView';
+import { ExceptionalCollectionsView } from './components/ExceptionalCollectionsView';
 import { CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { LoginView } from './components/LoginView';
@@ -923,6 +924,143 @@ export default function App() {
     showToast(`تم تأكيد حجز ${newBk.facility} بتاريخ ${newBk.date}.`);
   };
 
+  const handleCreateExceptionalCollection = async (payload: {
+    title: string; description: string; amountMode: 'total' | 'per_apartment';
+    totalAmount: number; perApartmentAmount: number;
+    targetApartmentIds: string[]; keywords: string[]; notifyResidents: boolean;
+  }): Promise<boolean> => {
+    if (!user || !isAdmin || userProfile?.role !== 'building_admin' || !currentBuilding.id) {
+      showToast('إنشاء التحصيلات الاستثنائية متاح لمدير العمارة المعتمد فقط.', 'error');
+      return false;
+    }
+    const targets = apartments.filter(a => payload.targetApartmentIds.includes(a.id) && a.buildingId === currentBuilding.id);
+    if (!targets.length || targets.length !== payload.targetApartmentIds.length) {
+      showToast('قائمة الشقق المستهدفة غير صحيحة. حدّث الصفحة وحاول مرة أخرى.', 'error');
+      return false;
+    }
+    const amount = payload.amountMode === 'total' ? payload.totalAmount : payload.perApartmentAmount;
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showToast('قيمة التحصيل يجب أن تكون أكبر من صفر.', 'error');
+      return false;
+    }
+
+    const { data: collection, error: collectionError } = await supabase.from('exceptional_collections').insert({
+      building_id: currentBuilding.id,
+      title: payload.title,
+      description: payload.description,
+      amount_mode: payload.amountMode,
+      total_amount: payload.amountMode === 'total' ? payload.totalAmount : null,
+      per_apartment_amount: payload.amountMode === 'per_apartment' ? payload.perApartmentAmount : null,
+      target_apartment_ids: targets.map(a => a.id),
+      keywords: payload.keywords,
+      notify_residents: payload.notifyResidents,
+      status: 'active',
+      created_by: user.id,
+    }).select('id').single();
+    if (collectionError || !collection) {
+      showToast('تعذر حفظ التحصيل الاستثنائي: ' + (collectionError?.message || 'لم يتم تأكيد الحفظ'), 'error');
+      return false;
+    }
+
+    const amounts = targets.map((apt, index) => {
+      if (payload.amountMode === 'per_apartment') return Number(payload.perApartmentAmount.toFixed(2));
+      const base = Math.floor((payload.totalAmount / targets.length) * 100) / 100;
+      return index === targets.length - 1
+        ? Number((payload.totalAmount - base * (targets.length - 1)).toFixed(2))
+        : base;
+    });
+    const paymentRows = targets.map((apt, index) => ({
+      apartment_id: apt.id,
+      building_id: currentBuilding.id,
+      unit_number: apt.unitNumber,
+      resident_name: apt.residentName || '',
+      amount: amounts[index],
+      payment_date: new Date().toISOString().slice(0, 10),
+      month: 'تحصيل استثنائي',
+      method: 'تحصيل استثنائي',
+      notes: [payload.title, payload.description, payload.keywords.length ? payload.keywords.join('، ') : '', `مرجع التحصيل: ${collection.id}`].filter(Boolean).join(' — '),
+      recorded_by: user.id,
+    }));
+    const { data: savedRows, error: paymentsError } = await supabase.from('payments').insert(paymentRows)
+      .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at');
+    if (paymentsError || !savedRows || savedRows.length !== targets.length) {
+      await supabase.from('exceptional_collections').delete().eq('id', collection.id).eq('building_id', currentBuilding.id);
+      showToast('لم يتم تسجيل مستحقات الشقق، لذلك ألغيت عملية التحصيل: ' + (paymentsError?.message || 'عدد السجلات غير مكتمل'), 'error');
+      return false;
+    }
+
+    const newPayments: Payment[] = savedRows.map((row: any) => ({
+      id: row.id, apartmentId: row.apartment_id, buildingId: row.building_id,
+      unitNumber: row.unit_number, residentName: row.resident_name || '',
+      amount: Number(row.amount), date: row.payment_date, month: row.month,
+      method: row.method, notes: row.notes || undefined,
+      receiptNumber: row.receipt_number || undefined, recordedAt: row.recorded_at,
+    }));
+    const combinedPayments = [...newPayments, ...payments];
+    setPayments(previous => [...newPayments, ...previous]);
+    saveStoredPayments(combinedPayments);
+
+    const updatedApartments = apartments.map(apt => {
+      const fin = calculateApartmentFinancials(apt, combinedPayments);
+      return newPayments.some(p => p.apartmentId === apt.id) ? {
+        ...apt, paidAmount: fin.totalPaid, creditBalance: fin.creditBalance,
+        status: fin.status, overdueMonths: fin.remaining === 0 ? 0 : apt.overdueMonths,
+        lastPaymentDate: fin.lastPaymentDate,
+      } : apt;
+    });
+    setApartments(updatedApartments);
+    saveStoredApartments(updatedApartments);
+    const apartmentSync = await Promise.all(targets.map(apt => {
+      const updated = updatedApartments.find(a => a.id === apt.id)!;
+      return supabase.from('apartments').update({
+        paid_amount: updated.paidAmount || 0, credit_balance: updated.creditBalance || 0,
+        payment_status: updated.status, overdue_months: updated.overdueMonths,
+        last_payment_date: updated.lastPaymentDate || null,
+      }).eq('id', apt.id).eq('building_id', currentBuilding.id);
+    }));
+    if (apartmentSync.some(result => result.error)) {
+      showToast('تم تسجيل التحصيلات، لكن تعذر تحديث ملخص شقة أو أكثر. راجع بيانات الشقق.', 'error');
+    }
+
+    const auditRows = newPayments.map(payment => ({
+      action: 'create', payment_id: payment.id, apartment_id: payment.apartmentId,
+      unit_number: payment.unitNumber, building_id: payment.buildingId,
+      performed_by: user.id, new_data: payment,
+      notes: `تحصيل استثنائي: ${payload.title}`,
+    }));
+    const { error: auditError } = await supabase.from('payment_audit_logs').insert(auditRows);
+    if (auditError) console.warn('[Exceptional collection] Audit log insert failed:', auditError.message);
+    const newLogs: PaymentAuditLog[] = newPayments.map(payment => ({
+      id: `exceptional-${payment.id}`, action: 'create', paymentId: payment.id,
+      apartmentId: payment.apartmentId, unitNumber: payment.unitNumber,
+      buildingId: payment.buildingId, timestamp: new Date().toISOString(),
+      performedBy: settings.managerName || 'مدير العمارة', newData: payment,
+      notes: `تحصيل استثنائي: ${payload.title}`,
+    }));
+    setAuditLogs(previous => [...newLogs, ...previous]);
+    saveStoredAuditLogs([...newLogs, ...auditLogs]);
+
+    const totalCollected = amounts.reduce((sum, value) => sum + value, 0);
+    await persistTreasuryDelta(currentBuilding.id, totalCollected);
+
+    if (payload.notifyResidents) {
+      const { data: announcement, error: announcementError } = await supabase.from('announcements').insert({
+        building_id: currentBuilding.id,
+        title: `تحصيل استثنائي: ${payload.title}`,
+        content: [payload.description, `المبلغ المطلوب لكل شقة: ${payload.amountMode === 'per_apartment' ? payload.perApartmentAmount.toLocaleString() + ' ج.م' : 'تم توزيع ' + payload.totalAmount.toLocaleString() + ' ج.م بالتساوي على الشقق المحددة'}`, `الشقق المستهدفة: ${targets.map(a => a.unitNumber).join('، ')}`].filter(Boolean).join('\n'),
+        announcement_type: 'general', pinned: true, created_by: user.id,
+      }).select('id').single();
+      if (announcementError || !announcement) {
+        showToast('تم تسجيل التحصيلات، لكن تعذر إنشاء إشعار السكان: ' + (announcementError?.message || 'خطأ غير معروف'), 'info');
+      } else {
+        const { error: pushError } = await supabase.functions.invoke('send-announcement-push', { body: { announcement_id: announcement.id } });
+        if (pushError) showToast('تم تسجيل التحصيلات، لكن خدمة الإشعارات لم تؤكد الإرسال.', 'info');
+      }
+    }
+    showToast(`تم إنشاء التحصيل الاستثنائي وتسجيل ${newPayments.length} مستحقات بإجمالي ${totalCollected.toLocaleString()} ج.م.`);
+    return true;
+  };
+
   const handlePinAnnouncement = async (newAnn: Omit<Announcement, 'id'>): Promise<boolean> => {
     if (!user || !isAdmin || !currentBuilding.id) {
       showToast('لا توجد صلاحية لنشر الإعلان.', 'error');
@@ -1203,6 +1341,14 @@ export default function App() {
               onSavePayment={handleSavePayment}
               onEditPayment={handleEditPayment}
               onDeletePayment={handleDeletePayment}
+            />
+          )}
+
+          {currentTab === 'exceptional-collections' && isAdmin && (
+            <ExceptionalCollectionsView
+              building={currentBuilding}
+              apartments={apartments}
+              onCreateCollection={handleCreateExceptionalCollection}
             />
           )}
 
