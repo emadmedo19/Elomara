@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 type JoinRequestStatus = 'pending' | 'approved' | 'rejected' | null;
 
 export const LoginView: React.FC = () => {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, authError, isLoading, clearError, user, userProfile, isAdmin, signOut } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, requestPasswordReset, updatePassword, isPasswordRecovery, authError, isLoading, clearError, user, userProfile, isAdmin, signOut } = useAuth();
   const [buildingName, setBuildingName] = useState('');
   const [buildingAddress, setBuildingAddress] = useState('');
   const [unitsCount, setUnitsCount] = useState('0');
@@ -25,6 +25,9 @@ export const LoginView: React.FC = () => {
   const [authPassword, setAuthPassword] = useState('');
   const [authFullName, setAuthFullName] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -51,6 +54,32 @@ export const LoginView: React.FC = () => {
     } catch (authFailure) {
       const message = authFailure instanceof Error ? authFailure.message : 'تعذر إتمام العملية. راجع البيانات وحاول مرة أخرى.';
       setError(message);
+    } finally { setAuthBusy(false); }
+  };
+
+  const sendPasswordReset = async () => {
+    setError(''); setNotice(''); clearError();
+    if (!authEmail.trim()) { setError('اكتب البريد الإلكتروني أولاً.'); return; }
+    setResetBusy(true);
+    try {
+      await requestPasswordReset(authEmail);
+      setNotice('لو البريد مسجل عندنا، هتوصلك رسالة فيها رابط إعادة تعيين كلمة المرور. راجع صندوق الوارد والرسائل غير المرغوب فيها.');
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'تعذر إرسال رابط الاستعادة. حاول مرة أخرى.');
+    } finally { setResetBusy(false); }
+  };
+
+  const saveNewPassword = async (event: React.FormEvent) => {
+    event.preventDefault(); setError(''); setNotice('');
+    if (newPassword.length < 8) { setError('كلمة المرور لازم تكون 8 أحرف على الأقل.'); return; }
+    if (newPassword !== confirmPassword) { setError('كلمتا المرور غير متطابقتين.'); return; }
+    setAuthBusy(true);
+    try {
+      await updatePassword(newPassword);
+      setAuthPassword(''); setNewPassword(''); setConfirmPassword('');
+      setNotice('تم تغيير كلمة المرور بنجاح. تقدر تستخدم كلمة المرور الجديدة في تسجيل الدخول.');
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'تعذر تغيير كلمة المرور. افتح رابط الاستعادة مرة أخرى.');
     } finally { setAuthBusy(false); }
   };
 
@@ -111,7 +140,20 @@ export const LoginView: React.FC = () => {
 
       <section className="fotouh-login-lower">
         <div className="fotouh-login-card">
-          {!user ? (
+          {isPasswordRecovery ? (
+            <div className="space-y-5 py-5 text-right" dir="rtl">
+              <div className="fotouh-login-card-icon mx-auto"><ShieldCheck className="h-8 w-8"/></div>
+              <h2 className="text-center text-xl font-bold">تعيين كلمة مرور جديدة</h2>
+              <p className="text-center text-sm leading-7 text-slate-500">اكتب كلمة المرور الجديدة لحسابك.</p>
+              <form onSubmit={saveNewPassword} className="space-y-3">
+                <label className="fotouh-field"><span>كلمة المرور الجديدة</span><div><input type="password" dir="ltr" autoComplete="new-password" minLength={8} value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="8 أحرف على الأقل" required/></div></label>
+                <label className="fotouh-field"><span>تأكيد كلمة المرور</span><div><input type="password" dir="ltr" autoComplete="new-password" minLength={8} value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} placeholder="أعد كتابة كلمة المرور" required/></div></label>
+                <button type="submit" disabled={authBusy} className="fotouh-primary-button w-full">{authBusy ? 'جارٍ حفظ كلمة المرور...' : 'حفظ كلمة المرور الجديدة'}</button>
+              </form>
+              {error && <p className="fotouh-message error"><AlertCircle/>{error}</p>}
+              {notice && <p className="fotouh-message success"><CheckCircle2/>{notice}</p>}
+            </div>
+          ) : !user ? (
             <div className="space-y-5 py-4 text-center">
               <div className="fotouh-login-card-icon"><ShieldCheck className="h-8 w-8"/></div>
               <h2>مرحبًا بك في العمارة</h2>
@@ -130,6 +172,7 @@ export const LoginView: React.FC = () => {
                 {authMode === 'signup' && <label className="fotouh-field"><span>الاسم بالكامل</span><div><Users/><input value={authFullName} onChange={e => setAuthFullName(e.target.value)} placeholder="اكتب اسمك" autoComplete="name" required/></div></label>}
                 <label className="fotouh-field"><span>البريد الإلكتروني</span><div><input type="email" dir="ltr" value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="name@example.com" autoComplete="email" required/></div></label>
                 <label className="fotouh-field"><span>كلمة المرور</span><div><input type="password" dir="ltr" value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="8 أحرف على الأقل" autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'} minLength={8} required/></div></label>
+                {authMode === 'login' && <button type="button" onClick={() => void sendPasswordReset()} disabled={resetBusy || authBusy} className="text-sm font-bold text-teal-700 underline underline-offset-4 disabled:opacity-60">{resetBusy ? 'جارٍ إرسال رابط الاستعادة...' : 'نسيت كلمة المرور؟'}</button>}
                 <button type="submit" disabled={authBusy || isLoading} className="fotouh-primary-button w-full disabled:opacity-60">{authBusy ? 'جارٍ التنفيذ...' : authMode === 'signup' ? 'إنشاء الحساب بالبريد الإلكتروني' : 'الدخول بالبريد الإلكتروني'}</button>
               </form>
               {error && <p className="fotouh-message error"><AlertCircle/>{error}</p>}
