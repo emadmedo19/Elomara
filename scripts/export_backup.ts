@@ -44,7 +44,7 @@ const snapshot: BonyanSnapshot = {
   exportDate: new Date().toISOString(),
   version: '2.0.0-snapshot',
   appId: 'app.bunyan.residential',
-  source: 'برج الفتوح - نظام إدارة العمارات السكنية',
+  source: 'العمارة - نظام إدارة العقارات السكنية',
   stats: {
     buildingsCount: initialBuildings.length,
     apartmentsCount: initialApartments.length,
