@@ -5,13 +5,11 @@ import { Capacitor } from '@capacitor/core';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
-export const PRIMARY_ADMIN_EMAIL = '';
-
 export interface UserProfile {
   uid: string;
   email: string | null;
   displayName: string | null;
-  role: 'super_admin' | 'assistant_admin' | 'building_admin' | 'owner' | 'tenant' | 'pending';
+  role: 'building_admin' | 'owner' | 'tenant' | 'pending';
   apartmentId?: string;
   buildingId?: string;
   phone?: string;
@@ -63,10 +61,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setIsLoading(true);
     try {
-      if (currentUser.email_confirmed_at) {
-        const { error: bootstrapError } = await supabase.rpc('bootstrap_first_super_admin');
-        if (bootstrapError) console.warn('First-admin bootstrap unavailable:', bootstrapError.message);
-      }
       const { data, error } = await supabase.from('profiles')
         .select('id, full_name, phone, role, building_id, apartment_id, approved')
         .eq('id', currentUser.id).maybeSingle();
@@ -77,12 +71,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: data.role as UserProfile['role'],
         buildingId: data.building_id || undefined, apartmentId: data.apartment_id || undefined,
         phone: data.phone || undefined,
-        status: data.approved || data.role === 'super_admin' || data.role === 'assistant_admin' ? 'active' : 'pending',
+        status: data.approved ? 'active' : 'pending',
       } : null;
       setUserProfile(profile); setRole(profile?.role ?? null);
-      const admin = profile?.role === 'super_admin' || profile?.role === 'assistant_admin' || profile?.role === 'building_admin';
+      const admin = profile?.role === 'building_admin';
       setIsAdmin(Boolean(admin && profile?.status === 'active'));
-      setIsSuperAdmin(profile?.role === 'super_admin');
+      setIsSuperAdmin(false);
     } catch (error) {
       console.error('Supabase profile loading failed:', error);
       setUserProfile(null); setRole(null); setIsAdmin(false); setIsSuperAdmin(false);
