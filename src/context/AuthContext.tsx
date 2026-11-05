@@ -68,10 +68,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setIsLoading(true);
     try {
-      if (currentUser.email_confirmed_at) {
-        const { error: bootstrapError } = await supabase.rpc('bootstrap_first_super_admin');
-        if (bootstrapError) console.warn('First-admin bootstrap unavailable:', bootstrapError.message);
-      }
+      // First-account promotion is intentionally not performed during login.
+      // The first user becomes building_admin only after create_building_for_current_user
+      // successfully creates a building. This avoids the obsolete super-admin RPC.
       if (requestId !== profileLoadSequence.current) return;
       const { data, error } = await supabase.from('profiles')
         .select('id, full_name, phone, role, building_id, apartment_id, approved, disabled_at')
