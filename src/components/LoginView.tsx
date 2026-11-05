@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 type JoinRequestStatus = 'pending' | 'approved' | 'rejected' | null;
 
 export const LoginView: React.FC = () => {
-  const { signInWithGoogle, authError, isLoading, clearError, user, userProfile, isAdmin, signOut } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, authError, isLoading, clearError, user, userProfile, isAdmin, signOut } = useAuth();
   const [buildingName, setBuildingName] = useState('');
   const [buildingAddress, setBuildingAddress] = useState('');
   const [unitsCount, setUnitsCount] = useState('0');
@@ -20,6 +20,11 @@ export const LoginView: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authFullName, setAuthFullName] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -29,6 +34,25 @@ export const LoginView: React.FC = () => {
       .then(({ data }) => { if (active) setRequestStatus((data?.status as JoinRequestStatus) || null); });
     return () => { active = false; };
   }, [user?.id]);
+
+  const submitEmailAuth = async (event: React.FormEvent) => {
+    event.preventDefault(); setError(''); setNotice(''); clearError();
+    if (!authEmail.trim() || !authPassword) { setError('اكتب البريد الإلكتروني وكلمة المرور.'); return; }
+    if (authMode === 'signup' && !authFullName.trim()) { setError('اكتب اسمك بالكامل.'); return; }
+    if (authPassword.length < 8) { setError('كلمة المرور لازم تكون 8 أحرف على الأقل.'); return; }
+    setAuthBusy(true);
+    try {
+      if (authMode === 'signup') {
+        await signUpWithEmail(authEmail, authPassword, authFullName);
+        setNotice('تم إنشاء الحساب. لو طُلب تأكيد البريد، افتح رسالة التأكيد المرسلة إليك ثم ارجع للتطبيق وسجّل الدخول.');
+      } else {
+        await signInWithEmail(authEmail, authPassword);
+      }
+    } catch (authFailure) {
+      const message = authFailure instanceof Error ? authFailure.message : 'تعذر إتمام العملية. راجع البيانات وحاول مرة أخرى.';
+      setError(message);
+    } finally { setAuthBusy(false); }
+  };
 
   const createBuilding = async (event: React.FormEvent) => {
     event.preventDefault(); setError(''); setNotice('');
@@ -75,7 +99,7 @@ export const LoginView: React.FC = () => {
           </div>
           <div className="fotouh-login-intro">
             <h2>إدارة العمارة بسهولة وأمان</h2>
-            <p>حساب Google واحد للدخول، مع صلاحيات مستقلة لكل عمارة.</p>
+            <p>سجّل باستخدام Google أو البريد الإلكتروني، مع صلاحيات مستقلة لكل عمارة.</p>
           </div>
         </div>
         <div className="fotouh-feature-grid">
@@ -91,16 +115,29 @@ export const LoginView: React.FC = () => {
             <div className="space-y-5 py-4 text-center">
               <div className="fotouh-login-card-icon"><ShieldCheck className="h-8 w-8"/></div>
               <h2>مرحبًا بك في العمارة</h2>
-              <p className="text-sm leading-7 text-slate-500">سجّل الدخول أو أنشئ حسابك باستخدام Google للمتابعة.</p>
+              <p className="text-sm leading-7 text-slate-500">سجّل الدخول أو أنشئ حسابًا جديدًا باستخدام Google أو البريد الإلكتروني.</p>
               {authError && <p className="fotouh-message error"><AlertCircle/>{authError}</p>}
-              <button type="button" onClick={() => { clearError(); void signInWithGoogle(); }} disabled={isLoading}
+              <button type="button" onClick={() => { clearError(); void signInWithGoogle(); }} disabled={isLoading || authBusy}
                 className="fotouh-google-button w-full">
                 <Chrome className="h-5 w-5 text-[#4285F4]"/> {isLoading ? 'جارٍ الاتصال بحساب Google...' : 'المتابعة باستخدام Google'}
               </button>
+              <div className="relative py-1"><div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-200"/></div><span className="relative bg-white px-3 text-xs text-slate-400">أو بالبريد الإلكتروني</span></div>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => { setAuthMode('login'); setError(''); setNotice(''); }} className={`rounded-xl border px-3 py-2.5 text-sm font-bold ${authMode === 'login' ? 'border-teal-600 bg-teal-50 text-teal-800' : 'border-slate-200 text-slate-500'}`}>تسجيل الدخول</button>
+                <button type="button" onClick={() => { setAuthMode('signup'); setError(''); setNotice(''); }} className={`rounded-xl border px-3 py-2.5 text-sm font-bold ${authMode === 'signup' ? 'border-teal-600 bg-teal-50 text-teal-800' : 'border-slate-200 text-slate-500'}`}>إنشاء حساب جديد</button>
+              </div>
+              <form onSubmit={submitEmailAuth} className="space-y-3 text-right">
+                {authMode === 'signup' && <label className="fotouh-field"><span>الاسم بالكامل</span><div><Users/><input value={authFullName} onChange={e => setAuthFullName(e.target.value)} placeholder="اكتب اسمك" autoComplete="name" required/></div></label>}
+                <label className="fotouh-field"><span>البريد الإلكتروني</span><div><input type="email" dir="ltr" value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="name@example.com" autoComplete="email" required/></div></label>
+                <label className="fotouh-field"><span>كلمة المرور</span><div><input type="password" dir="ltr" value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="8 أحرف على الأقل" autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'} minLength={8} required/></div></label>
+                <button type="submit" disabled={authBusy || isLoading} className="fotouh-primary-button w-full disabled:opacity-60">{authBusy ? 'جارٍ التنفيذ...' : authMode === 'signup' ? 'إنشاء الحساب بالبريد الإلكتروني' : 'الدخول بالبريد الإلكتروني'}</button>
+              </form>
+              {error && <p className="fotouh-message error"><AlertCircle/>{error}</p>}
+              {notice && <p className="fotouh-message success"><CheckCircle2/>{notice}</p>}
               <div className="fotouh-login-help text-right">
                 <strong className="block text-slate-700">إرشادات التسجيل في العمارة</strong>
                 <ul>
-                  <li>سجّل الدخول أولًا بحساب Google.</li>
+                  <li>سجّل الدخول باستخدام Google أو البريد الإلكتروني.</li>
                   <li>لو أنت مدير العمارة، اختار «أنا مدير عمارة» وأنشئ عمارتك.</li>
                   <li>لو أنت ساكن، اختار «أنا ساكن» واكتب كود العمارة وبيانات شقتك.</li>
                   <li>طلب الساكن بيتراجع من مدير العمارة، ومش هتظهر بيانات العمارة إلا بعد الموافقة.</li>
