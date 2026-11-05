@@ -1,167 +1,76 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, Clock3, RefreshCw, ShieldCheck, UserRound, AlertCircle, Crown, Trash2, UserCheck, Shield } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Copy, RefreshCw, ShieldCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Apartment } from '../types';
 import { useAuth } from '../context/AuthContext';
 
-interface UserRow {
-  user_id: string;
-  email: string | null;
-  phone: string | null;
-  full_name: string;
-  role: string;
-  approved: boolean;
-  building_id: string | null;
-  apartment_id: string | null;
-  registered_at: string;
-  disabled_at: string | null;
-}
+type RequestRow = { id:string; full_name:string; requested_floor:number; requested_unit_number:string; resident_type:string; status:string; created_at:string };
 
 export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = ({ apartments }) => {
-  const [rows, setRows] = useState<UserRow[]>([]);
-  const [assignments, setAssignments] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const { userProfile } = useAuth();
-  const isBuildingAdmin = userProfile?.role === 'building_admin' || userProfile?.role === 'assistant_admin';
-  const [inviteName, setInviteName] = useState('');
-  const [invitePhone, setInvitePhone] = useState('');
-  const [inviteApartmentId, setInviteApartmentId] = useState('');
-  const [createdInviteCode, setCreatedInviteCode] = useState('');
-  const [whatsappInviteUrl, setWhatsappInviteUrl] = useState('');
+  const buildingId = userProfile?.buildingId;
+  const [rows,setRows] = useState<RequestRow[]>([]);
+  const [chosen,setChosen] = useState<Record<string,string>>({});
+  const [code,setCode] = useState('');
+  const [revoked,setRevoked] = useState(false);
+  const [loading,setLoading] = useState(true);
+  const [busy,setBusy] = useState(false);
+  const [error,setError] = useState('');
+  const [message,setMessage] = useState('');
 
   const load = useCallback(async () => {
-    setLoading(true); setError('');
-    const { data: authData } = await supabase.auth.getUser();
-    setCurrentUserId(authData.user?.id ?? null);
-    const { data, error: requestError } = await supabase.rpc(isBuildingAdmin ? 'list_building_users' : 'list_all_bunyan_users');
-    if (requestError) { setError(requestError.message); setRows([]); }
-    else setRows((data || []) as UserRow[]);
-    setLoading(false);
-  }, [isBuildingAdmin]);
+    if (!buildingId) { setLoading(false); return; }
+    setLoading(true);
+    const [requests,invite] = await Promise.all([
+      supabase.from('building_join_requests').select('id,full_name,requested_floor,requested_unit_number,resident_type,status,created_at').eq('building_id',buildingId).order('created_at',{ascending:false}),
+      supabase.from('building_access_codes').select('code,revoked_at').eq('building_id',buildingId).maybeSingle()
+    ]);
+    if (requests.error) setError(requests.error.message); else setRows((requests.data||[]) as RequestRow[]);
+    if (invite.error) setError(invite.error.message);
+    setCode(invite.data?.code||''); setRevoked(Boolean(invite.data?.revoked_at)); setLoading(false);
+  },[buildingId]);
+  useEffect(()=>{void load();},[load]);
 
-  useEffect(() => { void load(); }, [load]);
-
-  const createInvite = async () => {
-    if (!inviteName.trim() || !invitePhone.trim() || !inviteApartmentId || !userProfile?.buildingId) {
-      setError('اكتب اسم الساكن ورقم موبايله واختار الشقة.'); return;
-    }
-    setBusyId('invite'); setError(''); setNotice(''); setCreatedInviteCode(''); setWhatsappInviteUrl('');
-    const { data, error: inviteError } = await supabase.rpc('create_building_phone_invite', {
-      target_building_id: userProfile.buildingId, target_apartment_id: inviteApartmentId,
-      target_phone: invitePhone.trim(), target_name: inviteName.trim(),
-    });
-    if (inviteError) setError(inviteError.message);
-    else {
-      const result = Array.isArray(data) ? data[0] : data;
-      const code = result?.invite_code;
-      if (code) {
-        setCreatedInviteCode(code);
-        const inviteUrl = new URL(window.location.href); inviteUrl.searchParams.set('invite', code);
-        const rawDigits = invitePhone.replace(/\D/g, '');
-        const digits = rawDigits.startsWith('0020') ? rawDigits.slice(2) : rawDigits.startsWith('0') ? '20' + rawDigits.slice(1) : rawDigits;
-        const message = 'أهلاً ' + inviteName + '، دي دعوة للانضمام إلى تطبيق العمارة.' + '\n\nرابط الدعوة: ' + inviteUrl.toString() + '\nكود الدعوة: ' + code + '\n\nالدعوة صالحة لمدة 48 ساعة، ولازم تنشئ حساب برقم الموبايل نفسه وتستخدمه عند تسجيل الدخول.';
-        setWhatsappInviteUrl('https://wa.me/' + digits + '?text=' + encodeURIComponent(message));
-        setNotice('تم إنشاء الدعوة. ابعتها للساكن على واتساب؛ ينشئ حسابًا بنفس الرقم وكلمة مرور، ثم يقبل الدعوة.');
-      } else setError('لم يتم استلام كود الدعوة.');
-    }
-    setBusyId(null);
+  const createCode = async () => {
+    if(!buildingId)return;
+    setBusy(true);setError('');setMessage('');
+    const {data,error:e}=await supabase.rpc('create_or_rotate_building_access_code',{target_building_id:buildingId});
+    if(e)setError(e.message);else{setCode(String(data));setRevoked(false);setMessage('تم إنشاء الكود، وأي كود سابق أصبح غير صالح.');}
+    setBusy(false);
   };
-  const approve = async (id: string) => {
-    const apartmentId = assignments[id];
-    if (!apartmentId) { setError('اختار الشقة الأول قبل اعتماد الحساب.'); return; }
-    setBusyId(id); setError(''); setNotice('');
-    const { data, error: actionError } = await supabase.rpc('approve_and_assign_registration', {
-      target_user_id: id, target_apartment_id: apartmentId,
-    });
-    if (actionError) setError(actionError.message);
-    else if (data) { setNotice('تم قبول الحساب وتخصيص الشقة.'); await load(); }
-    else setError('لم يتم حفظ التخصيص؛ حدّث القائمة وحاول مرة أخرى.');
-    setBusyId(null);
+  const revokeCode = async () => {
+    if(!buildingId)return;
+    setBusy(true);setError('');setMessage('');
+    const {error:e}=await supabase.rpc('revoke_building_access_code',{target_building_id:buildingId});
+    if(e)setError(e.message);else{setRevoked(true);setMessage('تم إلغاء الكود.');}
+    setBusy(false);
   };
-
-  const changeRole = async (row: UserRow, role: 'super_admin' | 'tenant') => {
-    const label = role === 'super_admin' ? 'مدير كامل مثل حسابك' : 'مستخدم عادي';
-    if (!window.confirm(`تأكيد تغيير صلاحية ${row.full_name || row.email} إلى ${label}؟`)) return;
-    setBusyId(row.user_id); setError(''); setNotice('');
-    const { data, error: actionError } = await supabase.rpc('set_bunyan_user_role', {
-      target_user_id: row.user_id, target_role: role,
-    });
-    if (actionError) setError(actionError.message);
-    else if (data) { setNotice('تم تحديث صلاحيات الحساب بنجاح.'); await load(); }
-    else setError('لم يتم تحديث الصلاحية؛ حدّث القائمة وحاول مرة أخرى.');
-    setBusyId(null);
+  const decide = async (id:string,accept:boolean) => {
+    if(accept&&!chosen[id]){setError('اختار الشقة الفعلية قبل الموافقة.');return;}
+    setBusy(true);setError('');setMessage('');
+    const result=accept
+      ? await supabase.rpc('approve_building_join_request',{target_request_id:id,target_apartment_id:chosen[id]})
+      : await supabase.rpc('reject_building_join_request',{target_request_id:id});
+    if(result.error)setError(result.error.message);else{setMessage(accept?'تم اعتماد الساكن وربطه بالشقة.':'تم رفض الطلب.');await load();}
+    setBusy(false);
   };
-
-  const disableUser = async (row: UserRow) => {
-    if (!window.confirm(`تأكيد تعطيل حساب ${row.full_name || row.email}؟ لن يستطيع تسجيل الدخول، وسيظل سجل العمليات محفوظًا.`)) return;
-    setBusyId(row.user_id); setError(''); setNotice('');
-    const { data, error: actionError } = await supabase.rpc('disable_bunyan_user', { target_user_id: row.user_id });
-    if (actionError) setError(actionError.message);
-    else if (data) { setNotice('تم تعطيل الحساب وإلغاء تسجيل جهاز الإشعارات.'); await load(); }
-    else setError('لم يتم تعطيل الحساب؛ حدّث القائمة وحاول مرة أخرى.');
-    setBusyId(null);
-  };
-
-  const pendingCount = rows.filter(r => !r.disabled_at && (!r.approved || !r.building_id || (!['super_admin', 'assistant_admin', 'building_admin'].includes(r.role) && !r.apartment_id))).length;
-  const roleLabel = (row: UserRow) => row.disabled_at ? 'حساب معطّل' :
-    row.role === 'super_admin' ? 'مدير كامل' :
-    row.role === 'assistant_admin' ? 'مساعد مدير' :
-    row.role === 'building_admin' ? 'مدير عقار' :
-    row.role === 'owner' ? 'مالك وحدة' :
-    row.role === 'tenant' ? 'مستخدم عادي' : 'طلب جديد';
 
   return <section className="max-w-4xl mx-auto space-y-4" dir="rtl">
-    <div className="rounded-3xl bg-[#10283a] text-white p-5 shadow-lg border border-teal-500/20">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3"><div className="w-12 h-12 rounded-2xl bg-teal-500/15 flex items-center justify-center"><ShieldCheck className="w-6 h-6 text-teal-300" /></div>
-          <div><h2 className="text-xl font-bold">إدارة المستخدمين والصلاحيات</h2><p className="text-sm text-slate-300 mt-1">عرض كل الحسابات المسجلة، قبول الطلبات، وتعديل الصلاحيات.</p></div>
-        </div>
-        <button onClick={() => void load()} disabled={loading || busyId !== null} className="p-3 rounded-xl bg-white/10"><RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} /></button>
-      </div>
-      <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-teal-200">
-        <span className="flex items-center gap-2"><UserRound className="w-4 h-4" />{rows.length} حساب مسجل</span>
-        <span className="flex items-center gap-2"><Clock3 className="w-4 h-4" />{pendingCount} طلب يحتاج مراجعة</span>
-      </div>
+    <div className="rounded-3xl bg-[#10283a] text-white p-5">
+      <div className="flex items-center justify-between"><div className="flex gap-3 items-center"><ShieldCheck className="h-8 w-8 text-teal-300"/><div><h2 className="text-xl font-bold">طلبات انضمام السكان</h2><p className="text-sm text-slate-300">مراجعة الطلبات واعتماد الشقق.</p></div></div><button onClick={()=>void load()}><RefreshCw className={loading?'animate-spin':''}/></button></div>
+      <p className="mt-3 text-sm text-teal-200">{rows.filter(r=>r.status==='pending').length} طلب قيد المراجعة</p>
     </div>
-    {isBuildingAdmin && <div className="rounded-2xl border border-teal-200 bg-white p-4 space-y-3">
-      <div><h3 className="font-bold text-slate-800">دعوة ساكن أو مالك جديد</h3><p className="mt-1 text-xs text-slate-500">بالاسم ورقم الموبايل، والدعوة صالحة 48 ساعة ومخصصة لعمارة وشقة ورقم واحد.</p></div>
-      <input type="text" value={inviteName} onChange={e=>setInviteName(e.target.value)} placeholder="اسم الساكن بالكامل" className="w-full rounded-xl border border-slate-300 p-3 text-sm"/>
-      <input type="tel" inputMode="tel" dir="ltr" value={invitePhone} onChange={e=>setInvitePhone(e.target.value)} placeholder="01xxxxxxxxx" className="w-full rounded-xl border border-slate-300 p-3 text-sm"/>
-      <select value={inviteApartmentId} onChange={e=>setInviteApartmentId(e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm">
-        <option value="">اختار الشقة</option>{apartments.map(a=><option key={a.id} value={a.id}>شقة {a.unitNumber} — الدور {a.floor}</option>)}
-      </select>
-      <button onClick={()=>void createInvite()} disabled={busyId!==null || !inviteName.trim() || !invitePhone.trim() || !inviteApartmentId} className="w-full rounded-xl bg-teal-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{busyId==="invite"?"جارٍ إنشاء الدعوة...":"إنشاء دعوة واتساب"}</button>
-      {createdInviteCode && <div className="rounded-xl bg-slate-50 p-3 text-sm space-y-2"><p className="font-semibold">كود الدعوة</p><code dir="ltr" className="block break-all">{createdInviteCode}</code><button onClick={()=>{void navigator.clipboard?.writeText(createdInviteCode);}} className="block text-teal-700 font-bold">نسخ الكود</button>{whatsappInviteUrl && <a href={whatsappInviteUrl} target="_blank" rel="noopener noreferrer" className="block rounded-xl bg-[#128C7E] px-4 py-3 text-center font-bold text-white">إرسال الدعوة على واتساب</a>}<p className="text-xs text-amber-700">قبول الدعوة يتطلب حسابًا مسجلًا بنفس رقم الموبايل الموجود في الدعوة.</p></div>}
-    </div>}
-    {error && <div className="rounded-xl bg-rose-50 text-rose-700 border border-rose-200 p-3 text-sm flex gap-2"><AlertCircle className="w-5 h-5 shrink-0" />{error}</div>}
-    {notice && <div className="rounded-xl bg-teal-50 text-teal-800 border border-teal-200 p-3 text-sm">{notice}</div>}
-    {loading ? <div className="bg-white rounded-2xl p-8 text-center">جارٍ تحميل الحسابات...</div> :
-      rows.length === 0 ? <div className="bg-white rounded-2xl border p-8 text-center"><CheckCircle2 className="w-9 h-9 text-teal-500 mx-auto mb-2" /><b>لا توجد حسابات مسجلة.</b></div> :
-      rows.map(row => {
-        const isPending = !row.disabled_at && (!row.approved || !row.building_id || (!['super_admin', 'assistant_admin', 'building_admin'].includes(row.role) && !row.apartment_id));
-        const isSelf = row.user_id === currentUserId;
-        return <article key={row.user_id} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0"><UserRound className="w-8 h-8 text-slate-500 shrink-0" /><div className="min-w-0"><b>{row.full_name || 'مستخدم جديد'}</b><p className="text-sm text-slate-500 break-all" dir="ltr">{(row.email?.startsWith('resident-') ? 'حساب برقم الموبايل' : row.email || row.phone || '')}</p><p className="text-xs text-slate-400 mt-1">تاريخ التسجيل: {new Date(row.registered_at).toLocaleDateString('ar-EG')}</p></div></div>
-            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${row.disabled_at ? 'bg-rose-100 text-rose-700' : row.role === 'super_admin' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>{roleLabel(row)}</span>
-          </div>
-          {isPending && <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 space-y-2">
-            <p className="text-sm font-bold text-amber-800">طلب انضمام يحتاج اعتمادًا أو تخصيص شقة</p>
-            <select aria-label="اختيار الشقة" value={assignments[row.user_id] || ''} onChange={e => setAssignments(current => ({...current,[row.user_id]:e.target.value}))} className="w-full rounded-xl border border-slate-300 bg-white p-3 text-sm text-slate-800">
-              <option value="">اختر الشقة...</option>{apartments.map(a => <option key={a.id} value={a.id}>شقة {a.unitNumber} — الدور {a.floor} ({a.residentName || 'بدون اسم'})</option>)}
-            </select>
-            <button onClick={() => void approve(row.user_id)} disabled={busyId !== null || !assignments[row.user_id]} className="w-full rounded-xl bg-teal-600 hover:bg-teal-700 text-white px-5 py-3 font-bold text-sm disabled:opacity-50">{busyId === row.user_id ? 'جارٍ الحفظ...' : 'قبول عادي وتخصيص الشقة'}</button>
-          </div>}
-          {!isBuildingAdmin && !row.disabled_at && row.role !== 'super_admin' && <button onClick={() => void changeRole(row,'super_admin')} disabled={busyId !== null || isSelf} className="w-full rounded-xl bg-amber-500 hover:bg-amber-600 text-white px-4 py-3 font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2"><Crown className="w-4 h-4" />تحويل إلى مدير كامل</button>}
-          {!isBuildingAdmin && !row.disabled_at && row.role === 'super_admin' && <button onClick={() => void changeRole(row,'tenant')} disabled={busyId !== null || isSelf} className="w-full rounded-xl bg-slate-700 hover:bg-slate-800 text-white px-4 py-3 font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2"><Shield className="w-4 h-4" />إرجاع إلى مستخدم عادي</button>}
-          {!isBuildingAdmin && !row.disabled_at && <button onClick={() => void disableUser(row)} disabled={busyId !== null || isSelf} className="w-full rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 px-4 py-3 font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2"><Trash2 className="w-4 h-4" />حذف / تعطيل الحساب</button>}
-          {!isBuildingAdmin && row.disabled_at && <button onClick={() => void changeRole(row,'tenant')} disabled={busyId !== null} className="w-full rounded-xl bg-teal-600 hover:bg-teal-700 text-white px-4 py-3 font-bold text-sm disabled:opacity-50 flex items-center justify-center gap-2"><UserCheck className="w-4 h-4" />إعادة تفعيل كمستخدم عادي</button>}
-        </article>;
-      })}
-    {apartments.length === 0 && <p className="text-sm text-amber-700 bg-amber-50 p-3 rounded-xl">أضف الشقق أولًا حتى تتمكن من تخصيص حسابات السكان.</p>}
+    <div className="rounded-2xl border bg-white p-4 space-y-3">
+      <h3 className="font-bold">كود العمارة العام</h3>
+      <p className="text-xs text-slate-500">شارك الكود مع السكان. اختيار الشقة يتم بواسطة المدير بعد مراجعة الطلب.</p>
+      {code&&<div className="flex items-center justify-between rounded-xl bg-slate-50 p-3"><div><code dir="ltr" className="text-lg font-black tracking-widest">{code}</code><p className="text-xs">{revoked?'ملغي':'فعال'}</p></div><button disabled={revoked} onClick={()=>void navigator.clipboard?.writeText(code)} className="flex gap-2 text-teal-700"><Copy/>نسخ</button></div>}
+      <div className="grid grid-cols-2 gap-2"><button disabled={busy} onClick={()=>void createCode()} className="rounded-xl bg-teal-700 p-3 text-white font-bold">{code?'تجديد الكود':'إنشاء كود'}</button><button disabled={busy||!code||revoked} onClick={()=>void revokeCode()} className="rounded-xl border border-rose-200 p-3 text-rose-700 font-bold">إلغاء الكود</button></div>
+    </div>
+    {error&&<p className="rounded-xl bg-rose-50 p-3 text-rose-700 text-sm"><AlertCircle className="inline ml-2"/>{error}</p>}
+    {message&&<p className="rounded-xl bg-teal-50 p-3 text-teal-800 text-sm">{message}</p>}
+    {loading?<p className="rounded-xl bg-white p-6 text-center">جارٍ التحميل...</p>:rows.length===0?<div className="rounded-xl bg-white p-8 text-center"><CheckCircle2 className="mx-auto mb-2 text-teal-600"/>لا توجد طلبات.</div>:rows.map(r=><article key={r.id} className="rounded-2xl border bg-white p-4 space-y-3">
+      <div className="flex justify-between"><div><b>{r.full_name}</b><p className="text-sm text-slate-500">الدور {r.requested_floor} • شقة {r.requested_unit_number} • {r.resident_type==='owner'?'مالك':'مستأجر'}</p></div><span className="text-xs font-bold">{r.status==='pending'?'قيد المراجعة':r.status==='approved'?'مقبول':'مرفوض'}</span></div>
+      {r.status==='pending'&&<><select value={chosen[r.id]||''} onChange={e=>setChosen(v=>({...v,[r.id]:e.target.value}))} className="w-full rounded-xl border p-3"><option value="">اختيار الشقة الفعلية</option>{apartments.map(a=><option key={a.id} value={a.id}>شقة {a.unitNumber} — الدور {a.floor}</option>)}</select><div className="grid grid-cols-2 gap-2"><button disabled={busy||!chosen[r.id]} onClick={()=>void decide(r.id,true)} className="rounded-xl bg-teal-700 p-3 text-white font-bold">موافقة وربط</button><button disabled={busy} onClick={()=>void decide(r.id,false)} className="rounded-xl border border-rose-200 p-3 text-rose-700 font-bold">رفض الطلب</button></div></>}
+    </article>)}
   </section>;
 };
