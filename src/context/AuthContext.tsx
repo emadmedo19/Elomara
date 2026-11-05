@@ -169,7 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error) setAuthError(friendlyError(error));
     setUser(null); setUserProfile(null); setRole(null); setIsAdmin(false);
   };
-  return <AuthContext.Provider value={{ user, userProfile, role, isAdmin, isSuperAdmin, isLoading, authError,
+  return <AuthContext.Provider value={{ user, userProfile, role, isAdmin, isLoading, authError,
     signInWithGoogle, signOut, clearError: () => setAuthError(null) }}>
     {children}
   </AuthContext.Provider>;
