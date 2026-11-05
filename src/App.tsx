@@ -40,37 +40,8 @@ import { Capacitor } from '@capacitor/core';
 import { LiveUpdate } from '@capawesome/capacitor-live-update';
 
 export default function App() {
-  // OTA updates: mark the current bundle healthy, then stage a compatible web update.
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    let cancelled = false;
-    const checkForLiveUpdate = async () => {
-      try {
-        await LiveUpdate.ready();
-        const manifestUrl = 'https://yvoylicirtdarroqcxoq.supabase.co/storage/v1/object/public/bunyan-ota/latest.json';
-        const response = await fetch(manifestUrl, { cache: 'no-store' });
-        if (!response.ok) return;
-        const manifest = await response.json() as { bundleId?: string; url?: string; checksum?: string };
-        if (!manifest.bundleId || !manifest.url || cancelled) return;
-        const nativeBuildId = import.meta.env.VITE_BUILD_ID || '';
-        const { bundleId: currentBundleId } = await LiveUpdate.getCurrentBundle();
-        if (manifest.bundleId === nativeBuildId || manifest.bundleId === currentBundleId) return;
-        await LiveUpdate.downloadBundle({
-          url: manifest.url,
-          bundleId: manifest.bundleId,
-          ...(manifest.checksum ? { checksum: manifest.checksum } : {}),
-        });
-        if (cancelled) return;
-        await LiveUpdate.setNextBundle({ bundleId: manifest.bundleId });
-        console.info('[Bunyan OTA] Update downloaded; it will be applied on next app restart.');
-      } catch (error) {
-        console.warn('[Bunyan OTA] Update check failed; continuing with the installed app.', error);
-      }
-    };
-    void checkForLiveUpdate();
-    return () => { cancelled = true; };
-  }, []);
-
+  // Live Updates are initialized once in src/main.tsx. Keeping a second
+  // initializer here caused two concurrent ready/download flows on Android.
   useEffect(() => {
     const timer = window.setTimeout(() => setShowIntroSplash(false), 5600);
     return () => window.clearTimeout(timer);
@@ -80,7 +51,7 @@ export default function App() {
   const [showIntroSplash, setShowIntroSplash] = useState(true);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [currentBuildingId, setCurrentBuildingIdState] = useState<string>('');
-  const { user, userProfile, isAdmin, isSuperAdmin, isLoading: isAuthLoading } = useAuth();
+  const { user, userProfile, isAdmin, isLoading: isAuthLoading } = useAuth();
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [role, setRole] = useState<UserRole>('manager');
   
@@ -109,7 +80,7 @@ export default function App() {
   }, [buildings, currentBuildingId]);
 
   useEffect(() => {
-    if (!user || !isAdmin) { setBuildings([]); setApartments([]); setPayments([]); setExpenses([]); setTickets([]); setBookings([]); setAnnouncements([]); setAuditLogs([]); setSettings({ customGeminiApiKey: '', backendUrl: '' }); setCurrentBuildingIdState(''); return; }
+    if (!user || !isAdmin) { setBuildings([]); return; }
     let cancelled = false;
     const load = async () => {
       setIsDataLoading(true);
@@ -119,7 +90,6 @@ export default function App() {
       else {
         const rows: Building[] = (data || []).map((r: any) => ({ id:r.id,name:r.name,address:r.address || '',totalUnits:Number(r.total_units || 0),totalFloors:r.total_floors ?? undefined,balance:Number(r.balance || 0),monthlyTarget:Number(r.monthly_target || 0),reserveFund:Number(r.reserve_fund || 0),managerName:r.manager_name || '',managerPhone:r.manager_phone || '',manager2Name:r.manager2_name || '',manager2Phone:r.manager2_phone || '',manager3Name:r.manager3_name || '',manager3Phone:r.manager3_phone || '' }));
         setBuildings(rows); setCurrentBuildingIdState(rows[0]?.id || '');
-        if (!rows.length) { setApartments([]); setPayments([]); setExpenses([]); setTickets([]); setBookings([]); setAnnouncements([]); setAuditLogs([]); setSettings({ customGeminiApiKey: '', backendUrl: '' }); }
         if (rows.length) {
           const { data: apartmentRows, error: apartmentError } = await supabase.from('apartments')
             .select('id,building_id,unit_number,floor,resident_name,resident_phone,is_owner,monthly_fee,payment_status,overdue_months,last_payment_date,paid_amount,credit_balance')
@@ -174,7 +144,7 @@ export default function App() {
             notes:r.notes || undefined, receiptUrl:r.receipt_url || undefined, approvedBy:r.approved_by || '',
           })));
           if (settingsResult.error) showToast('تعذر تحميل إعدادات العمارة: ' + settingsResult.error.message, 'error');
-          else { const cloudSettings = { customGeminiApiKey: '', backendUrl: '', ...(settingsResult.data?.setting_value || {}) }; setSettings(cloudSettings); }
+          else { const mergedSettings = { ...getStoredSettings(), ...(settingsResult.data?.setting_value || {}) }; setSettings(mergedSettings); saveStoredSettings(mergedSettings); }
         }
       }
       setIsDataLoading(false);
@@ -327,10 +297,8 @@ export default function App() {
       }
 
       // Expenses and settings are shared Supabase records, not device-local data.
-      // These legacy device-only records are deliberately not loaded across accounts.
-      // They will be migrated to building-scoped Supabase tables before being re-enabled.
-      setBookings([]);
-      setAuditLogs([]);
+      setBookings(getStoredBookings());
+      setAuditLogs(getStoredAuditLogs());
 
       const [ticketResult, announcementResult, expenseResult, settingsResult] = await Promise.all([
         supabase.from('maintenance_tickets').select('id,building_id,apartment_id,unit_number,resident_name,category,title,description,urgency,status,created_at').in('building_id', refreshedBuildings.map(b => b.id)).order('created_at', { ascending: false }),
@@ -357,8 +325,9 @@ export default function App() {
         notes:r.notes || undefined, receiptUrl:r.receipt_url || undefined, approvedBy:r.approved_by || '',
       })));
       if (settingsResult.error) throw settingsResult.error;
-      const cloudSettings = { customGeminiApiKey: '', backendUrl: '', ...(settingsResult.data?.setting_value || {}) };
-      setSettings(cloudSettings);
+      const mergedSettings = { ...getStoredSettings(), ...(settingsResult.data?.setting_value || {}) };
+      setSettings(mergedSettings);
+      saveStoredSettings(mergedSettings);
 
       // Check for a newly published web bundle on native Android/iOS.
       let updateReady = false;
@@ -382,7 +351,7 @@ export default function App() {
 
       if (updateReady) {
         showToast('تم تنزيل تحديث جديد. اضغط موافق لإعادة تحميل التطبيق وتطبيقه الآن.', 'info');
-        if (window.confirm('تم تنزيل تحديث جديد لبرج الفتوح. هل تريد تطبيقه الآن؟ احفظ أي بيانات غير محفوظة قبل المتابعة.')) {
+        if (window.confirm('تم تنزيل تحديث جديد لالعمارة. هل تريد تطبيقه الآن؟ احفظ أي بيانات غير محفوظة قبل المتابعة.')) {
           await LiveUpdate.reload();
           return;
         }
@@ -420,7 +389,7 @@ export default function App() {
 
   // 7. BUILDINGS CRUD
   const handleAddBuilding = async (newBldData: Omit<Building, 'id'>) => {
-    if (!user || !isSuperAdmin) { showToast('إضافة عقار جديد متاحة للمدير الرئيسي فقط. مدير العقار يدير عقاره الحالي.', 'error'); return; }
+    if (!user || !isAdmin) { showToast('لا توجد صلاحية لإضافة عمارة.', 'error'); return; }
     const { data, error } = await supabase.from('buildings').insert({
       name: newBldData.name, address: newBldData.address, total_units: newBldData.totalUnits,
       total_floors: newBldData.totalFloors ?? null, balance: 0, monthly_target: newBldData.monthlyTarget,
@@ -599,7 +568,7 @@ export default function App() {
     notes?: string;
     receiptNumber?: string;
   }): Promise<boolean> => {
-    if (!user || !isAdmin || !['super_admin', 'assistant_admin', 'building_admin'].includes(userProfile?.role || '')) {
+    if (!user || !isAdmin || userProfile?.role !== 'building_admin') {
       showToast('عذراً، تسجيل المدفوعات متاح فقط لمدير العمارة المعتمد.', 'error');
       return false;
     }
@@ -1121,8 +1090,8 @@ export default function App() {
           <div className="w-20 h-20 mx-auto mb-5 rounded-2xl overflow-hidden bg-white/10 border border-white/20 p-1 shadow-lg">
             <img src="/icon.png" alt="شعار العمارة" className="w-full h-full rounded-xl object-cover" />
           </div>
-          <p className="text-teal-300 text-xs font-bold tracking-wide mb-2">برج الفتوح • إدارة العقارات</p>
-          <h1 className="text-2xl font-bold mb-3">أهلاً بيك في برج الفتوح</h1>
+          <p className="text-teal-300 text-xs font-bold tracking-wide mb-2">العمارة • إدارة العقارات</p>
+          <h1 className="text-2xl font-bold mb-3">أهلاً بيك في العمارة</h1>
           <p className="text-slate-300 text-sm leading-7 mb-6">
             حسابك جاهز، لكن لسه مفيش أي عمارات أو شقق أو سكان مسجلين.
             ابدأ بإضافة بيانات أول عمارة، وبعدها تقدر تضيف الشقق والسكان بنفسك.
