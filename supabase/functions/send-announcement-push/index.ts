@@ -123,7 +123,7 @@ Deno.serve(async (req: Request) => {
       const { data: collection, error: collectionError } = await adminClient.from("exceptional_collections")
         .select("id, building_id, title, description, amount_mode, total_amount, per_apartment_amount, target_apartment_ids")
         .eq("id", body.exceptional_collection_id).maybeSingle();
-      if (collectionError || !collection || collection.building_id !== buildingId) return json({ error: "Exceptional collection not found" }, 404);
+      if (collectionError || !collection || collection.building_id !== buildingId || collection.building_id !== profile.building_id) return json({ error: "Exceptional collection not found" }, 404);
       const targetIds = Array.isArray(collection.target_apartment_ids) ? collection.target_apartment_ids : [];
       if (!targetIds.length) return json({ sent: 0, message: "No target apartments" });
       const { data: assignedResidents, error: assignedError } = await adminClient.from("profiles")
