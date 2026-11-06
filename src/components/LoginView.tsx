@@ -116,10 +116,10 @@ export const LoginView: React.FC = () => {
               </div>
               {(authError || error) && <p className="fotouh-message error"><AlertCircle/>{error || authError}</p>}
               {notice && <p className="fotouh-message success"><CheckCircle2/>{notice}</p>}
-              {authMode === 'signup' && <label className="fotouh-field"><span>الاسم بالكامل</span><div><User/><input value={fullName} onChange={e=>setFullName(e.target.value)} autoComplete="name" required placeholder="اسمك بالكامل"/></div></label>}
-              <label className="fotouh-field"><span>البريد الإلكتروني</span><div><Mail/><input type="email" dir="ltr" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" required placeholder="name@example.com"/></div></label>
-              {authMode !== 'forgot' && <label className="fotouh-field"><span>كلمة المرور</span><div><Lock/><input type="password" dir="ltr" minLength={8} value={password} onChange={e=>setPassword(e.target.value)} autoComplete={authMode==='signup'?'new-password':'current-password'} required placeholder={authMode==='signup'?'8 أحرف على الأقل':'كلمة المرور'}/></div></label>}
-              {authMode === 'signup' && <label className="fotouh-field"><span>تأكيد كلمة المرور</span><div><Lock/><input type="password" dir="ltr" minLength={8} value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="new-password" required placeholder="أعد كتابة كلمة المرور"/></div></label>}
+              {authMode === 'signup' && <label className="fotouh-field"><span>الاسم بالكامل</span><div><User/><input form="auth-form" value={fullName} onChange={e=>setFullName(e.target.value)} autoComplete="name" required placeholder="اسمك بالكامل"/></div></label>}
+              <label className="fotouh-field"><span>البريد الإلكتروني</span><div><Mail/><input form="auth-form" type="email" dir="ltr" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" required placeholder="name@example.com"/></div></label>
+              {authMode !== 'forgot' && <label className="fotouh-field"><span>كلمة المرور</span><div><Lock/><input form="auth-form" type="password" dir="ltr" minLength={8} value={password} onChange={e=>setPassword(e.target.value)} autoComplete={authMode==='signup'?'new-password':'current-password'} required placeholder={authMode==='signup'?'8 أحرف على الأقل':'كلمة المرور'}/></div></label>}
+              {authMode === 'signup' && <label className="fotouh-field"><span>تأكيد كلمة المرور</span><div><Lock/><input form="auth-form" type="password" dir="ltr" minLength={8} value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="new-password" required placeholder="أعد كتابة كلمة المرور"/></div></label>}
               <form onSubmit={async event => {
                 event.preventDefault(); setError(''); setNotice(''); clearError();
                 if (authMode === 'forgot') {
