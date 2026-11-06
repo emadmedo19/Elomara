@@ -52,5 +52,8 @@
     "@rollup/rollup-linux-arm64-gnu": "4.65.1",
     "@rollup/rollup-linux-x64-gnu": "4.65.1",
     "@rollup/rollup-win32-x64-msvc": "4.65.1"
+  },
+  "overrides": {
+    "@tailwindcss/oxide": "4.3.4"
   }
 }
