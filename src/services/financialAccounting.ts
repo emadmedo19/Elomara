@@ -52,7 +52,7 @@ export function calculateApartmentFinancials(
   payments: Payment[],
   periodMonth?: string
 ): ApartmentFinancials {
-  const aptPayments = payments.filter((p) => p.apartmentId === apartment.id);
+  const aptPayments = payments.filter((p) => p.apartmentId === apartment.id && p.paymentType !== 'exceptional');
   
   // Filter by period month if provided, otherwise consider all/relevant payments
   const relevantPayments = periodMonth
