@@ -100,7 +100,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const callback = new URL(callbackUrl);
         if (callback.protocol !== 'app.bunyan.residential:' || !['login-callback', 'reset-password'].includes(callback.hostname)) return;
-        if (callback.hostname === 'reset-password') setIsPasswordRecovery(true);
+        const isRecoveryCallback = callback.hostname === 'reset-password' ||
+          callback.searchParams.get('type') === 'recovery' ||
+          new URLSearchParams(callback.hash.replace(/^#/, '')).get('type') === 'recovery';
+        if (isRecoveryCallback) setIsPasswordRecovery(true);
 
         oauthCallbackInProgress.current = true;
         setIsLoading(true);
@@ -149,11 +152,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       appUrlListener = CapacitorApp.addListener('appUrlOpen', ({ url }) => {
         void completeOAuthCallback(url);
       });
-      void CapacitorApp.getLaunchUrl().then((launch) => {
-        if (launch?.url) void completeOAuthCallback(launch.url);
-      }).catch((error) => {
-        if (active) setAuthError(friendlyError(error));
-      });
+      // A reset link may open an already-running Android activity or cold-start it.
+      // Handle both, including the resume after returning from the email browser.
+      const readLaunchUrl = () => {
+        void CapacitorApp.getLaunchUrl().then((launch) => {
+          if (launch?.url) void completeOAuthCallback(launch.url);
+        }).catch((error) => {
+          if (active) setAuthError(friendlyError(error));
+        });
+      };
+      readLaunchUrl();
+    } else if (window.location.pathname === '/reset-password') {
+      // Web recovery links must also show the password form over any existing session.
+      setIsPasswordRecovery(true);
     }
 
     // Subscribe before reading the stored session. Supabase emits INITIAL_SESSION
