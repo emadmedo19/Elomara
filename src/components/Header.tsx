@@ -2,7 +2,7 @@ import React from 'react';
 import { Building } from '../types';
 import {
   Building2, ChevronDown, Sparkles, Settings, SlidersHorizontal, LogOut, LogIn,
-  UserCheck, LayoutDashboard, Receipt, Wrench, Palette, MoreHorizontal, FileText,
+  UserCheck, LayoutDashboard, Receipt, Wrench, Palette, MoreHorizontal, FileText, BarChart3,
   X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -43,6 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'expenses', label: 'المصروفات', icon: Receipt },
   ];
   const moreItems = [
+    { id: 'polls', label: 'استطلاعات الرأي', icon: BarChart3 },
     { id: 'reports', label: 'التقارير', icon: FileText },
     { id: 'resident', label: 'بوابة الساكن والمرافق', icon: Wrench },
     { id: 'chat', label: 'المساعد الذكي Gemini', icon: Sparkles },
