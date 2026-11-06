@@ -50,6 +50,8 @@ jobs:
 
       - name: Build web app
         run: npm run build
+        env:
+          VITE_BUILD_ID: ${{ github.sha }}
 
       - name: Sync Capacitor Android
         run: npx cap sync android
@@ -57,6 +59,26 @@ jobs:
       - name: Build debug APK
         working-directory: android
         run: bash ./gradlew assembleDebug
+
+      - name: Enable Android emulator acceleration
+        run: sudo chmod 666 /dev/kvm
+
+      - name: Verify Firebase initialization and app launch on Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: cd android && bash ./gradlew connectedDebugAndroidTest
+
+      - name: Upload Android test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-runtime-test-reports
+          path: android/app/build/reports/androidTests/connected/
+          if-no-files-found: ignore
 
       - name: Print Android debug APK certificate SHA-1
         run: |

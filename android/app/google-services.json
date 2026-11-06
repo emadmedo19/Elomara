@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "966528651343",
+    "project_id": "elfotoh",
+    "storage_bucket": "elfotoh.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:966528651343:android:399c95698ecff92a88da3a",
+        "android_client_info": {
+          "package_name": "app.bunyan.residential"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0o31lhQw7QlV0oNlqmt_uFrhSr87phaI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

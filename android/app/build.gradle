@@ -1,12 +1,12 @@
 apply plugin: 'com.android.application'
 
-// Apply Google Services only when its configuration file is present.
-// This keeps builds working in environments that do not provide Firebase config.
+// PushNotifications.register() uses the default Firebase app after login.
+// Never publish an APK that compiles but crashes when that app is missing.
 def googleServicesConfig = file('google-services.json')
 if (googleServicesConfig.exists()) {
     apply plugin: 'com.google.gms.google-services'
 } else {
-    logger.lifecycle('google-services.json not found; skipping Google Services plugin for this build.')
+    throw new GradleException('android/app/google-services.json is required for Firebase push notifications. Refusing to build an APK without it.')
 }
 
 android {
@@ -16,8 +16,8 @@ android {
         applicationId "app.bunyan.residential"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.1"
+        versionCode 3
+        versionName "1.1.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
