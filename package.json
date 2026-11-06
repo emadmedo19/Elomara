@@ -1,9 +1,9 @@
 {
-  "name": "bunyan",
+  "name": "elomara",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "بُنيان - المنظومة الذكية لإدارة العمارات السكنية",
+  "description": "Elomara - المنظومة الذكية لإدارة العمارات السكنية",
   "scripts": {
     "dev": "NODE_OPTIONS='--dns-result-order=ipv4first' DISABLE_HMR=true tsx server.ts",
     "build": "vite build",

@@ -1,8 +1,8 @@
-# بُنيان (Bunyan) - المنظومة الذكية لإدارة العمارات السكنية 🏢✨
+# Elomara - المنظومة الذكية لإدارة العمارات السكنية 🏢✨
 
 > تطبيق متكامل وحديث لإدارة العمارات السكنية، الخزينة، تحصيل الاشتراكات، المصروفات، وبلاغات الصيانة مع استوديو ذكاء اصطناعي مدمج لدعم اتحادات الشاغلين وإدارات العقارات.
 
-![Bunyan Preview](https://raw.githubusercontent.com/emadmedo19/Elomara/main/public/pwa-512x512.png)
+![Elomara Preview](https://raw.githubusercontent.com/emadmedo19/Elomara/main/public/pwa-512x512.png)
 
 ---
 
