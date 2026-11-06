@@ -60,3 +60,5 @@
  .elomara-bottom-nav > div > button,.elomara-bottom-nav summary { font-size:10px!important;padding-inline:2px; }
 }
 @media(prefers-reduced-motion:reduce) { .elomara-light-shell button,.elomara-light-shell summary { transition:none!important; } }
+
+.bunyan-manager-shell .elomara-header .brand-lockup { border-radius:0!important;object-fit:contain; }

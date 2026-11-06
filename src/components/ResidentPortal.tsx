@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { PollsView } from './PollsView';
 import { useAuth } from '../context/AuthContext';
@@ -22,19 +23,26 @@ export const ResidentPortal: React.FC = () => {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
-
   useEffect(() => {
     if (!moreOpen) return;
-    const closeOnOutsideTap = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (!moreMenuRef.current?.contains(target) && !moreButtonRef.current?.contains(target)) {
+    const dismissOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !moreMenuRef.current?.contains(event.target) && !moreButtonRef.current?.contains(event.target)) {
         setMoreOpen(false);
       }
     };
-    document.addEventListener('pointerdown', closeOnOutsideTap);
-    return () => document.removeEventListener('pointerdown', closeOnOutsideTap);
+    const dismissEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMoreOpen(false);
+        moreButtonRef.current?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', dismissOutside, true);
+    document.addEventListener('keydown', dismissEscape);
+    return () => {
+      document.removeEventListener('pointerdown', dismissOutside, true);
+      document.removeEventListener('keydown', dismissEscape);
+    };
   }, [moreOpen]);
-
   const [seenTicketIds, setSeenTicketIds] = useState<string[]>([]);
   const [seenAnnouncementIds, setSeenAnnouncementIds] = useState<string[]>([]);
   const notificationKey = (kind: 'tickets' | 'announcements') => `bunyan-resident-seen-${kind}-${user?.id || 'guest'}-${userProfile?.buildingId || 'building'}`;
@@ -215,21 +223,20 @@ export const ResidentPortal: React.FC = () => {
     </header>
 
     <nav aria-label="التنقل الرئيسي" className="resident-bottom-nav fixed bottom-0 inset-x-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur-md shadow-[0_-5px_20px_rgba(15,40,50,.08)]" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 8px)" }}>
-      {moreOpen && <>
-        
-        <div ref={moreMenuRef} role="menu" aria-label="المزيد" className="fixed left-2 right-auto z-[60] w-[min(216px,calc(100vw-16px))] rounded-xl border border-teal-200 bg-white p-1.5 shadow-xl flex flex-col gap-1" style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 76px)" }}>
-          {moreNav.map((item, index) => <button role="menuitem" key={item.id} onClick={() => { setActiveTab(item.id); setMoreOpen(false); setNotice(''); setError(''); }} className={`w-full flex items-center gap-3 rounded-lg border px-2 py-2 text-xs font-bold text-right transition-colors ${activeTab === item.id ? 'border-teal-700 bg-teal-700 text-white' : 'border-slate-200 bg-slate-50 text-slate-800 hover:bg-teal-50'}`}>
+      {moreOpen && createPortal(
+        <div ref={moreMenuRef} onTouchStart={event => event.stopPropagation()} onTouchMove={event => event.stopPropagation()} onTouchEnd={event => event.stopPropagation()} onTouchCancel={event => event.stopPropagation()} id="resident-more-menu" role="menu" aria-label="المزيد" dir="rtl" className="fixed left-3 right-auto z-[70] w-[min(224px,calc(100vw-24px))] max-h-[min(60dvh,360px)] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl flex flex-col gap-0.5" style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 76px)" }}>
+          {moreNav.map((item) => <button role="menuitem" key={item.id} onClick={() => { setActiveTab(item.id); setMoreOpen(false); setNotice(''); setError(''); }} className={`w-full flex items-center gap-2 rounded-xl border min-h-11 px-2.5 py-2 text-xs font-bold text-right transition-colors ${activeTab === item.id ? 'border-teal-700 bg-teal-700 text-white' : 'border-slate-200 bg-slate-50 text-slate-800 hover:bg-teal-50'}`}>
             <span className={`relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${activeTab === item.id ? 'bg-white/15 text-white' : 'bg-teal-100 text-teal-800'}`}>{item.icon}{item.id==='announcements' && unreadAnnouncementCount>0 && <span className="absolute -right-3 -top-3 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[10px] font-black leading-none text-white">{unreadAnnouncementCount}</span>}</span><span>{item.label}</span>
           </button>)}
           <div className="my-0.5 border-t border-slate-200" />
-          <button role="menuitem" onClick={() => { setMoreOpen(false); void signOut(); }} className="w-full flex items-center gap-3 rounded-xl border border-red-200 px-3 py-3 text-sm font-black text-right text-red-800 bg-red-50 hover:bg-red-100">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-800"><LogOut className="w-5 h-5"/></span><span>خروج من الحساب</span>
+          <button role="menuitem" onClick={() => { setMoreOpen(false); void signOut(); }} className="w-full flex items-center gap-2 rounded-xl border border-red-200 min-h-11 px-2.5 py-2 text-xs font-bold text-right text-red-800 bg-red-50 hover:bg-red-100">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-800"><LogOut className="w-5 h-5"/></span><span>خروج من الحساب</span>
           </button>
         </div>
-      </>}
+      , document.body)}
       <div className="mx-auto grid max-w-xl grid-cols-4 gap-1 px-2 pt-2">
         {primaryNav.map(item => <button key={item.id} onClick={() => { setActiveTab(item.id); setMoreOpen(false); setNotice(''); setError(''); }} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold transition ${activeTab === item.id ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><span className="relative">{item.icon}{item.id==='maintenance' && unreadTicketCount>0 && <span className="absolute -right-3 -top-3 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[10px] font-black leading-none text-white">{unreadTicketCount}</span>}</span><span className="truncate max-w-full">{item.label}</span></button>)}
-        <button ref={moreButtonRef} onClick={() => setMoreOpen(v => !v)} aria-expanded={moreOpen} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold transition ${moreOpen || moreNav.some(item => item.id === activeTab) ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><MoreHorizontal className="w-5 h-5"/><span>المزيد</span></button>
+        <button ref={moreButtonRef} aria-controls="resident-more-menu" aria-haspopup="menu" onClick={() => setMoreOpen(v => !v)} aria-expanded={moreOpen} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold transition ${moreOpen || moreNav.some(item => item.id === activeTab) ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><MoreHorizontal className="w-5 h-5"/><span>المزيد</span></button>
       </div>
     </nav>
     <main key={activeTab} className="bunyan-page-enter max-w-6xl mx-auto p-3 sm:p-5 pb-28 space-y-4">
