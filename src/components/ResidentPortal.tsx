@@ -211,8 +211,8 @@ export const ResidentPortal: React.FC = () => {
     <header className="bg-[#0f2537] text-white sticky top-0 z-40 shadow-lg">
       <div className="max-w-7xl mx-auto px-3 sm:px-5 py-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div id="resident-building-icon" className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden bg-white shadow-sm ring-1 ring-slate-200"><img src="/icon.png" alt="العمارة" className="w-full h-full object-cover" /></div>
-          <div className="min-w-0"><h1 id="resident-building-title" className="font-black text-lg leading-tight" style={{ color: "#102f33", opacity: 1, textShadow: "none" }}>العمارة</h1><p id="resident-building-subtitle" className="text-[11px] truncate" style={{ color: "#35565a", opacity: 1, fontWeight: 700 }}>{building?.name || 'بوابة السكان'} • شقة {apartment?.unit_number}</p></div>
+          <img id="resident-brand-lockup" src="/brand-lockup.png" alt="العمارة" className="h-20 w-[72px] shrink-0 object-contain" />
+          <div className="min-w-0"><p id="resident-building-subtitle" className="text-[11px] truncate" style={{ color: "#35565a", opacity: 1, fontWeight: 700 }}>{building?.name || 'بوابة السكان'} • شقة {apartment?.unit_number}</p></div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button id="resident-refresh-button" onClick={() => void load(true)} disabled={refreshing} className="p-2 rounded-xl" style={{ backgroundColor: "#e6f4f1", color: "#0f766e", border: "1px solid #9acfc4", opacity: 1, minWidth: 42, minHeight: 42 }} title="تحديث البيانات"><RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} style={{ color: "#0f766e", stroke: "#0f766e" }}/></button>
