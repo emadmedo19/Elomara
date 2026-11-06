@@ -2,6 +2,19 @@
 
 This repository contains Elomara (العمارة). These instructions apply to all coding assistants.
 
+## Accepted product baseline — preserve the current app
+
+Owner decision (2026-11-06): the app currently visible to the owner is the desired product. Historical branch differences are not a feature backlog and do not authorize restoring old functionality.
+
+- Implement every requested feature on the latest main, within the existing app screens and flows. Never implement it in an alternative app, an old branch, or a replacement version.
+- Preserve existing features, navigation, appearance, authentication methods, financial behavior and data unless the owner specifically requests a change to them. A request to add a feature is not permission to remove, redesign or rewrite existing behavior.
+- Read the affected current implementation before editing. Make the smallest coherent change; do not replace whole files with historical branch versions.
+- Do not merge, cherry-pick or restore old branches merely because they contain different code. The branch review document is a historical comparison, not an approved implementation plan.
+- Before app-code changes, identify the current main commit and available deployed APK/OTA build identifiers. Do not assume the owner's installed version equals main. If evidence shows a mismatch, reconcile which source produced the accepted app before making changes that depend on that baseline; never downgrade the app to an older branch.
+- Verify the requested addition and the existing affected flows, including relevant admin/resident roles and mobile behavior. Build/type checks alone do not establish absence of regressions. State what was actually tested and any unresolved limits.
+- In the completion report, name the requested addition, its location in the existing app, and the regression checks performed.
+- Keep fixes to separately discovered issues as findings unless they are necessary to the requested task or separately authorized. Do not restore old phone login, layouts or announcement screens from the branch review under the guise of cleanup.
+
 ## 1. Git workflow: main only
 
 - Work directly on `main`. Do not create feature, fix, recovery, migration, or temporary branches or branch-based worktrees unless the owner explicitly changes this policy.
