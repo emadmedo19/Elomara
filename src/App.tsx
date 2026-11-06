@@ -38,8 +38,7 @@ import { CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { LoginView } from './components/LoginView';
 import { supabase } from './lib/supabase';
-import { Capacitor } from '@capacitor/core';
-import { LiveUpdate } from '@capawesome/capacitor-live-update';
+import { checkForOtaUpdate } from './services/otaUpdates';
 
 export default function App() {
   // Live Updates are initialized once in src/main.tsx. Keeping a second
@@ -332,35 +331,9 @@ export default function App() {
       setSettings(mergedSettings);
       saveStoredSettings(mergedSettings);
 
-      // Check for a newly published web bundle on native Android/iOS.
-      let updateReady = false;
-      if (Capacitor.isNativePlatform()) {
-        const manifestResponse = await fetch('https://yvoylicirtdarroqcxoq.supabase.co/storage/v1/object/public/bunyan-ota/latest.json', { cache: 'no-store' });
-        if (!manifestResponse.ok) throw new Error('تعذر فحص تحديث التطبيق');
-        const manifest = await manifestResponse.json() as { bundleId?: string; url?: string; checksum?: string };
-        const prefix = 'https://yvoylicirtdarroqcxoq.supabase.co/storage/v1/object/public/bunyan-ota/bundles/';
-        if (manifest.bundleId && /^[a-f0-9]{40}$/.test(manifest.bundleId) &&
-            manifest.url?.startsWith(prefix) && manifest.url.endsWith(`/${manifest.bundleId}.zip`) &&
-            manifest.checksum && /^[a-f0-9]{64}$/.test(manifest.checksum)) {
-          const current = await LiveUpdate.getCurrentBundle();
-          const next = await LiveUpdate.getNextBundle();
-          if (current.bundleId !== manifest.bundleId && next.bundleId !== manifest.bundleId) {
-            await LiveUpdate.downloadBundle({ url: manifest.url, bundleId: manifest.bundleId, checksum: manifest.checksum });
-            await LiveUpdate.setNextBundle({ bundleId: manifest.bundleId });
-            updateReady = true;
-          }
-        }
-      }
-
-      if (updateReady) {
-        showToast('تم تنزيل تحديث جديد. اضغط موافق لإعادة تحميل التطبيق وتطبيقه الآن.', 'info');
-        if (window.confirm('تم تنزيل تحديث جديد لالعمارة. هل تريد تطبيقه الآن؟ احفظ أي بيانات غير محفوظة قبل المتابعة.')) {
-          await LiveUpdate.reload();
-          return;
-        }
-      } else {
-        showToast('تم تحديث البيانات بنجاح.', 'success');
-      }
+      // Use the same consent-based prompt as startup, without delaying data refresh.
+      void checkForOtaUpdate();
+      showToast('تم تحديث البيانات بنجاح.', 'success');
     } catch (error) {
       console.error('[Bunyan refresh] Failed:', error);
       showToast('تعذر إكمال التحديث. تأكد من اتصال الإنترنت وحاول مرة أخرى.', 'error');
