@@ -118,7 +118,7 @@ export default function App() {
             unitNumber:r.unit_number, residentName:r.resident_name || '',
             amount:Number(r.amount || 0), date:r.payment_date, month:r.month,
             method:r.method, notes:r.notes || undefined,
-            receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined, paymentType:r.payment_type || 'monthly', paymentType:r.payment_type || 'monthly',
+            receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined, paymentType:r.payment_type || 'monthly',
           })));
 
           const [ticketResult, announcementResult, expenseResult, settingsResult] = await Promise.all([
