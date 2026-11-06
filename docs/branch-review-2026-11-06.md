@@ -1,5 +1,7 @@
 # Branch review — 2026-11-06
 
+> **Owner decision after review:** preserve the app currently visible to the owner. The comparisons and port suggestions below are historical findings, not an approved backlog. Do not restore old features, layouts, authentication methods or branches based on this report. Future additions belong in the current app on main and must preserve its existing behavior. Verify deployed build identity before assuming it equals main. See AGENTS.md for the governing policy.
+
 Compared with main at `6d472f4657ef136033880695daf7b030ce5e4f91` before the main-only policy change. Branches have not been deleted. Ahead/behind counts describe ancestry, not whether equivalent changes were squash-merged or superseded. Do not merge old recovery branches wholesale.
 
 | Branch | Head SHA | Ahead | Behind |
