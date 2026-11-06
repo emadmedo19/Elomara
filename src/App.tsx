@@ -33,6 +33,7 @@ import { BuildingManagementModal } from './components/BuildingManagementModal';
 import { SettingsModal } from './components/SettingsModal';
 import { RegistrationApprovalsView } from './components/RegistrationApprovalsView';
 import { PollsView } from './components/PollsView';
+import { ExceptionalCollectionsView } from './components/ExceptionalCollectionsView';
 import { CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { LoginView } from './components/LoginView';
@@ -108,7 +109,7 @@ export default function App() {
           // never from this device's localStorage cache.
           const { data: paymentRows, error: paymentError } = await supabase
             .from('payments')
-            .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at')
+            .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at,payment_type')
             .in('building_id', rows.map(b => b.id))
             .order('payment_date', { ascending: false });
           if (paymentError) showToast('تعذر تحميل سجل المدفوعات: ' + paymentError.message, 'error');
@@ -117,7 +118,7 @@ export default function App() {
             unitNumber:r.unit_number, residentName:r.resident_name || '',
             amount:Number(r.amount || 0), date:r.payment_date, month:r.month,
             method:r.method, notes:r.notes || undefined,
-            receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined,
+            receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined, paymentType:r.payment_type || 'monthly',
           })));
 
           const [ticketResult, announcementResult, expenseResult, settingsResult] = await Promise.all([
@@ -158,7 +159,7 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get('tab');
-      if (tabParam && ['dashboard', 'collections', 'expenses', 'reports', 'resident', 'chat', 'image-studio', 'approvals', 'polls'].includes(tabParam)) {
+      if (tabParam && ['dashboard', 'collections', 'expenses', 'reports', 'resident', 'chat', 'image-studio', 'approvals', 'polls', 'exceptional-collections'].includes(tabParam)) {
         return tabParam;
       }
     }
@@ -1161,6 +1162,7 @@ export default function App() {
         {/* Content Body */}
         <main className="flex-1 p-3 pb-28 sm:p-6 sm:pb-28 max-w-7xl mx-auto w-full">
           {currentTab === 'polls' && <PollsView buildingId={currentBuilding.id} canManage />}
+          {currentTab === 'exceptional-collections' && isAdmin && <ExceptionalCollectionsView buildingId={currentBuilding.id} apartments={apartments.filter(a => a.buildingId === currentBuilding.id)} />}
 
           {currentTab === 'approvals' && (
             <RegistrationApprovalsView apartments={apartments.filter(a => a.buildingId === currentBuilding.id)} />
