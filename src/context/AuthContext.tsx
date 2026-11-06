@@ -22,6 +22,9 @@ interface AuthContextType {
   isAdmin: boolean;
   isLoading: boolean;
   authError: string | null;
+  signUpWithPhone: (phone: string, pass: string, fullName: string) => Promise<boolean>;
+  verifyPhoneSignup: (phone: string, token: string) => Promise<boolean>;
+  signInWithPhone: (phone: string, pass: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
@@ -172,6 +175,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+
+  const normalizePhoneForAuth = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    if (/^01[0125]\d{8}$/.test(digits)) return '+2' + digits;
+    if (/^201[0125]\d{8}$/.test(digits)) return '+' + digits;
+    if (/^00201[0125]\d{8}$/.test(digits)) return '+' + digits.slice(2);
+    throw new Error('أدخل رقم موبايل مصري صحيح.');
+  };
+  const signUpWithPhone = async (phone: string, password: string, fullName: string): Promise<boolean> => {
+    setAuthError(null); setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signUp({ phone: normalizePhoneForAuth(phone), password, options: { data: { full_name: fullName.trim() } } });
+      if (error) throw error;
+      setIsLoading(false); return true;
+    } catch (error) { setAuthError(friendlyError(error)); setIsLoading(false); return false; }
+  };
+  const verifyPhoneSignup = async (phone: string, token: string): Promise<boolean> => {
+    setAuthError(null); setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({ phone: normalizePhoneForAuth(phone), token: token.trim(), type: 'sms' });
+      if (error) throw error;
+      setIsLoading(false); return true;
+    } catch (error) { setAuthError(friendlyError(error)); setIsLoading(false); return false; }
+  };
+  const signInWithPhone = async (phone: string, password: string) => {
+    setAuthError(null); setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ phone: normalizePhoneForAuth(phone), password });
+      if (error) throw error;
+    } catch (error) { setAuthError(friendlyError(error)); setIsLoading(false); }
+  };
+
   const signInWithGoogle = async () => {
     setAuthError(null);
     setIsLoading(true);
@@ -200,7 +235,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null); setUserProfile(null); setRole(null); setIsAdmin(false);
   };
   return <AuthContext.Provider value={{ user, userProfile, role, isAdmin, isLoading, authError,
-    signInWithGoogle, signOut, clearError: () => setAuthError(null) }}>
+    signUpWithPhone, verifyPhoneSignup, signInWithPhone, signInWithGoogle, signOut, clearError: () => setAuthError(null) }}>
     {children}
   </AuthContext.Provider>;
 };
