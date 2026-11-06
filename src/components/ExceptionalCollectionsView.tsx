@@ -22,6 +22,8 @@ export const ExceptionalCollectionsView: React.FC<Props> = ({ buildingId, apartm
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [notificationRetryId, setNotificationRetryId] = useState<string | null>(null);
+  const [notificationBusy, setNotificationBusy] = useState(false);
 
   const load = async () => {
     const { data, error: loadError } = await supabase.from('exceptional_collections')
@@ -33,6 +35,21 @@ export const ExceptionalCollectionsView: React.FC<Props> = ({ buildingId, apartm
   useEffect(() => { if (buildingId) void load(); }, [buildingId]);
 
   const toggleApartment = (id: string) => setSelected(current => current.includes(id) ? current.filter(x => x !== id) : [...current, id]);
+  const sendNotifications = async (collectionId: string, successMessage: string) => {
+    setNotificationBusy(true);
+    const { data, error: pushError } = await supabase.functions.invoke('send-exceptional-collection-push', { body: { collection_id: collectionId } });
+    setNotificationBusy(false);
+    const sent = Number(data?.sent || 0);
+    const attempted = Number(data?.attempted || 0);
+    const deliveryFailed = Boolean(pushError || data?.error || data?.message === 'No registered devices' || (attempted > 0 && sent < attempted));
+    if (deliveryFailed) {
+      setNotificationRetryId(collectionId);
+      setNotice(successMessage + ' لكن تعذر تأكيد وصول كل الإشعارات؛ يمكنك إعادة المحاولة من هنا.');
+      return;
+    }
+    setNotificationRetryId(null);
+    setNotice(successMessage + (attempted > 0 ? ' وتم إرسال الإشعارات إلى ' + sent + ' جهاز.' : ' ولم توجد أجهزة مسجلة لإرسال الإشعارات إليها.'));
+  };
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); setError(''); setNotice('');
     const numericAmount = Number(amount);
@@ -50,12 +67,11 @@ export const ExceptionalCollectionsView: React.FC<Props> = ({ buildingId, apartm
       setError('تعذر إنشاء التحصيل: ' + saveError.message); setBusy(false); return;
     }
     const result = data as { collection_id?: string; total_amount?: number; target_count?: number };
-    if (notify && result.collection_id) {
-      const { error: pushError } = await supabase.functions.invoke('send-exceptional-collection-push', { body: { collection_id: result.collection_id } });
-      if (pushError) console.warn('[Exceptional collection] Saved, but push delivery failed:', pushError.message);
-    }
+    const successMessage = 'تم تسجيل التحصيل وتوزيع ' + Number(result.total_amount || numericAmount).toLocaleString('ar-EG') + ' ج.م على ' + Number(result.target_count || selected.length) + ' شقة.';
     setTitle(''); setDescription(''); setAmount(''); setSelected([]); setBusy(false);
-    setNotice('تم تسجيل التحصيل وتوزيع ' + Number(result.total_amount || numericAmount).toLocaleString('ar-EG') + ' ج.م على ' + Number(result.target_count || selected.length) + ' شقة.');
+    setNotice(successMessage);
+    if (notify && result.collection_id) await sendNotifications(result.collection_id, successMessage);
+    else setNotificationRetryId(null);
     await load();
   };
 
@@ -63,7 +79,7 @@ export const ExceptionalCollectionsView: React.FC<Props> = ({ buildingId, apartm
     <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="mb-4 flex items-center gap-3"><span className="rounded-2xl bg-amber-50 p-3 text-amber-700"><Wallet className="h-6 w-6"/></span><div><h1 className="text-lg font-black text-slate-900">التحصيلات الاستثنائية</h1><p className="text-xs text-slate-500">إنشاء تحصيل إضافي وتوزيعه على الشقق المستهدفة.</p></div></div>
       {error && <p className="mb-3 flex items-center gap-2 rounded-xl bg-rose-50 p-3 text-xs text-rose-700"><AlertCircle className="h-4 w-4"/>{error}</p>}
-      {notice && <p className="mb-3 flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-700"><CheckCircle2 className="h-4 w-4"/>{notice}</p>}
+      {notice && <div className="mb-3 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800"><p className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 shrink-0"/>{notice}</p>{notificationRetryId && <button type="button" disabled={notificationBusy} onClick={() => void sendNotifications(notificationRetryId, 'تم تسجيل التحصيل بنجاح.')} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 font-bold text-amber-900 disabled:opacity-50">{notificationBusy ? 'جارٍ إعادة الإرسال...' : 'إعادة إرسال الإشعارات'}</button>}</div>}
       <form onSubmit={submit} className="space-y-3">
         <label className="block space-y-1 text-xs font-bold text-slate-700"><span>اسم / سبب التحصيل</span><input value={title} onChange={e=>setTitle(e.target.value)} required minLength={3} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3" placeholder="مثال: صيانة المصعد"/></label>
         <label className="block space-y-1 text-xs font-bold text-slate-700"><span>التوضيحات</span><textarea value={description} onChange={e=>setDescription(e.target.value)} rows={2} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3" placeholder="تفاصيل إضافية عن التحصيل"/></label>
