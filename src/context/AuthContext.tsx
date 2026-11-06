@@ -23,13 +23,19 @@ interface AuthContextType {
   isLoading: boolean;
   authError: string | null;
   signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (fullName: string, email: string, password: string) => Promise<boolean>;
+  sendPasswordReset: (email: string) => Promise<void>;
+  updatePassword: (password: string) => Promise<void>;
+  isPasswordRecovery: boolean;
+  clearPasswordRecovery: () => void;
   signOut: () => Promise<void>;
   clearError: () => void;
 }
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const getAuthRedirectUrl = () => Capacitor.isNativePlatform()
-  ? 'app.bunyan.residential://login-callback'
-  : window.location.origin;
+const getAuthRedirectUrl = (path: 'login-callback' | 'reset-password' = 'login-callback') => Capacitor.isNativePlatform()
+  ? 'app.bunyan.residential://' + path
+  : path === 'reset-password' ? window.location.origin + '/reset-password' : window.location.origin;
 
 const friendlyError = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
@@ -43,6 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const profileLoadVersion = useRef(0);
   const oauthCallbackInProgress = useRef(false);
 
@@ -92,7 +99,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       processedOAuthCallbacks.add(callbackUrl);
       try {
         const callback = new URL(callbackUrl);
-        if (callback.protocol !== 'app.bunyan.residential:' || callback.hostname !== 'login-callback') return;
+        if (callback.protocol !== 'app.bunyan.residential:' || !['login-callback', 'reset-password'].includes(callback.hostname)) return;
+        if (callback.hostname === 'reset-password') setIsPasswordRecovery(true);
 
         oauthCallbackInProgress.current = true;
         setIsLoading(true);
@@ -151,7 +159,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Subscribe before reading the stored session. Supabase emits INITIAL_SESSION
     // through this listener; a late getSession() result must not overwrite a newer
     // Google OAuth callback with a stale null session (which sent the app back to login).
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') setIsPasswordRecovery(true);
       authEventSeen = true;
       // Ignore a stale null event while the OAuth callback is exchanging its code.
       if (!session && oauthCallbackInProgress.current) return;
@@ -193,6 +202,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInWithEmail = async (email: string, password: string) => {
+    setAuthError(null); setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) throw error;
+    } catch (error) { setAuthError(friendlyError(error)); setIsLoading(false); }
+  };
+
+  const signUpWithEmail = async (fullName: string, email: string, password: string) => {
+    setAuthError(null); setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(), password,
+        options: { data: { full_name: fullName.trim() }, emailRedirectTo: getAuthRedirectUrl() },
+      });
+      if (error) throw error;
+      if (!data.session) { setIsLoading(false); return false; }
+      return true;
+    } catch (error) { setAuthError(friendlyError(error)); setIsLoading(false); return false; }
+  };
+
+  const sendPasswordReset = async (email: string) => {
+    setAuthError(null); setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: getAuthRedirectUrl('reset-password') });
+      if (error) throw error;
+    } catch (error) { setAuthError(friendlyError(error)); throw error; }
+    finally { setIsLoading(false); }
+  };
+
+  const updatePassword = async (password: string) => {
+    setAuthError(null); setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      setIsPasswordRecovery(false);
+    } catch (error) { setAuthError(friendlyError(error)); throw error; }
+    finally { setIsLoading(false); }
+  };
+
   const signOut = async () => {
     setAuthError(null);
     const { error } = await supabase.auth.signOut();
@@ -200,7 +249,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null); setUserProfile(null); setRole(null); setIsAdmin(false);
   };
   return <AuthContext.Provider value={{ user, userProfile, role, isAdmin, isLoading, authError,
-    signInWithGoogle, signOut, clearError: () => setAuthError(null) }}>
+    signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, updatePassword,
+    isPasswordRecovery, clearPasswordRecovery: () => setIsPasswordRecovery(false),
+    signOut, clearError: () => setAuthError(null) }}>
     {children}
   </AuthContext.Provider>;
 };
