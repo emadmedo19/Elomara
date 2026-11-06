@@ -14,10 +14,14 @@ const buildAnnouncementPoster = (prompt: string, buildingName: string, aspectRat
   const lower = prompt.toLowerCase();
   const isWater = /مياه|سباك|تسريب|حنفية|water|plumb/.test(lower);
   const isElevator = /مصعد|اسانسير|أسانسير|elevator|lift/.test(lower);
-  const isCleaning = /نظاف|تنظيف|clean/.test(lower);
+  const isCleaning = /نظاف|تنظيف|clean/.test(lower) && !/سداد|اشتراك/.test(lower);
   const isGarage = /جراج|سيار|موقف|garage|parking/.test(lower);
-  const title = isWater ? 'تنبيه بخصوص المياه' : isElevator ? 'تنبيه صيانة المصعد' : isCleaning ? 'حافظ على نظافة العمارة' : isGarage ? 'تنظيم مواقف السيارات' : 'إعلان هام للسادة السكان';
-  const subtitle = isWater ? 'يرجى الإبلاغ عن أي تسريب أو عطل في شبكة المياه' : isElevator ? 'حرصاً على سلامتكم، يرجى الالتزام بتعليمات الاستخدام' : isCleaning ? 'نظافة المداخل والممرات مسؤولية الجميع' : isGarage ? 'يرجى الالتزام بالأماكن المخصصة وعدم إعاقة الحركة' : 'تنويه مهم من إدارة العقار';
+  const isElectricity = /كهرب|التيار/.test(lower);
+  const isMeeting = /اجتماع|الجمعية العمومية/.test(lower);
+  const isSubscription = /سداد|اشتراك/.test(lower);
+  const isQuiet = /هدوء|الضوضاء|الأصوات/.test(lower);
+  const title = isWater ? 'تنبيه بخصوص المياه' : isElevator ? 'تنبيه صيانة المصعد' : isCleaning ? 'حافظ على نظافة العمارة' : isGarage ? 'تنظيم مواقف السيارات' : isElectricity ? 'تنبيه بخصوص الكهرباء' : isMeeting ? 'دعوة لاجتماع السكان والملاك' : isSubscription ? 'تذكير بسداد الاشتراك' : isQuiet ? 'الحفاظ على الهدوء' : 'إعلان هام للسادة السكان';
+  const subtitle = isWater ? 'تنويه من إدارة العقار بخصوص خدمة المياه' : isElevator ? 'حرصاً على سلامتكم، يرجى الالتزام بتعليمات الاستخدام' : isCleaning ? 'نظافة المداخل والممرات مسؤولية الجميع' : isGarage ? 'يرجى الالتزام بالأماكن المخصصة وعدم إعاقة الحركة' : 'تنويه مهم من إدارة العقار';
   const accent = isWater ? '#38bdf8' : isCleaning ? '#34d399' : '#d8b56a';
   const icon = isWater
     ? '<path d="M540 310 C500 365 470 400 470 445 A70 70 0 0 0 610 445 C610 400 580 365 540 310Z" fill="none" stroke="'+accent+'" stroke-width="18"/><path d="M500 450 Q540 485 580 450" fill="none" stroke="'+accent+'" stroke-width="12" stroke-linecap="round"/>'
@@ -69,7 +73,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
   onPinAnnouncement,
 }) => {
   const [prompt, setPrompt] = useState(
-    'تصميم لوحة إعلان رسمية أنيقة لعمارة سكنية: تنبيه موعد الصيانة الدورية للمصعد غداً الأربعاء، ألوان كحلية وذهبية فاخرة، خط عربي واضح'
+    'السادة السكان، نحيطكم علمًا بأنه سيتم إجراء الصيانة الدورية للمصعد يوم [التاريخ] من الساعة [وقت البدء] إلى الساعة [وقت الانتهاء]. يرجى عدم استخدام المصعد خلال أعمال الصيانة حفاظًا على سلامتكم. شكرًا لتعاونكم.'
   );
   const [aspectRatio, setAspectRatio] = useState('1:1');
 
@@ -81,29 +85,55 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
   // Pinned state feedback
   const [isPinned, setIsPinned] = useState(false);
 
-  // Pre-set building templates
+  // Resident-facing notices: edit the bracketed details before generating.
   const templates = [
     {
       title: 'صيانة المصعد الدورية',
-      prompt: 'تصميم لوحة إعلان رسمية فاخرة: تنبيه بموعد الصيانة الدورية لمصعد عمارة سكنية راقية، أيقونة مصعد، ألوان كحلية وبيضاء راقية مع شريط تحذيري ذهبي',
+      prompt: 'السادة السكان، نحيطكم علمًا بأنه سيتم إجراء الصيانة الدورية للمصعد يوم [التاريخ] من الساعة [وقت البدء] إلى الساعة [وقت الانتهاء]. يرجى عدم استخدام المصعد خلال أعمال الصيانة حفاظًا على سلامتكم. شكرًا لتعاونكم.',
+      aspectRatio: '1:1',
+    },
+    {
+      title: 'انقطاع المياه',
+      prompt: 'تنويه للسادة السكان: سيتم قطع المياه يوم [التاريخ] من الساعة [وقت البدء] إلى الساعة [وقت الانتهاء] لإجراء أعمال الصيانة اللازمة. يرجى تدبير احتياجاتكم من المياه مسبقًا وإغلاق الصنابير خلال فترة الانقطاع. شكرًا لتعاونكم.',
+      aspectRatio: '3:4',
+    },
+    {
+      title: 'انقطاع الكهرباء',
+      prompt: 'إخطار للسادة السكان: سيتم فصل التيار الكهربائي عن العقار يوم [التاريخ] من الساعة [وقت البدء] إلى الساعة [وقت الانتهاء] لإجراء أعمال الصيانة. يرجى اتخاذ الاحتياطات اللازمة وفصل الأجهزة الحساسة قبل الموعد المعلن. شكرًا لتعاونكم.',
       aspectRatio: '1:1',
     },
     {
       title: 'نظافة المداخل والممرات',
-      prompt: 'ملصق توعوي وإرشادي لنظافة مدخل عمارة سكنية وممرات السلالم، أسلوب عصري أنيق، تصميم احترافي بألوان خضراء وكحلية هادئة',
+      prompt: 'السادة السكان، نرجو المحافظة على نظافة مدخل العمارة والسلالم والممرات، ووضع القمامة في الأماكن المخصصة لها، وعدم ترك المتعلقات الشخصية في الأماكن المشتركة. نظافة العمارة مسؤولية الجميع. شكرًا لتعاونكم.',
       aspectRatio: '3:4',
     },
     {
       title: 'تنظيم مواقف السيارات بالجراج',
-      prompt: 'لوحة إرشادية لموقف سيارات عمارة سكنية: الالتزام بالأماكن المخصصة لكل شقة وعدم الوقوف في الممرات، تصميم حديث واضح',
+      prompt: 'تنبيه للسادة السكان: يرجى الالتزام بالأماكن المخصصة لانتظار السيارات داخل الجراج، وعدم إعاقة الممرات أو مداخل ومخارج السيارات. نرجو عدم الوقوف في الأماكن المخصصة للغير حفاظًا على حقوق الجميع وسهولة الحركة.',
       aspectRatio: '16:9',
     },
     {
-      title: 'دعوة الجمعية العمومية للملاك',
-      prompt: 'تصميم بطاقة دعوة رسمية فاخرة لحضور اجتماع الجمعية العمومية السنوية لاتحاد شاغلي العقار، طابع مؤسسي مميز',
+      title: 'اجتماع السكان والملاك',
+      prompt: 'تدعو إدارة العمارة السادة السكان والملاك لحضور اجتماع يوم [التاريخ] الساعة [الوقت] في [المكان]، لمناقشة [موضوع الاجتماع] ومتابعة شؤون الخدمات والصيانة. حضوركم ومشاركتكم يساعدان على اتخاذ القرارات المناسبة للجميع.',
       aspectRatio: '1:1',
     },
+    {
+      title: 'تذكير بسداد الاشتراك',
+      prompt: 'السادة السكان، نرجو التكرم بسداد الاشتراك الشهري عن شهر [الشهر] في موعد أقصاه [آخر موعد للسداد]، لضمان انتظام خدمات العمارة والوفاء بالتزامات الصيانة والنظافة والحراسة. إذا سبق السداد، يرجى تجاهل هذا التذكير. شكرًا لتعاونكم.',
+      aspectRatio: '1:1',
+    },
+    {
+      title: 'تعليمات الهدوء',
+      prompt: 'حرصًا على راحة جميع السكان، نرجو تجنب الضوضاء والأصوات المرتفعة، خاصة خلال أوقات الراحة من الساعة [بداية فترة الهدوء] إلى الساعة [نهاية فترة الهدوء]. يرجى مراعاة الجيران عند إجراء أعمال الصيانة أو نقل الأثاث. نشكر لكم حسن تعاونكم.',
+      aspectRatio: '3:4',
+    },
   ];
+
+  const resetPreview = () => {
+    setGeneratedImageUrl(null);
+    setIsPinned(false);
+    setErrorMessage(null);
+  };
 
   const handleGenerate = async (customPrompt?: string) => {
     const text = customPrompt || prompt;
@@ -196,14 +226,16 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
           <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
             <div className="space-y-3.5 text-xs">
                 <div>
-                  <label className="block text-slate-800 font-bold mb-1.5">
-                    وصف الإعلان أو الملصق المطلوب:
+                  <label htmlFor="announcement-text" className="block text-slate-800 font-bold mb-1.5">
+                    نص الإعلان:
                   </label>
                   <textarea
+                    id="announcement-text"
                     rows={4}
                     value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="اكتب وصف الإعلان المطلوب بدقة..."
+                    onChange={(e) => { setPrompt(e.target.value); resetPreview(); }}
+                    disabled={isGenerating}
+                    placeholder="اكتب نص الإعلان الذي سيظهر للسكان..."
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition"
                   />
                 </div>
@@ -223,7 +255,8 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
                       <button
                         key={item.value}
                         type="button"
-                        onClick={() => setAspectRatio(item.value)}
+                        disabled={isGenerating}
+                        onClick={() => { setAspectRatio(item.value); resetPreview(); }}
                         className={`py-2 px-1 text-center rounded-xl border text-[11px] font-bold transition ${
                           aspectRatio === item.value
                             ? 'bg-[#0f2537] text-white border-[#0f2537] shadow-xs'
@@ -239,14 +272,17 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
                 {/* Template Chips */}
                 <div>
                   <span className="text-[11px] font-bold text-slate-500 block mb-1.5">
-                    نماذج إعلانات جاهزة للاختيار السريع:
+                    نماذج إعلانات جاهزة — اختر وعدّل البيانات:
                   </span>
+                  <p className="mb-2 text-[11px] leading-relaxed text-slate-500">اختر نموذجًا، ثم عدّل البيانات بين الأقواس مثل التاريخ والوقت في نص الإعلان قبل توليد الصورة.</p>
                   <div className="space-y-1.5">
-                    {templates.map((tpl, i) => (
+                    {templates.map((tpl) => (
                       <button
-                        key={i}
+                        key={tpl.title}
                         type="button"
+                        disabled={isGenerating}
                         onClick={() => {
+                          resetPreview();
                           setPrompt(tpl.prompt);
                           setAspectRatio(tpl.aspectRatio);
                         }}
@@ -345,7 +381,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
                 </div>
                 <h3 className="font-bold text-sm text-slate-800 mb-1">معاينة الإعلان المصمم</h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  اختر أحد النماذج المقترحة أو اكتب وصفاً مخصصاً، واضغط «توليد لوحة الإعلان» لإنشاء إعلان منسق وجاهز للنشر.
+                  اختر أحد النصوص الجاهزة وعدّل بياناته أو اكتب إعلانك، واضغط «توليد لوحة الإعلان» لإنشاء إعلان منسق وجاهز للنشر.
                 </p>
               </div>
             )}
