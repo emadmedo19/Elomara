@@ -13,9 +13,10 @@ async function initializeLiveUpdates() {
 
   // Confirm the currently running bundle is healthy before staging another one.
   try {
-    await LiveUpdate.ready();
+    const ready = await LiveUpdate.ready();
+    console.info('[OTA] Current bundle marked ready:', ready);
   } catch (error) {
-    console.warn('Live Update ready check failed:', error);
+    console.warn('[OTA] Ready check failed:', error);
     return;
   }
 
@@ -55,14 +56,27 @@ async function initializeLiveUpdates() {
 
     const current = await LiveUpdate.getCurrentBundle();
     const next = await LiveUpdate.getNextBundle();
-    if (current.bundleId === bundleId || next.bundleId === bundleId) return;
+    console.info('[OTA] Bundle state:', {
+      currentBundleId: current.bundleId ?? 'native-default',
+      nextBundleId: next.bundleId ?? null,
+      publishedBundleId: bundleId,
+    });
+    if (current.bundleId === bundleId) return;
+    if (next.bundleId === bundleId) {
+      // A previous run may have downloaded and staged this bundle but not
+      // applied it. Reload the web layer now instead of waiting for a manual
+      // force-stop/restart from the user.
+      await LiveUpdate.reload();
+      return;
+    }
 
     await LiveUpdate.downloadBundle({ url, bundleId, checksum });
     await LiveUpdate.setNextBundle({ bundleId });
-    console.info('A Bunyan update is ready and will apply after the next app restart.');
+    console.info('[OTA] Bundle downloaded and staged; applying it now.');
+    await LiveUpdate.reload();
   } catch (error) {
     // OTA failures must never prevent the residential app from opening.
-    console.warn('Bunyan live update check failed:', error);
+    console.warn('[OTA] Live update check/apply failed:', error);
   }
 }
 
