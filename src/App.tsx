@@ -998,15 +998,20 @@ export default function App() {
           @keyframes introRight { from { opacity:0; transform:translate(100%,0) } to { opacity:1; transform:translate(0,0) } }
           @keyframes introProgress { from { transform:translateX(120%) } to { transform:translateX(-120%) } }
           .elomara-intro { position:fixed; inset:0; z-index:9999; width:100%; height:100vh; height:100dvh; overflow:hidden; isolation:isolate; background:radial-gradient(ellipse at 50% 55%,#f2fbff 0%,#d8f1ff 38%,transparent 75%),linear-gradient(155deg,#078cdd 0%,#83d2fb 35%,#c2eaff 74%,#5ebcf0 100%); }
-          .elomara-intro:before { content:""; position:absolute; top:0; left:0; width:min(88vw,600px); height:30%; background:url('/top_blue_yellow_swoosh.png') left top / 100% auto no-repeat; pointer-events:none; }
+          .elomara-intro:before { content:""; position:absolute; top:0; left:0; width:min(88vw,600px); height:30%; background:url('/splash-hq/curve.png') left top / 100% auto no-repeat; pointer-events:none; }
           .intro-layer { position:absolute; display:block; object-fit:contain; pointer-events:none; user-select:none; opacity:0; }
-          /* Frame the existing PNG's visible bounds (218,267)-(656,761) without changing the asset. */
-          .intro-building { left:50%; top:20%; width:min(58vw,30vh,300px); aspect-ratio:438 / 494; overflow:hidden; animation:introBuilding 1s cubic-bezier(.2,.8,.2,1) .75s both; }
-          .intro-building-art { position:absolute; width:197.2603%; height:310.9312%; max-width:none; left:-49.7717%; top:-54.0486%; }
+          /* Frame transparent padding in the high-resolution layers without stretching their artwork. */
+          .intro-building { left:50%; top:20%; width:min(58vw,30vh,300px); aspect-ratio:1047 / 1197; overflow:hidden; animation:introBuilding 1s cubic-bezier(.2,.8,.2,1) .75s both; }
+          .intro-building-art { position:absolute; width:122.3496%; height:102.5063%; max-width:none; left:-10.4107%; top:-.3342%; }
           /* One combined title/tagline asset keeps the Arabic logo intact and prevents gaps or clipping. */
-          .intro-title { left:50%; top:54%; width:min(78vw,40vh,400px); height:auto; animation:introLogo .8s ease 1.8s both; }
-          .intro-city { bottom:0; width:54%; height:22%; }
-          .intro-city-left { left:0; bottom:-4%; object-position:left bottom; animation:introLeft 1.1s cubic-bezier(.2,.8,.2,1) 3s both; }
+          .intro-title { left:50%; top:54%; width:min(78vw,40vh,400px); aspect-ratio:1429 / 615; overflow:hidden; animation:introLogo .8s ease 1.8s both; }
+          .intro-title-art { position:absolute; width:151.9944%; height:117.7236%; max-width:none; left:-25.8223%; top:-6.8293%; }
+          .intro-city { bottom:0; width:50%; height:22%; overflow:hidden; }
+          .intro-ground { position:absolute; z-index:2; left:0; bottom:0; width:100%; height:auto; pointer-events:none; }
+          .intro-city-art { position:absolute; bottom:0; width:200%; max-width:none; height:auto; }
+          .intro-city-left .intro-city-art { left:0; }
+          .intro-city-right .intro-city-art { right:0; }
+          .intro-city-left { left:0; bottom:0; object-position:left bottom; animation:introLeft 1.1s cubic-bezier(.2,.8,.2,1) 3s both; }
           .intro-city-right { right:0; bottom:0; object-position:right bottom; animation:introRight 1.1s cubic-bezier(.2,.8,.2,1) 3s both; }
           .intro-progress { position:absolute; z-index:5; left:50%; bottom:24%; transform:translateX(-50%); width:72px; height:4px; border-radius:99px; overflow:hidden; background:#77bce5; }
           .intro-progress:after { content:""; display:block; width:42%; height:100%; border-radius:inherit; background:#f4bd20; animation:introProgress 1.15s ease-in-out infinite; }
@@ -1014,11 +1019,14 @@ export default function App() {
           @media (prefers-reduced-motion:reduce) { .intro-layer,.intro-progress:after { animation:none !important; opacity:1; } .intro-building,.intro-title { transform:translateX(-50%); } }
         `}</style>
         <div className="intro-layer intro-building">
-          <img className="intro-building-art" src="/layer1_center_building_fixed.png" alt="مبنى العمارة" />
+          <img className="intro-building-art" src="/splash-hq/building.png" alt="مبنى العمارة" />
         </div>
-        <img className="intro-layer intro-title" src="/layer2_text_yellow.png" alt="العمارة - نظام إدارة العقارات والملاك" />
-        <img className="intro-layer intro-city intro-city-left" src="/layer4_left_buildings.png" alt="" />
-        <img className="intro-layer intro-city intro-city-right" src="/layer3_right_buildings.png" alt="" />
+        <div className="intro-layer intro-title">
+          <img className="intro-title-art" src="/splash-hq/title.png" alt="العمارة - نظام إدارة العقارات والملاك" />
+        </div>
+        <div className="intro-layer intro-city intro-city-left" aria-hidden="true"><img className="intro-city-art" src="/splash-hq/houses.png" alt="" /></div>
+        <div className="intro-layer intro-city intro-city-right" aria-hidden="true"><img className="intro-city-art" src="/splash-hq/houses.png" alt="" /></div>
+        <img className="intro-ground" src="/splash-hq/ground.png" alt="" aria-hidden="true" />
         <div className="intro-progress" aria-hidden="true" />
       </div>
     );
