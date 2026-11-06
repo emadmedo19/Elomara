@@ -88,3 +88,58 @@ jobs:
 
           upload_file "ota-upload/${GITHUB_SHA}.zip" "bundles/${GITHUB_SHA}.zip" "application/zip"
           upload_file "ota-upload/latest.json" "latest.json" "application/json"
+
+      - name: Clean up old OTA bundles safely
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          base = "https://yvoylicirtdarroqcxoq.supabase.co/storage/v1"
+          bucket = "bunyan-ota"
+          key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+          headers = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+
+          def request(method, endpoint, payload=None):
+              data = json.dumps(payload).encode() if payload is not None else None
+              req = urllib.request.Request(base + endpoint, data=data, headers=headers, method=method)
+              with urllib.request.urlopen(req, timeout=45) as response:
+                  return json.load(response)
+
+          # The live manifest is authoritative, not the upload timestamp.
+          req = urllib.request.Request(
+              base + f"/object/public/{bucket}/latest.json",
+              headers={"Cache-Control": "no-cache"},
+          )
+          with urllib.request.urlopen(req, timeout=45) as response:
+              manifest = json.load(response)
+          current = "bundles/" + manifest["bundleId"] + ".zip"
+          if manifest["bundleId"] != os.environ["GITHUB_SHA"]:
+              raise RuntimeError("Live OTA manifest does not match the just-published commit; skipping cleanup")
+
+          objects = []
+          offset = 0
+          while True:
+              page = request("POST", f"/object/list/{bucket}", {
+                  "prefix": "bundles/", "limit": 100, "offset": offset,
+                  "sortBy": {"column": "created_at", "order": "desc"}
+              })
+              objects.extend(obj for obj in page if obj.get("name", "").endswith(".zip"))
+              if len(page) < 100:
+                  break
+              offset += 100
+
+          # Keep the live release plus nine recent rollback versions.
+          keep = {current}
+          keep.update("bundles/" + obj["name"] if not obj["name"].startswith("bundles/") else obj["name"]
+                      for obj in objects[:10])
+          stale = ["bundles/" + obj["name"] if not obj["name"].startswith("bundles/") else obj["name"]
+                   for obj in objects if ("bundles/" + obj["name"] if not obj["name"].startswith("bundles/") else obj["name"]) not in keep]
+          print(f"OTA retention: {len(objects)} bundles, keeping {len(keep)}, removing {len(stale)} old bundles")
+          if stale:
+              request("DELETE", f"/object/{bucket}", {"prefixes": stale})
+          PY
