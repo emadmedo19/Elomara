@@ -7,10 +7,11 @@ on:
       - migration/supabase-backend
       - ui-redesign-v2
       - feature/multi-tenant-buildings
+      - fix/resident-mobile-layout-v2
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-android:
@@ -70,10 +71,13 @@ jobs:
           mkdir -p release-apk
           cp android/app/build/outputs/apk/debug/app-debug.apk "release-apk/العمارة.apk"
 
-      - name: Upload installable APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: العمارة-APK
-          path: release-apk/العمارة.apk
-          if-no-files-found: error
-          retention-days: 30
+      - name: Publish APK as GitHub Release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="apk-${GITHUB_RUN_NUMBER}-${GITHUB_SHA::7}"
+          gh release create "$TAG" "release-apk/العمارة.apk" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${GITHUB_SHA}" \
+            --title "العمارة Android APK - ${GITHUB_RUN_NUMBER}" \
+            --notes "Installable APK built from commit ${GITHUB_SHA}. This release asset is used instead of Actions artifacts to avoid the repository artifact storage quota."

@@ -527,3 +527,114 @@ body { background: var(--fotouh-page); color: #263c43; }
   width:22px !important;
   height:22px !important;
 }
+
+
+/* Resident portal mobile layout — target the actual sibling nav, not header nav */
+.fotouh-portal {
+  position: relative !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow-x: clip !important;
+  isolation: isolate;
+}
+.fotouh-portal > header {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+.fotouh-portal > main {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  margin-inline: auto !important;
+  overflow-x: clip !important;
+  padding-inline: 12px !important;
+  padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)) !important;
+}
+.fotouh-portal > nav.resident-bottom-nav {
+  position: fixed !important;
+  inset-inline: 0 !important;
+  inset-block-end: 0 !important;
+  z-index: 50 !important;
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  transform: none !important;
+  border-radius: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px) !important;
+  padding-inline: max(env(safe-area-inset-left, 0px), 8px) max(env(safe-area-inset-right, 0px), 8px) !important;
+  box-sizing: border-box !important;
+}
+.fotouh-portal > nav.resident-bottom-nav > div:last-child {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  align-items: stretch !important;
+  width: 100% !important;
+  max-width: 520px !important;
+  min-width: 0 !important;
+  margin-inline: auto !important;
+  gap: 4px !important;
+  padding: 8px 0 0 !important;
+  box-sizing: border-box !important;
+}
+.fotouh-portal > nav.resident-bottom-nav button {
+  display: flex !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 54px !important;
+  max-width: 100% !important;
+  padding: 7px 2px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  white-space: normal !important;
+  overflow: hidden !important;
+  font-size: 10px !important;
+  line-height: 1.25 !important;
+  box-sizing: border-box !important;
+}
+.fotouh-portal > nav.resident-bottom-nav button > span:last-child {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+.fotouh-portal > nav.resident-bottom-nav button svg {
+  flex: 0 0 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+}
+.fotouh-portal > main > section,
+.fotouh-portal > main > section > div {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+.fotouh-portal > main * {
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  html:has(.fotouh-portal),
+  body:has(.fotouh-portal),
+  body:has(.fotouh-portal) #root {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: clip !important;
+  }
+  .fotouh-portal > main {
+    padding: 12px 10px calc(96px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .fotouh-portal > main > section:first-child {
+    padding: 16px !important;
+    border-radius: 20px !important;
+  }
+}

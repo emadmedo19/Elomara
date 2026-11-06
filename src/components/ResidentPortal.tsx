@@ -180,10 +180,10 @@ export const ResidentPortal: React.FC = () => {
   const statusLabel = apartment?.payment_status === 'paid' ? 'مسدد' : apartment?.payment_status === 'overdue' ? 'متأخر' : 'قيد المتابعة';
   const ticketStatus = (s: string) => s === 'مكتمل' ? 'مكتمل' : s === 'قيد التنفيذ' ? 'قيد التنفيذ' : 'جديد';
 
-  return <div dir="rtl" onTouchStart={handlePullStart} onTouchMove={handlePullMove} onTouchEnd={handlePullEnd} onTouchCancel={handlePullCancel} className="bunyan-resident fotouh-portal min-h-screen bg-[#f4f7fb] text-slate-800" style={{ overscrollBehaviorY: 'contain', touchAction: 'pan-y' }}>
+  return <div dir="rtl" onTouchStart={handlePullStart} onTouchMove={handlePullMove} onTouchEnd={handlePullEnd} onTouchCancel={handlePullCancel} className="bunyan-resident fotouh-portal min-h-screen w-full max-w-full overflow-x-hidden box-border bg-[#f4f7fb] text-slate-800" style={{ width: '100%', maxWidth: '100vw', minWidth: 0, boxSizing: 'border-box', overflowX: 'hidden', overscrollBehaviorY: 'contain', touchAction: 'pan-y' }}>
     {(pullHint || refreshing) && <div className="fixed top-0 inset-x-0 z-[60] flex justify-center pt-2 pointer-events-none"><div className="rounded-full bg-[#0f2537] text-white text-xs px-4 py-2 shadow-lg flex items-center gap-2"><RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`}/>{refreshing ? 'جارٍ تحديث البيانات...' : 'اترك الشاشة للتحديث'}</div></div>}
-    <header className="bg-[#0f2537] text-white sticky top-0 z-40 shadow-lg">
-      <div className="max-w-7xl mx-auto px-3 sm:px-5 py-3 flex items-center justify-between gap-2">
+    <header className="w-full min-w-0 bg-[#0f2537] text-white sticky top-0 z-40 shadow-lg">
+      <div className="w-full max-w-7xl mx-auto min-w-0 px-3 sm:px-5 py-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           <div id="resident-building-icon" className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden bg-white shadow-sm ring-1 ring-slate-200"><img src="/icon.png" alt="العمارة" className="w-full h-full object-cover" /></div>
           <div className="min-w-0"><h1 id="resident-building-title" className="font-black text-lg leading-tight" style={{ color: "#102f33", opacity: 1, textShadow: "none" }}>العمارة</h1><p id="resident-building-subtitle" className="text-[11px] truncate" style={{ color: "#35565a", opacity: 1, fontWeight: 700 }}>{building?.name || 'بوابة السكان'} • شقة {apartment?.unit_number}</p></div>
@@ -196,7 +196,7 @@ export const ResidentPortal: React.FC = () => {
 
     </header>
 
-    <nav aria-label="التنقل الرئيسي" className="resident-bottom-nav fixed bottom-0 inset-x-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur-md shadow-[0_-5px_20px_rgba(15,40,50,.08)]" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 8px)" }}>
+    <nav aria-label="التنقل الرئيسي" className="resident-bottom-nav fixed bottom-0 left-0 right-0 z-50 w-full max-w-full box-border border-t border-slate-200 bg-white/95 backdrop-blur-md shadow-[0_-5px_20px_rgba(15,40,50,.08)]" style={{ width: '100%', maxWidth: '100vw', boxSizing: 'border-box', paddingLeft: 'max(env(safe-area-inset-left), 8px)', paddingRight: 'max(env(safe-area-inset-right), 8px)', paddingBottom: "max(env(safe-area-inset-bottom), 8px)" }}>
       {moreOpen && <>
         <button aria-label="إغلاق قائمة المزيد" className="fixed inset-0 z-[55] bg-black/25" onClick={() => setMoreOpen(false)} />
         <div role="menu" aria-label="المزيد" className="fixed left-3 right-auto z-[60] w-[min(280px,calc(100vw-24px))] rounded-2xl border border-teal-200 bg-white p-2 shadow-2xl flex flex-col gap-2" style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 76px)" }}>
@@ -209,20 +209,20 @@ export const ResidentPortal: React.FC = () => {
           </button>
         </div>
       </>}
-      <div className="mx-auto grid max-w-xl grid-cols-4 gap-1 px-2 pt-2">
+      <div className="mx-auto grid w-full max-w-xl min-w-0 grid-cols-4 gap-1 px-1 pt-2">
         {primaryNav.map(item => <button key={item.id} onClick={() => { setActiveTab(item.id); setMoreOpen(false); setNotice(''); setError(''); }} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold transition ${activeTab === item.id ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><span className="relative">{item.icon}{item.id==='maintenance' && unreadTicketCount>0 && <span className="absolute -right-3 -top-3 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[10px] font-black leading-none text-white">{unreadTicketCount}</span>}</span><span className="truncate max-w-full">{item.label}</span></button>)}
         <button onClick={() => setMoreOpen(v => !v)} aria-expanded={moreOpen} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold transition ${moreOpen || moreNav.some(item => item.id === activeTab) ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><MoreHorizontal className="w-5 h-5"/><span>المزيد</span></button>
       </div>
     </nav>
-    <main key={activeTab} className="bunyan-page-enter max-w-6xl mx-auto p-3 sm:p-5 pb-28 space-y-4">
+    <main key={activeTab} className="bunyan-page-enter block w-full min-w-0 max-w-6xl mx-auto box-border p-3 sm:p-5 pb-28 space-y-4" style={{ width: '100%', maxWidth: '100vw', minWidth: 0, boxSizing: 'border-box' }}>
       {error && <div className="rounded-xl bg-rose-50 text-rose-800 border border-rose-100 p-3 text-sm flex gap-2"><AlertCircle className="w-5 h-5 shrink-0"/>{error}</div>}
       {notice && <div className="rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-100 p-3 text-sm flex gap-2"><CheckCircle2 className="w-5 h-5 shrink-0"/>{notice}</div>}
 
       {activeTab === 'home' && <>
         <section className="rounded-2xl bg-gradient-to-l from-[#0f2537] to-[#1c4467] text-white p-5 shadow">
           <div className="flex items-center justify-between gap-2"><div className="text-sm text-teal-200">أهلاً بك في بوابة السكان</div><span className="text-[11px] rounded-full bg-emerald-400/15 text-emerald-200 px-3 py-1">حساب معتمد</span></div>
-          <h2 className="text-2xl font-black mt-2">{apartment?.resident_name || user?.email}</h2>
-          <p className="mt-1 text-slate-200">شقة {apartment?.unit_number} • الدور {apartment?.floor} • {building?.name}</p>
+          <h2 className="mt-2 min-w-0 max-w-full text-lg sm:text-2xl font-black leading-snug [overflow-wrap:anywhere] break-all">{apartment?.resident_name || user?.email}</h2>
+          <p className="mt-1 min-w-0 max-w-full text-slate-200 [overflow-wrap:anywhere]">شقة {apartment?.unit_number} • الدور {apartment?.floor} • {building?.name}</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5">
             <div className="rounded-xl bg-white/10 p-3"><div className="text-xs text-slate-300">الاشتراك الشهري</div><b>{money(apartment?.monthly_fee)} جنيه</b></div>
             <div className="rounded-xl bg-white/10 p-3"><div className="text-xs text-slate-300">حالة السداد</div><b>{statusLabel}</b></div>
