@@ -70,7 +70,7 @@ jobs:
           arch: x86_64
           target: google_apis
           disable-animations: true
-          script: cd android && bash ./gradlew connectedDebugAndroidTest
+          script: cd android && bash ./gradlew :app:connectedDebugAndroidTest
 
       - name: Upload Android test reports
         if: always()
