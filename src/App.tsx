@@ -53,7 +53,7 @@ export default function App() {
   const [showIntroSplash, setShowIntroSplash] = useState(true);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [currentBuildingId, setCurrentBuildingIdState] = useState<string>('');
-  const { user, userProfile, isAdmin, isLoading: isAuthLoading } = useAuth();
+  const { user, userProfile, isAdmin, isPasswordRecovery, isLoading: isAuthLoading } = useAuth();
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [role, setRole] = useState<UserRole>('manager');
   
@@ -289,6 +289,7 @@ export default function App() {
           amount:Number(r.amount || 0), date:r.payment_date, month:r.month,
           method:r.method, notes:r.notes || undefined,
           receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined,
+          paymentType:r.payment_type || 'monthly',
         }));
       }
       setBuildings(refreshedBuildings);
@@ -1064,6 +1065,7 @@ export default function App() {
     );
   }
 
+  if (isPasswordRecovery) return <LoginView />;
   if (!user) return <LoginView />;
   if (!isAdmin) {
     if (userProfile?.status === 'active' && (userProfile.role === 'tenant' || userProfile.role === 'owner')) return <ResidentPortal />;
