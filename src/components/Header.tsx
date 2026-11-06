@@ -3,7 +3,7 @@ import { Building } from '../types';
 import {
   Building2, ChevronDown, Sparkles, Settings, SlidersHorizontal, LogOut, LogIn,
   UserCheck, LayoutDashboard, Receipt, Wrench, Palette, MoreHorizontal, FileText, BarChart3,
-  X
+  X, Wallet
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -43,6 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'expenses', label: 'المصروفات', icon: Receipt },
   ];
   const moreItems = [
+    ...(isAdmin ? [{ id: 'exceptional-collections', label: 'التحصيلات الاستثنائية', icon: Wallet }] : []),
     { id: 'polls', label: 'استطلاعات الرأي', icon: BarChart3 },
     { id: 'reports', label: 'التقارير', icon: FileText },
     { id: 'resident', label: 'بوابة الساكن والمرافق', icon: Wrench },
