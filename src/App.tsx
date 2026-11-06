@@ -32,6 +32,7 @@ import { PdfStatementModal } from './components/PdfStatementModal';
 import { BuildingManagementModal } from './components/BuildingManagementModal';
 import { SettingsModal } from './components/SettingsModal';
 import { RegistrationApprovalsView } from './components/RegistrationApprovalsView';
+import { PollsView } from './components/PollsView';
 import { CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { LoginView } from './components/LoginView';
@@ -157,7 +158,7 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get('tab');
-      if (tabParam && ['dashboard', 'collections', 'expenses', 'reports', 'resident', 'chat', 'image-studio', 'approvals'].includes(tabParam)) {
+      if (tabParam && ['dashboard', 'collections', 'expenses', 'reports', 'resident', 'chat', 'image-studio', 'approvals', 'polls'].includes(tabParam)) {
         return tabParam;
       }
     }
@@ -1159,6 +1160,8 @@ export default function App() {
 
         {/* Content Body */}
         <main className="flex-1 p-3 pb-28 sm:p-6 sm:pb-28 max-w-7xl mx-auto w-full">
+          {currentTab === 'polls' && <PollsView buildingId={currentBuilding.id} canManage />}
+
           {currentTab === 'approvals' && (
             <RegistrationApprovalsView apartments={apartments.filter(a => a.buildingId === currentBuilding.id)} />
           )}
