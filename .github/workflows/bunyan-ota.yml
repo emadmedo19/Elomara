@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - migration/supabase-backend
   workflow_dispatch:
 
 permissions:
@@ -12,6 +11,7 @@ permissions:
 
 jobs:
   publish:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

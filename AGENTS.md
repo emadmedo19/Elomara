@@ -1,34 +1,30 @@
-AGENTS.md — Development & Workflow Rules for AI Assistants
-This repository contains the Elomara (العمارة) residential property management application. All AI coding assistants (ChatGPT, Cursor, Copilot, Claude, etc.) working on this repository MUST strictly follow the workflow and architectural rules below to prevent regression, broken builds, or Over-The-Air (OTA) update overwrites.
-1. Git & Branching Rules (Critical for OTA Stability)
-Rule 1.1: Always Branch from Latest main
-Never branch off a stale branch or an old commit.
-Before starting any task or generating code, ensure the base is up to date:
-git checkout main
-git pull origin main
-git checkout -b <branch-type>/<short-description>
+# AGENTS.md — Development & Workflow Rules
 
+This repository contains Elomara (العمارة). These instructions apply to all coding assistants.
 
-Allowed branch prefixes:
-feature/ — New features or UI components
-fix/ — Bug fixes
-refactor/ — Code cleanup without behavior change
-Rule 1.2: Rebase / Sync Before Creating a Pull Request
-Before finishing a task or opening a PR, always pull the latest changes from main to prevent overwriting commits made by other sessions or PRs:
-git checkout main
-git pull origin main
-git checkout <your-branch>
-git merge main
+## 1. Git workflow: main only
 
+- Work directly on `main`. Do not create feature, fix, recovery, migration, or temporary branches or branch-based worktrees unless the owner explicitly changes this policy.
+- Do not require or open pull requests for routine changes. Commit and push scoped, verified changes directly to `main`.
+- Before editing, inspect `git status` and preserve any existing uncommitted work. Never reset, discard, or overwrite another session's changes.
+- With a clean working tree, synchronize before starting:
 
-Resolve any merge conflicts carefully. NEVER discard or revert existing features or fixes from main.
-Rule 1.3: Single Pull Request per Feature / Fix
-Do not stack multiple unmerged branches on top of each other.
-Keep each Pull Request atomic and focused on one specific feature or fix.
+```bash
+git switch main
+git pull --ff-only origin main
+```
+
+- If switching or pulling fails, inspect and resolve the cause without force. Do not create a branch as a workaround.
+- Before pushing, fetch `origin/main`. If it advanced, integrate its changes safely on `main` and repeat relevant checks.
+- Never force-push or rewrite shared `main` history. Use a new corrective or revert commit for rollback.
+- Review existing branches before deletion. A branch with commits absent from `main` requires review of its actual changes and preservation of needed work; commit counts alone do not prove missing features.
+- All automated builds and OTA releases must use `main`. Manual release runs must also be restricted to `refs/heads/main`.
+- If access, tools, or protection rules prevent an operation, report the exact limitation and completed changes; never claim a push, deletion, or check that did not happen.
+
 2. Over-The-Air (OTA) Update Lifecycle
 How OTA Works in Elomara
 The OTA deployment pipeline is defined in .github/workflows/bunyan-ota.yml.
-It triggers ONLY on a push to main (or migration/supabase-backend).
+It triggers on pushes to main or manual runs on main only.
 The pipeline executes:
 npm install
 npm run build
@@ -40,7 +36,7 @@ Client-side LiveUpdate protection:
 The client update logic is located in src/main.tsx (initializeLiveUpdates) and uses @capawesome/capacitor-live-update.
 Do NOT modify the core bundle validation, checksum matching, or reload logic in src/main.tsx unless explicitly requested.
 Do NOT change autoUpdateStrategy: 'none' in capacitor.config.ts.
-Commit SHA awareness: If changes are not merged into main, they will never be deployed via OTA.
+Commit SHA awareness: OTA deploys commits pushed directly to main. Keep its validation and build checks passing.
 3. Project Architecture & Directory Structure
 Adhere strictly to the existing modular structure in src/:
 src/
@@ -68,8 +64,10 @@ Client-accessible environment variables must start with VITE_ (e.g. VITE_SUPABAS
 AI keys (e.g., GEMINI_API_KEY) and Supabase admin keys (SUPABASE_SERVICE_ROLE_KEY) must remain secure.
 5. Mandatory Pre-Commit Checklist for AI Assistants
 Before declaring any task or code change complete, verify:
-[ ] Fresh Base: The code is branched from the latest origin/main.
+[ ] Fresh Base: Work is on main and synchronized with origin/main; no extra branch was created.
 [ ] No Regressions: No existing features, styles, or imports were accidentally removed or overwritten.
 [ ] Type Safety & Build: npm run build compiles without errors.
-[ ] Lint Clean: npm run lint passes without blocking errors.
+[ ] TypeScript Check: npm run lint (tsc --noEmit) passes without blocking errors.
 [ ] Scoped Changes: git diff contains only files relevant to the requested task.
+
+For documentation-only changes, review the diff and links; a full application build is unnecessary. For workflow changes, validate workflow structure and branch guards, then inspect GitHub Actions results. Report any check that could not be run.

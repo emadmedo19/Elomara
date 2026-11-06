@@ -2,7 +2,7 @@ name: Validate anonymous polls
 on:
   push:
     branches:
-      - feature/anonymous-polls
+      - main
   pull_request:
     branches:
       - main
