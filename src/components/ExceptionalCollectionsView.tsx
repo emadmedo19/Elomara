@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, CheckCircle2, Wallet, Plus, X, Bell, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Wallet, Plus, Bell, RefreshCw } from 'lucide-react';
 import { Apartment } from '../types';
 import { supabase } from '../lib/supabase';
 
