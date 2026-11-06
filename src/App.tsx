@@ -118,7 +118,7 @@ export default function App() {
             unitNumber:r.unit_number, residentName:r.resident_name || '',
             amount:Number(r.amount || 0), date:r.payment_date, month:r.month,
             method:r.method, notes:r.notes || undefined,
-            receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined, paymentType:r.payment_type || 'monthly',
+            receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined, paymentType:r.payment_type || 'monthly', paymentType:r.payment_type || 'monthly',
           })));
 
           const [ticketResult, announcementResult, expenseResult, settingsResult] = await Promise.all([
@@ -279,7 +279,7 @@ export default function App() {
         }));
         const { data: paymentRows, error: paymentError } = await supabase
           .from('payments')
-          .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at')
+          .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at,payment_type')
           .in('building_id', refreshedBuildings.map(b => b.id))
           .order('payment_date', { ascending: false });
         if (paymentError) throw paymentError;
