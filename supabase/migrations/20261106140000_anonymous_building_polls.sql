@@ -123,8 +123,11 @@ begin
     raise exception 'Poll duration must be in the next 30 days';
   end if;
 
-  if p_options is null or jsonb_typeof(p_options) <> 'array'
-     or jsonb_array_length(p_options) not between 2 and 8 then
+  if p_options is null or jsonb_typeof(p_options) is distinct from 'array' then
+    raise exception 'Poll options must be a JSON array';
+  end if;
+
+  if jsonb_array_length(p_options) not between 2 and 8 then
     raise exception 'A poll must have between 2 and 8 options';
   end if;
 
@@ -294,6 +297,13 @@ begin
     or v_profile.building_id is distinct from v_poll.building_id
   ) then
     raise exception 'Building access denied' using errcode = '42501';
+  end if;
+
+  update public.building_polls
+     set status = 'closed', closed_at = coalesce(closed_at, now())
+   where id = p_poll_id and status = 'active' and ends_at <= now();
+  if found then
+    v_poll.status := 'closed';
   end if;
 
   select exists (
