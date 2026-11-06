@@ -8,10 +8,10 @@ type PollResult = {
   has_voted: boolean;
   is_closed: boolean;
   results_visible: boolean;
-  participants_count: number;
-  targeted_count: number;
-  non_participants_count: number;
-  turnout_percentage: number;
+  participants_count: number | null;
+  targeted_count: number | null;
+  non_participants_count: number | null;
+  turnout_percentage: number | null;
   options: PollResultOption[] | null;
 };
 type Poll = {
@@ -217,7 +217,7 @@ export const PollsView: React.FC<Props> = ({ buildingId, canManage }) => {
           const result = poll.result;
           const ended = isEnded(poll);
           const options = result?.options || [];
-          const donut = options.length ? 'conic-gradient(' + options.map((option, index) => {
+          const donut = options.some(option => option.votes > 0) ? 'conic-gradient(' + options.map((option, index) => {
             const start = options.slice(0, index).reduce((sum, item) => sum + item.percentage, 0);
             return optionColors[index % optionColors.length] + ' ' + start + '% ' + (start + option.percentage) + '%';
           }).join(', ') + ')' : '#e2e8f0';
