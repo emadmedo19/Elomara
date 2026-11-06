@@ -206,7 +206,6 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg sm:text-xl font-bold">استوديو إعلانات ولوحات العمارة الذكي</h1>
-                <span className="text-[10px] bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full font-bold">مصمم داخلي</span>
               </div>
               <p className="text-xs text-slate-200 mt-0.5">
                 تصميم إعلانات احترافية محلياً دون اشتراكات أو خدمات خارجية
@@ -215,7 +214,6 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
           </div>
         </div>
 
-        <div className="text-xs font-bold text-emerald-200 bg-emerald-500/10 border border-emerald-400/20 px-3 py-2 rounded-xl">تصميم داخلي — لا يحتاج إنترنت أو مفتاح API</div>
       </div>
 
       {/* Main Two-Column Studio Canvas */}
