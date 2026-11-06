@@ -124,7 +124,7 @@ Deno.serve(async (request: Request) => {
     if (invalidDeviceIds.length) await adminClient.from("push_devices").delete().in("id", invalidDeviceIds);
     return json({ sent, attempted: devices.length, removed_invalid_tokens: invalidDeviceIds.length });
   } catch (error) {
-    console.error("[poll-push] Delivery failed", error);
+    console.error("[exceptional-collection-push] Delivery failed", error);
     return json({ error: "Push delivery failed" }, 502);
   }
 });
