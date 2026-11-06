@@ -2,8 +2,8 @@ import React from 'react';
 import { Building, Apartment, Expense, Announcement, MaintenanceTicket, Payment } from '../types';
 import { calculateBuildingFinancials } from '../services/financialAccounting';
 import {
-  CheckCircle2, PlusCircle, Receipt, FileText, Sparkles, ArrowDownRight, Wrench,
-  Megaphone, TrendingUp, Wallet, ChevronLeft, CalendarDays
+  PlusCircle, Receipt, FileText, Sparkles, ArrowDownRight, Wrench,
+  Megaphone, TrendingUp, Wallet, ChevronLeft, CalendarDays, BarChart3
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -42,6 +42,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     { label: 'مصروف جديد', hint: 'تسجيل فاتورة', icon: Receipt, tone: 'rose', action: onOpenAddExpense },
     { label: 'طلبات الصيانة', hint: pendingTickets ? pendingTickets + ' طلب مفتوح' : 'متابعة الطلبات', icon: Wrench, tone: 'violet', action: () => onNavigate('resident') },
     { label: 'التقارير', hint: 'عرض المؤشرات المالية', icon: FileText, tone: 'blue', action: () => onNavigate('reports') },
+    { label: 'لوحة الإعلانات', hint: 'النماذج والإعلانات', icon: Megaphone, tone: 'blue', action: () => onNavigate('image-studio') },
+    { label: 'استطلاعات الرأي', hint: 'الاستطلاعات والنتائج', icon: BarChart3, tone: 'teal', action: () => onNavigate('polls') },
   ];
   const tones: Record<string, string> = {
     teal: 'bg-teal-50 text-teal-700 ring-teal-100',
@@ -51,63 +53,49 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   return (
-    <div className="fotouh-dashboard space-y-5 pb-5" dir="rtl">
-      <section className="relative isolate overflow-hidden rounded-[28px] bg-[#102d3a] p-5 text-white shadow-[0_18px_50px_rgba(15,45,58,.18)] sm:p-7">
-        <div className="pointer-events-none absolute -left-12 -top-20 h-64 w-64 rounded-full bg-teal-400/15 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 right-1/3 h-64 w-64 rounded-full bg-cyan-300/10 blur-3xl" />
-        <div className="relative">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-teal-100">
-              <span className="h-2 w-2 rounded-full bg-emerald-300 shadow-[0_0_0_4px_rgba(110,231,183,.12)]" />
-              لوحة إدارة العقار
-            </div>
-            <span className="inline-flex items-center gap-1.5 text-xs text-slate-300"><CalendarDays className="h-3.5 w-3.5" />{monthName}</span>
-          </div>
-          <div className="mt-7 grid gap-6 md:grid-cols-[1.35fr_.65fr] md:items-end">
-            <div>
-              <p className="text-sm font-medium text-teal-100/80">الرصيد المتاح في خزينة</p>
-              <h1 className="mt-1 text-xl font-bold text-white">{building.name || 'العمارة'}</h1>
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-4xl font-black tracking-tight tabular-nums sm:text-5xl">{money(building.balance)}</span>
-                <span className="text-sm font-bold text-teal-100">جنيه</span>
-              </div>
-              <div className="mt-3 flex items-center gap-2 text-xs text-emerald-200"><CheckCircle2 className="h-4 w-4" /> الرصيد المسجل بالخزينة</div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={onOpenPdf} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-3 text-xs font-bold text-white transition hover:bg-white/15"><FileText className="h-4 w-4" />كشف PDF</button>
-              <button onClick={() => onNavigate('chat')} className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-teal-300 px-3 text-xs font-extrabold text-[#102d3a] transition hover:bg-teal-200"><Sparkles className="h-4 w-4" />المساعد الذكي</button>
-            </div>
-          </div>
+    <div className="elomara-light-dashboard space-y-5 pb-5" dir="rtl">
+      <section className="light-welcome" aria-label="ملخص العمارة">
+        <div className="light-welcome-heading">
+          <div><h1>مرحبًا بك</h1><p>في إدارة {building.name || 'العمارة'}</p></div>
+          <span className="light-month"><CalendarDays size={15} aria-hidden="true" />{monthName}</span>
+        </div>
+        <div className="light-welcome-actions">
+          <button type="button" onClick={onOpenPdf}><FileText size={16} />كشف PDF</button>
+          <button type="button" onClick={() => onNavigate('chat')}><Sparkles size={16} />المساعد الذكي</button>
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <article className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
-          <div className="flex items-center justify-between"><span className="text-xs font-semibold text-slate-500">نسبة التحصيل</span><span className="rounded-xl bg-emerald-50 p-2 text-emerald-700"><TrendingUp className="h-4 w-4" /></span></div>
-          <div className="mt-3 flex items-baseline gap-1"><strong className="text-3xl font-black text-slate-900">{fin.collectionRate}%</strong><span className="text-[10px] text-slate-400">هذا الشهر</span></div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-l from-emerald-500 to-teal-400" style={{width:`${Math.max(0,Math.min(100,fin.collectionRate))}%`}} /></div>
-          <p className="mt-2 text-[10px] text-slate-500">{fin.paidCount} من {fin.totalUnits} وحدة سددت</p>
+      <section className="light-stat-grid" aria-label="المؤشرات المالية">
+        <article className="light-stat light-stat-balance">
+          <div><span>رصيد الخزينة</span><span className="light-stat-icon"><Wallet size={21} /></span></div>
+          <strong>{money(building.balance)} <small>ج.م</small></strong>
+          <p>الرصيد المسجل بالخزينة</p>
         </article>
-        <article className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
-          <div className="flex items-center justify-between"><span className="text-xs font-semibold text-slate-500">إجمالي المحصل</span><span className="rounded-xl bg-teal-50 p-2 text-teal-700"><ArrowDownRight className="h-4 w-4" /></span></div>
-          <strong className="mt-3 block text-2xl font-black tabular-nums text-slate-900">{money(fin.totalCollected)} <small className="text-[10px] font-bold text-slate-400">ج.م</small></strong>
-          <p className="mt-2 text-[10px] text-slate-500">المبالغ المسجلة كتحصيل</p>
+        <article className="light-stat light-stat-collected">
+          <div><span>إجمالي المحصل</span><span className="light-stat-icon"><ArrowDownRight size={21} /></span></div>
+          <strong>{money(fin.totalCollected)} <small>ج.م</small></strong>
+          <p>المبالغ المسجلة كتحصيل</p>
         </article>
-        <article className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
-          <div className="flex items-center justify-between"><span className="text-xs font-semibold text-slate-500">المتبقي للتحصيل</span><span className="rounded-xl bg-amber-50 p-2 text-amber-700"><Wallet className="h-4 w-4" /></span></div>
-          <strong className="mt-3 block text-2xl font-black tabular-nums text-amber-700">{money(fin.totalRemaining)} <small className="text-[10px] font-bold text-slate-400">ج.م</small></strong>
-          <p className="mt-2 text-[10px] text-slate-500">{fin.pendingCount + fin.overdueCount} وحدة عليها مستحقات</p>
+        <article className="light-stat light-stat-due">
+          <div><span>المتبقي للتحصيل</span><span className="light-stat-icon"><Wallet size={21} /></span></div>
+          <strong>{money(fin.totalRemaining)} <small>ج.م</small></strong>
+          <p>{fin.pendingCount + fin.overdueCount} وحدة عليها مستحقات</p>
         </article>
-        <article className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
-          <div className="flex items-center justify-between"><span className="text-xs font-semibold text-slate-500">المصروفات المسجلة</span><span className="rounded-xl bg-rose-50 p-2 text-rose-700"><Receipt className="h-4 w-4" /></span></div>
-          <strong className="mt-3 block text-2xl font-black tabular-nums text-slate-900">{money(expensesTotal)} <small className="text-[10px] font-bold text-slate-400">ج.م</small></strong>
-          <p className="mt-2 text-[10px] text-slate-500">{expenses.length} بند مصروف • احتياطي {money(building.reserveFund)} ج.م</p>
+        <article className="light-stat light-stat-expenses">
+          <div><span>المصروفات المسجلة</span><span className="light-stat-icon"><Receipt size={21} /></span></div>
+          <strong>{money(expensesTotal)} <small>ج.م</small></strong>
+          <p>{expenses.length} بند • احتياطي {money(building.reserveFund)} ج.م</p>
+        </article>
+        <article className="light-collection-rate">
+          <div><span><TrendingUp size={17} />نسبة التحصيل</span><strong>{fin.collectionRate}%</strong></div>
+          <div className="light-rate-track" role="progressbar" aria-label="نسبة التحصيل" aria-valuenow={Math.max(0, Math.min(100, fin.collectionRate))} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${Math.max(0, Math.min(100, fin.collectionRate))}%` }} /></div>
+          <p>{fin.paidCount} من {fin.totalUnits} وحدة سددت</p>
         </article>
       </section>
 
       <section className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
-        <div className="mb-4 flex items-center justify-between gap-2"><div><h2 className="text-base font-extrabold text-slate-900">اختصارات الإدارة</h2><p className="mt-1 text-[11px] text-slate-500">أهم العمليات اليومية في مكان واحد</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-500">إجراءات سريعة</span></div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mb-4 flex items-center justify-between gap-2"><div><h2 className="text-base font-extrabold text-slate-900">الوصول السريع</h2><p className="mt-1 text-[11px] text-slate-500">أهم العمليات اليومية في مكان واحد</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-500">إجراءات سريعة</span></div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
           {quickActions.map(item => { const Icon=item.icon; return <button key={item.label} onClick={item.action} className="group flex min-w-0 items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-3 text-right transition hover:-translate-y-0.5 hover:border-teal-200 hover:bg-white hover:shadow-md sm:flex-col sm:items-start sm:p-4"><span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-1 ${tones[item.tone]} transition group-hover:scale-105`}><Icon className="h-5 w-5" /></span><span className="min-w-0"><strong className="block text-xs font-extrabold text-slate-800">{item.label}</strong><small className="mt-1 block text-[10px] text-slate-500">{item.hint}</small></span></button>; })}
         </div>
       </section>

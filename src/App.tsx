@@ -1130,7 +1130,7 @@ export default function App() {
       )}
 
       {/* Main Container: Native full-width on mobile, max-w-7xl on desktop */}
-      <div className="bunyan-manager-shell w-full flex flex-col min-h-screen bg-slate-50">
+      <div className="bunyan-manager-shell elomara-light-shell w-full flex flex-col min-h-screen bg-slate-50">
         {/* Navigation & Header */}
         <Header
           buildings={buildings}
