@@ -1024,22 +1024,25 @@ export default function App() {
           @keyframes introLeft { from { opacity:0; transform:translate(-100%,0) } to { opacity:1; transform:translate(0,0) } }
           @keyframes introRight { from { opacity:0; transform:translate(100%,0) } to { opacity:1; transform:translate(0,0) } }
           @keyframes introProgress { from { transform:translateX(120%) } to { transform:translateX(-120%) } }
-          .elomara-intro { position:fixed; inset:0; z-index:9999; width:100%; height:100vh; height:100dvh; overflow:hidden; isolation:isolate; background:#eaf7ff url('/file_00000000c36c8210b0b6f7e8328f6e69.png') center center / 100% 100% no-repeat; }
+          .elomara-intro { position:fixed; inset:0; z-index:9999; width:100%; height:100vh; height:100dvh; overflow:hidden; isolation:isolate; background:radial-gradient(ellipse at 50% 55%,#f2fbff 0%,#d8f1ff 38%,transparent 75%),linear-gradient(155deg,#078cdd 0%,#83d2fb 35%,#c2eaff 74%,#5ebcf0 100%); }
+          .elomara-intro:before { content:""; position:absolute; top:0; left:0; width:min(88vw,600px); height:30%; background:url('/top_blue_yellow_swoosh.png') left top / 100% auto no-repeat; pointer-events:none; }
           .intro-layer { position:absolute; display:block; object-fit:contain; pointer-events:none; user-select:none; opacity:0; }
-          /* The uploaded building PNG has large transparent margins; enlarge its canvas so the visible artwork is properly sized. */
-          .intro-building { left:50%; top:-17vh; width:auto; max-width:none; height:160vh; object-fit:fill; animation:introBuilding 1s cubic-bezier(.2,.8,.2,1) .75s both; }
+          /* Frame the existing PNG's visible bounds (218,267)-(656,761) without changing the asset. */
+          .intro-building { left:50%; top:20%; width:min(58vw,30vh,300px); aspect-ratio:438 / 494; overflow:hidden; animation:introBuilding 1s cubic-bezier(.2,.8,.2,1) .75s both; }
+          .intro-building-art { position:absolute; width:197.2603%; height:310.9312%; max-width:none; left:-49.7717%; top:-54.0486%; }
           /* One combined title/tagline asset keeps the Arabic logo intact and prevents gaps or clipping. */
-          .intro-title { left:50%; top:62%; width:min(88vw,520px); height:auto; max-height:24vh; animation:introLogo .8s ease 1.8s both; }
-          .intro-city { bottom:0; width:52%; height:23%; }
-          .intro-city-left { left:0; bottom:-4vh; object-position:left bottom; animation:introLeft 1.1s cubic-bezier(.2,.8,.2,1) 3s both; }
+          .intro-title { left:50%; top:54%; width:min(78vw,40vh,400px); height:auto; animation:introLogo .8s ease 1.8s both; }
+          .intro-city { bottom:0; width:54%; height:22%; }
+          .intro-city-left { left:0; bottom:-4%; object-position:left bottom; animation:introLeft 1.1s cubic-bezier(.2,.8,.2,1) 3s both; }
           .intro-city-right { right:0; bottom:0; object-position:right bottom; animation:introRight 1.1s cubic-bezier(.2,.8,.2,1) 3s both; }
-          .intro-progress { position:absolute; z-index:5; left:50%; bottom:max(22px,env(safe-area-inset-bottom)); transform:translateX(-50%); width:92px; height:4px; border-radius:99px; overflow:hidden; background:#b8d7eb; }
+          .intro-progress { position:absolute; z-index:5; left:50%; bottom:24%; transform:translateX(-50%); width:72px; height:4px; border-radius:99px; overflow:hidden; background:#77bce5; }
           .intro-progress:after { content:""; display:block; width:42%; height:100%; border-radius:inherit; background:#f4bd20; animation:introProgress 1.15s ease-in-out infinite; }
-          @media (max-height:650px) { .intro-building { top:-14vh; height:145vh; } .intro-title { top:59%; max-height:23vh; } .intro-city { height:20%; } .intro-city-left { bottom:-3.5vh; } }
-          @media (min-width:700px) { .intro-building { height:145vh; } .intro-title { width:min(48vw,520px); } }
-          @media (prefers-reduced-motion:reduce) { .intro-layer,.intro-progress:after { animation:none !important; opacity:1; } }
+          @media (max-height:650px) { .intro-building { top:16%; width:min(52vw,30vh); } .intro-title { top:53%; } .intro-city { height:20%; } }
+          @media (prefers-reduced-motion:reduce) { .intro-layer,.intro-progress:after { animation:none !important; opacity:1; } .intro-building,.intro-title { transform:translateX(-50%); } }
         `}</style>
-        <img className="intro-layer intro-building" src="/layer1_center_building_fixed.png" alt="مبنى العمارة" />
+        <div className="intro-layer intro-building">
+          <img className="intro-building-art" src="/layer1_center_building_fixed.png" alt="مبنى العمارة" />
+        </div>
         <img className="intro-layer intro-title" src="/layer2_text_yellow.png" alt="العمارة - نظام إدارة العقارات والملاك" />
         <img className="intro-layer intro-city intro-city-left" src="/layer4_left_buildings.png" alt="" />
         <img className="intro-layer intro-city intro-city-right" src="/layer3_right_buildings.png" alt="" />
