@@ -80,7 +80,7 @@ export const ResidentPortal: React.FC = () => {
     const [apt, bld, pay, news, maintenance, facility, report] = await Promise.all([
       supabase.from('apartments').select('id,unit_number,floor,resident_name,resident_phone,is_owner,monthly_fee,payment_status,overdue_months,paid_amount,credit_balance,last_payment_date').eq('id', userProfile.apartmentId).single(),
       supabase.from('buildings').select('id,name,address,manager_name,manager_phone,balance,monthly_target,reserve_fund,total_units,total_floors').eq('id', userProfile.buildingId).single(),
-      supabase.from('payments').select('id,amount,payment_date,month,method,receipt_number,notes').eq('apartment_id', userProfile.apartmentId).order('payment_date',{ascending:false}),
+      supabase.from('payments').select('id,amount,payment_date,month,method,receipt_number,notes,payment_type').eq('apartment_id', userProfile.apartmentId).order('payment_date',{ascending:false}),
       supabase.from('announcements').select('id,title,content,announcement_type,created_at,pinned,image_url').eq('building_id', userProfile.buildingId).order('pinned',{ascending:false}).order('created_at',{ascending:false}),
       supabase.from('maintenance_tickets').select('id,category,title,description,urgency,status,created_at,updated_at').eq('apartment_id', userProfile.apartmentId).order('created_at',{ascending:false}),
       supabase.from('facility_bookings').select('id,facility,booking_date,time_slot,status,created_at').eq('apartment_id', userProfile.apartmentId).order('booking_date',{ascending:false}),
@@ -88,12 +88,13 @@ export const ResidentPortal: React.FC = () => {
     ]);
     const firstError = apt.error || bld.error;
     if (firstError) setError('تعذر تحميل بيانات الحساب: ' + firstError.message);
-    const ledgerTotalPaid = (pay.data || []).reduce((sum: number, row: any) => sum + (Number(row.amount) || 0), 0);
+    const monthlyPayments = (pay.data || []).filter((row: any) => row.payment_type !== 'exceptional');
+    const ledgerTotalPaid = monthlyPayments.reduce((sum: number, row: any) => sum + (Number(row.amount) || 0), 0);
     // The payment ledger is the source of truth. apartments.paid_amount can be stale
     // when older payment writes did not update the cached apartment summary.
     setApartment(apt.data ? {
       ...apt.data,
-      paid_amount: (pay.data || []).length > 0 ? ledgerTotalPaid : Number(apt.data.paid_amount || 0),
+      paid_amount: monthlyPayments.length > 0 ? ledgerTotalPaid : Number(apt.data.paid_amount || 0),
     } : null);
     setBuilding(bld.data); setPayments(pay.data || []);
     setAnnouncements(news.data || []); setTickets(maintenance.data || []); setBookings(facility.data || []);

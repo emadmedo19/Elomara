@@ -62,6 +62,7 @@ export interface Payment {
   notes?: string;
   receiptNumber?: string;
   recordedAt: string;
+  paymentType?: 'monthly' | 'exceptional';
 }
 
 export interface Expense {

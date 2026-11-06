@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, Building2, CheckCircle2, Chrome, LogOut, ShieldCheck, Users } from 'lucide-react';
+import { AlertCircle, Building2, CheckCircle2, Chrome, LogOut, ShieldCheck, Users, Mail, Lock, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 type JoinRequestStatus = 'pending' | 'approved' | 'rejected' | null;
 
 export const LoginView: React.FC = () => {
-  const { signInWithGoogle, authError, isLoading, clearError, user, userProfile, isAdmin, signOut } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, updatePassword, isPasswordRecovery, clearPasswordRecovery, authError, isLoading, clearError, user, userProfile, isAdmin, signOut } = useAuth();
   const [buildingName, setBuildingName] = useState('');
   const [buildingAddress, setBuildingAddress] = useState('');
   const [unitsCount, setUnitsCount] = useState('0');
@@ -20,6 +20,10 @@ export const LoginView: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -87,24 +91,64 @@ export const LoginView: React.FC = () => {
 
       <section className="fotouh-login-lower">
         <div className="fotouh-login-card">
-          {!user ? (
-            <div className="space-y-5 py-4 text-center">
-              <div className="fotouh-login-card-icon"><ShieldCheck className="h-8 w-8"/></div>
-              <h2>مرحبًا بك في العمارة</h2>
-              <p className="text-sm leading-7 text-slate-500">سجّل الدخول أو أنشئ حسابك باستخدام Google للمتابعة.</p>
+          {isPasswordRecovery ? (
+            <form className="space-y-4 py-5" onSubmit={async event => {
+              event.preventDefault(); setError(''); setNotice('');
+              if (password.length < 8) { setError('كلمة المرور لازم تكون 8 أحرف على الأقل.'); return; }
+              if (password !== confirmPassword) { setError('تأكيد كلمة المرور غير مطابق.'); return; }
+              try { await updatePassword(password); setPassword(''); setConfirmPassword(''); setNotice('تم تغيير كلمة المرور بنجاح. سجّل الدخول بكلمة المرور الجديدة.'); clearPasswordRecovery(); }
+              catch { setError('تعذر تغيير كلمة المرور. افتح رابط الاستعادة مرة أخرى وحاول.'); }
+            }}>
+              <div className="text-center"><div className="fotouh-login-card-icon"><Lock className="h-8 w-8"/></div><h2 className="text-xl font-bold">تعيين كلمة مرور جديدة</h2><p className="text-sm text-slate-500">اكتب كلمة المرور الجديدة وأكدها.</p></div>
               {authError && <p className="fotouh-message error"><AlertCircle/>{authError}</p>}
-              <button type="button" onClick={() => { clearError(); void signInWithGoogle(); }} disabled={isLoading}
-                className="fotouh-google-button w-full">
-                <Chrome className="h-5 w-5 text-[#4285F4]"/> {isLoading ? 'جارٍ الاتصال بحساب Google...' : 'المتابعة باستخدام Google'}
-              </button>
+              {error && <p className="fotouh-message error"><AlertCircle/>{error}</p>}
+              {notice && <p className="fotouh-message success"><CheckCircle2/>{notice}</p>}
+              <label className="fotouh-field"><span>كلمة المرور الجديدة</span><div><Lock/><input type="password" minLength={8} autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} required placeholder="8 أحرف على الأقل"/></div></label>
+              <label className="fotouh-field"><span>تأكيد كلمة المرور</span><div><Lock/><input type="password" minLength={8} autoComplete="new-password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} required placeholder="أعد كتابة كلمة المرور"/></div></label>
+              <button disabled={isLoading} className="fotouh-primary-button w-full" type="submit">{isLoading ? 'جارٍ الحفظ...' : 'حفظ كلمة المرور'}</button>
+            </form>
+          ) : !user ? (
+            <div className="space-y-5 py-4">
+              <div className="text-center">
+                <div className="fotouh-login-card-icon"><ShieldCheck className="h-8 w-8"/></div>
+                <h2>مرحبًا بك في العمارة</h2>
+                <p className="text-sm leading-7 text-slate-500">سجّل الدخول أو أنشئ حسابًا جديدًا.</p>
+              </div>
+              {(authError || error) && <p className="fotouh-message error"><AlertCircle/>{error || authError}</p>}
+              {notice && <p className="fotouh-message success"><CheckCircle2/>{notice}</p>}
+              {authMode === 'signup' && <label className="fotouh-field"><span>الاسم بالكامل</span><div><User/><input form="auth-form" value={fullName} onChange={e=>setFullName(e.target.value)} autoComplete="name" required placeholder="اسمك بالكامل"/></div></label>}
+              <label className="fotouh-field"><span>البريد الإلكتروني</span><div><Mail/><input form="auth-form" type="email" dir="ltr" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" required placeholder="name@example.com"/></div></label>
+              {authMode !== 'forgot' && <label className="fotouh-field"><span>كلمة المرور</span><div><Lock/><input form="auth-form" type="password" dir="ltr" minLength={8} value={password} onChange={e=>setPassword(e.target.value)} autoComplete={authMode==='signup'?'new-password':'current-password'} required placeholder={authMode==='signup'?'8 أحرف على الأقل':'كلمة المرور'}/></div></label>}
+              {authMode === 'signup' && <label className="fotouh-field"><span>تأكيد كلمة المرور</span><div><Lock/><input form="auth-form" type="password" dir="ltr" minLength={8} value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="new-password" required placeholder="أعد كتابة كلمة المرور"/></div></label>}
+              <form id="auth-form" onSubmit={async event => {
+                event.preventDefault(); setError(''); setNotice(''); clearError();
+                if (authMode === 'forgot') {
+                  try { await sendPasswordReset(email); setNotice('لو البريد مسجل، هيوصلك رابط استعادة كلمة المرور. راجع صندوق الوارد والرسائل غير المرغوب فيها.'); }
+                  catch { setError('تعذر إرسال رابط الاستعادة. راجع البريد وحاول مرة أخرى.'); }
+                  return;
+                }
+                if (authMode === 'signup') {
+                  if (!fullName.trim()) { setError('اكتب اسمك بالكامل.'); return; }
+                  if (password.length < 8) { setError('كلمة المرور لازم تكون 8 أحرف على الأقل.'); return; }
+                  if (password !== confirmPassword) { setError('تأكيد كلمة المرور غير مطابق.'); return; }
+                  const hasSession = await signUpWithEmail(fullName, email, password);
+                  if (!hasSession) setNotice('تم إرسال رسالة تأكيد إلى بريدك الإلكتروني. أكد البريد ثم ارجع وسجّل الدخول.');
+                } else await signInWithEmail(email, password);
+              }}>
+                <button type="submit" disabled={isLoading} className="fotouh-primary-button w-full">{isLoading ? 'جارٍ التنفيذ...' : authMode==='signup'?'إنشاء حساب بالبريد الإلكتروني':authMode==='forgot'?'إرسال رابط الاستعادة':'تسجيل الدخول بالبريد الإلكتروني'}</button>
+              </form>
+              <div className="flex flex-wrap items-center justify-center gap-3 text-xs font-bold">
+                {authMode !== 'login' && <button type="button" onClick={()=>{setAuthMode('login');setError('');setNotice('');}}>العودة لتسجيل الدخول</button>}
+                {authMode === 'login' && <><button type="button" onClick={()=>{setAuthMode('signup');setError('');setNotice('');}}>إنشاء حساب جديد</button><button type="button" onClick={()=>{setAuthMode('forgot');setError('');setNotice('');}}>نسيت كلمة المرور؟</button></>}
+                {authMode === 'signup' && <button type="button" onClick={()=>setAuthMode('login')}>لديك حساب؟ تسجيل الدخول</button>}
+              </div>
+              {authMode === 'login' && <>
+                <div className="relative py-1 text-center text-xs text-slate-400"><span className="bg-white px-3">أو</span><div className="absolute left-0 right-0 top-1/2 -z-10 border-t border-slate-200"/></div>
+                <button type="button" onClick={() => { clearError(); void signInWithGoogle(); }} disabled={isLoading} className="fotouh-google-button w-full"><Chrome className="h-5 w-5 text-[#4285F4]"/> {isLoading ? 'جارٍ الاتصال...' : 'المتابعة باستخدام Google'}</button>
+              </>}
               <div className="fotouh-login-help text-right">
                 <strong className="block text-slate-700">إرشادات التسجيل في العمارة</strong>
-                <ul>
-                  <li>سجّل الدخول أولًا بحساب Google.</li>
-                  <li>لو أنت مدير العمارة، اختار «أنا مدير عمارة» وأنشئ عمارتك.</li>
-                  <li>لو أنت ساكن، اختار «أنا ساكن» واكتب كود العمارة وبيانات شقتك.</li>
-                  <li>طلب الساكن بيتراجع من مدير العمارة، ومش هتظهر بيانات العمارة إلا بعد الموافقة.</li>
-                </ul>
+                <ul><li>بعد تأكيد البريد، سجّل الدخول.</li><li>لو أنت مدير العمارة، اختار «أنا مدير عمارة» وأنشئ عمارتك.</li><li>لو أنت ساكن، اختار «أنا ساكن» واكتب كود العمارة وبيانات شقتك.</li><li>طلب الساكن بيتراجع من مدير العمارة قبل اعتماد الحساب.</li></ul>
               </div>
             </div>
           ) : isAdmin ? (
