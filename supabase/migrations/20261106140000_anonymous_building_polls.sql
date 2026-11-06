@@ -360,10 +360,11 @@ begin
     'has_voted', v_has_voted,
     'is_closed', v_is_closed,
     'results_visible', v_results_visible,
-    'participants_count', v_participants,
-    'targeted_count', v_targeted,
-    'non_participants_count', greatest(v_targeted - v_participants, 0),
+    'participants_count', case when v_results_visible then v_participants else null end,
+    'targeted_count', case when v_results_visible then v_targeted else null end,
+    'non_participants_count', case when v_results_visible then greatest(v_targeted - v_participants, 0) else null end,
     'turnout_percentage', case
+      when not v_results_visible then null
       when v_targeted > 0 then round(v_participants * 100.0 / v_targeted, 1)
       else 0
     end,
