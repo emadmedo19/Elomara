@@ -6,9 +6,9 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 
 export function PushNotificationManager() {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   useEffect(() => {
-    if (Capacitor.getPlatform() !== 'android' || !user?.id) return;
+    if (Capacitor.getPlatform() !== 'android' || !user?.id || userProfile?.status !== 'active' || !userProfile.buildingId) return;
     let cancelled = false;
     const listeners: PluginListenerHandle[] = [];
     let registeredToken: string | null = null;
@@ -50,6 +50,6 @@ export function PushNotificationManager() {
           .then(({ error }) => { if (error) console.warn('[Bunyan Push] Could not unlink signed-out device:', error.message); });
       }
     };
-  }, [user?.id]);
+  }, [user?.id, userProfile?.status, userProfile?.buildingId, userProfile?.apartmentId]);
   return null;
 }
