@@ -16,7 +16,7 @@ export const LoginView: React.FC = () => {
   const [fullName, setFullName] = useState(userProfile?.displayName || '');
   const [requestedFloor, setRequestedFloor] = useState('');
   const [requestedUnit, setRequestedUnit] = useState('');
-  const [residentType, setResidentType] = useState<'owner' | 'tenant'>('owner');
+  const [residentType, setResidentType] = useState('');
   const [requestStatus, setRequestStatus] = useState<JoinRequestStatus>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -57,8 +57,8 @@ export const LoginView: React.FC = () => {
 
   const submitJoinRequest = async (event: React.FormEvent) => {
     event.preventDefault(); setError(''); setNotice('');
-    if (!inviteCode.trim() || !fullName.trim() || !requestedFloor.trim() || !requestedUnit.trim()) {
-      setError('اكمل كود العمارة والاسم والدور ورقم الشقة.'); return;
+    if (!inviteCode.trim() || !fullName.trim() || !requestedFloor.trim() || !requestedUnit.trim() || !residentType.trim()) {
+      setError('اكمل كود العمارة والاسم والدور ورقم الشقة والصفة.'); return;
     }
     setBusy(true);
     const { error: actionError } = await supabase.rpc('submit_building_join_request', {
@@ -66,7 +66,7 @@ export const LoginView: React.FC = () => {
       applicant_full_name: fullName.trim(),
       applicant_floor: Number(requestedFloor),
       applicant_unit_number: requestedUnit.trim(),
-      applicant_resident_type: residentType,
+      applicant_resident_type: residentType.trim(),
     });
     setBusy(false);
     if (actionError) setError(actionError.message);
@@ -207,7 +207,8 @@ export const LoginView: React.FC = () => {
                   <label className="fotouh-field"><span>الدور</span><div><input type="number" min="0" value={requestedFloor} onChange={e=>setRequestedFloor(e.target.value)} placeholder="رقم الدور"/></div></label>
                   <label className="fotouh-field"><span>رقم الشقة</span><div><input value={requestedUnit} onChange={e=>setRequestedUnit(e.target.value)} placeholder="رقم الشقة"/></div></label>
                 </div>
-                <label className="fotouh-field"><span>الصفة</span><div><select value={residentType} onChange={e=>setResidentType(e.target.value as 'owner'|'tenant')}><option value="owner">مالك</option><option value="tenant">مستأجر</option></select></div></label>
+                <label className="fotouh-field"><span>الصفة المطلوبة</span><div><User/><input value={residentType} onChange={e=>setResidentType(e.target.value)} maxLength={60} required placeholder="مثال: مالك، زوجة، ساكن"/></div></label>
+                <p className="text-xs leading-6 text-slate-500">يمكن لأكثر من فرد التسجيل لنفس الشقة بحسابات منفصلة. المدير يحدد الشقة والصفة النهائية بعد مراجعة الطلب.</p>
                 <button type="submit" disabled={busy} className="fotouh-primary-button w-full">{busy ? 'جارٍ إرسال الطلب...' : 'إرسال طلب الانضمام'}</button>
               </form>
               <p className="text-center text-xs text-slate-400" dir="ltr">{user.email}</p>

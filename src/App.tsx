@@ -350,7 +350,7 @@ export default function App() {
   // 6. Android Hardware Back Button & Browser History Handling
   useEffect(() => {
     const handlePopState = () => {
-      if (document.querySelector('[data-notification-dialog]')) return;
+      if (document.querySelector('[data-notification-dialog], [data-remove-member-dialog]')) return;
       if (currentTab === 'app-settings' && document.querySelector('[data-settings-subpage]')) return;
       // If any modal is open, close modals first
       if (isBuildingModalOpen || isSettingsModalOpen || isAddExpenseModalOpen || isPdfModalOpen) {

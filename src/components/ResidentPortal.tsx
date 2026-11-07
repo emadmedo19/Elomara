@@ -151,7 +151,7 @@ export const ResidentPortal: React.FC = () => {
     setSubmitting(true); setNotice(''); setError('');
     const { error: insertError } = await supabase.from('maintenance_tickets').insert({
       building_id: building.id, apartment_id: apartment.id, unit_number: apartment.unit_number,
-      resident_name: apartment.resident_name || user.email || '', category: ticketForm.category,
+      resident_name: userProfile?.displayName || apartment.resident_name || user.email || '', category: ticketForm.category,
       title: ticketForm.title.trim(), description: ticketForm.description.trim(),
       urgency: ticketForm.urgency, status: 'جديد', created_by: user.id,
     });
@@ -169,7 +169,7 @@ export const ResidentPortal: React.FC = () => {
     setSubmitting(true); setNotice(''); setError('');
     const { error: insertError } = await supabase.from('facility_bookings').insert({
       building_id: building.id, apartment_id: apartment.id, facility: bookingForm.facility,
-      unit_number: apartment.unit_number, resident_name: apartment.resident_name || user.email || '',
+      unit_number: apartment.unit_number, resident_name: userProfile?.displayName || apartment.resident_name || user.email || '',
       booking_date: bookingForm.booking_date, time_slot: bookingForm.time_slot.trim(),
       status: 'قيد المراجعة', created_by: user.id,
     });
@@ -239,8 +239,8 @@ export const ResidentPortal: React.FC = () => {
       {activeTab === 'home' && <>
         <section className="rounded-2xl bg-gradient-to-l from-[#0f2537] to-[#1c4467] text-white p-5 shadow">
           <div className="flex items-center justify-between gap-2"><div className="text-sm text-teal-200">أهلاً بك في بوابة السكان</div><span className="text-[11px] rounded-full bg-emerald-400/15 text-emerald-200 px-3 py-1">حساب معتمد</span></div>
-          <h2 className="text-2xl font-black mt-2">{apartment?.resident_name || user?.email}</h2>
-          <p className="mt-1 text-slate-200">شقة {apartment?.unit_number} • الدور {apartment?.floor} • {building?.name}</p>
+          <h2 className="text-2xl font-black mt-2">{userProfile?.displayName || apartment?.resident_name || user?.email}</h2>
+          <p className="mt-1 text-slate-200">شقة {apartment?.unit_number} • الدور {apartment?.floor} • {building?.name}{userProfile?.residentLabel ? ` • ${userProfile.residentLabel}` : ''}</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5">
             <div className="rounded-xl bg-white/10 p-3"><div className="text-xs text-slate-300">الاشتراك الشهري</div><b>{money(apartment?.monthly_fee)} جنيه</b></div>
             <div className="rounded-xl bg-white/10 p-3"><div className="text-xs text-slate-300">حالة السداد</div><b>{statusLabel}</b></div>

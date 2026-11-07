@@ -13,6 +13,7 @@ export interface UserProfile {
   apartmentId?: string;
   buildingId?: string;
   phone?: string;
+  residentLabel?: string;
   status: 'active' | 'suspended' | 'pending';
 }
 interface AuthContextType {
@@ -53,17 +54,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const profileLoadVersion = useRef(0);
   const oauthCallbackInProgress = useRef(false);
 
-  const loadProfile = async (currentUser: User | null) => {
+  const loadProfile = async (currentUser: User | null, quiet = false) => {
     const loadVersion = ++profileLoadVersion.current;
     setUser(currentUser);
     if (!currentUser) {
       setUserProfile(null); setRole(null); setIsAdmin(false); setIsLoading(false);
       return;
     }
-    setIsLoading(true);
+    if (!quiet) setIsLoading(true);
     try {
       const { data, error } = await supabase.from('profiles')
-        .select('id, full_name, phone, role, building_id, apartment_id, approved, disabled_at')
+        .select('id, full_name, phone, role, building_id, apartment_id, approved, disabled_at, resident_label')
         .eq('id', currentUser.id).maybeSingle();
       if (error) throw error;
       if (loadVersion !== profileLoadVersion.current) return;
@@ -72,14 +73,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         displayName: data.full_name || currentUser.user_metadata?.full_name || currentUser.email || null,
         role: data.role as UserProfile['role'],
         buildingId: data.building_id || undefined, apartmentId: data.apartment_id || undefined,
-        phone: data.phone || undefined,
+        phone: data.phone || undefined, residentLabel: data.resident_label || undefined,
         status: data.disabled_at ? 'suspended' : data.approved ? 'active' : 'pending',
       } : null;
       setUserProfile(profile); setRole(profile?.role ?? null);
       const admin = profile?.role === 'building_admin';
       setIsAdmin(Boolean(admin && profile?.status === 'active'));
     } catch (error) {
-      if (loadVersion === profileLoadVersion.current) {
+      if (loadVersion === profileLoadVersion.current && !quiet) {
         console.error('Supabase profile loading failed:', error);
         setUserProfile(null); setRole(null); setIsAdmin(false);
         setAuthError('تم تسجيل الدخول لكن تعذر تحميل صلاحيات الحساب. راجع إعدادات Supabase.');
@@ -191,6 +192,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (appUrlListener) void appUrlListener.then(listener => listener.remove());
     };
   }, []);
+
+  // Membership removal must be reflected without requiring a logout. The DB
+  // policies already reject old access tokens once the profile is detached.
+  useEffect(() => {
+    if (!user?.id) return;
+    let active = true;
+    const refreshMembership = () => {
+      if (document.visibilityState === 'hidden') return;
+      void supabase.auth.getSession().then(({ data: { session } }) => {
+        if (active && session?.user.id === user.id) void loadProfile(session.user, true);
+      }).catch(() => {});
+    };
+    const channel = supabase.channel(`own-membership-${user.id}`).on('postgres_changes', {
+      event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}`,
+    }, refreshMembership).subscribe();
+    const interval = window.setInterval(refreshMembership, 60000);
+    window.addEventListener('focus', refreshMembership);
+    document.addEventListener('visibilitychange', refreshMembership);
+    return () => {
+      active = false; window.clearInterval(interval);
+      window.removeEventListener('focus', refreshMembership);
+      document.removeEventListener('visibilitychange', refreshMembership);
+      void supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   const signInWithGoogle = async () => {
     setAuthError(null);
