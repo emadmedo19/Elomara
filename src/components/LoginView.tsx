@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, Building2, CheckCircle2, Chrome, LogOut, ShieldCheck, Users, Mail, Lock, User } from 'lucide-react';
+import { AlertCircle, Building2, CheckCircle2, Chrome, LogOut, ShieldCheck, Users, Mail, Lock, User, Wallet } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -11,6 +11,7 @@ export const LoginView: React.FC = () => {
   const [buildingAddress, setBuildingAddress] = useState('');
   const [unitsCount, setUnitsCount] = useState('0');
   const [floorsCount, setFloorsCount] = useState('');
+  const [openingBalance, setOpeningBalance] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [fullName, setFullName] = useState(userProfile?.displayName || '');
   const [requestedFloor, setRequestedFloor] = useState('');
@@ -37,12 +38,17 @@ export const LoginView: React.FC = () => {
   const createBuilding = async (event: React.FormEvent) => {
     event.preventDefault(); setError(''); setNotice('');
     if (!buildingName.trim()) { setError('اكتب اسم العمارة.'); return; }
+    const balanceText = openingBalance.trim();
+    if (balanceText && (!/^\d+(\.\d{1,2})?$/.test(balanceText) || Number(balanceText) > 9999999999.99)) {
+      setError('اكتب رصيدًا افتتاحيًا من صفر إلى 9,999,999,999.99 ج.م، بحد أقصى رقمين بعد العلامة العشرية.'); return;
+    }
     setBusy(true);
-    const { error: actionError } = await supabase.rpc('create_building_for_current_user', {
+    const { error: actionError } = await supabase.rpc('create_building_with_opening_balance', {
       building_name: buildingName.trim(),
       building_address: buildingAddress.trim(),
       units_count: Math.max(0, Number(unitsCount) || 0),
       floors_count: floorsCount.trim() ? Math.max(0, Number(floorsCount) || 0) : null,
+      opening_balance: Number(balanceText || '0'),
     });
     setBusy(false);
     if (actionError) setError(actionError.message);
@@ -189,6 +195,8 @@ export const LoginView: React.FC = () => {
                   <label className="fotouh-field"><span>عدد الشقق</span><div><Users/><input type="number" min="0" value={unitsCount} onChange={e=>setUnitsCount(e.target.value)}/></div></label>
                   <label className="fotouh-field"><span>عدد الأدوار</span><div><Building2/><input type="number" min="0" value={floorsCount} onChange={e=>setFloorsCount(e.target.value)} placeholder="اختياري"/></div></label>
                 </div>
+                <label className="fotouh-field"><span>الرصيد الافتتاحي للخزينة (ج.م)</span><div><Wallet/><input type="number" inputMode="decimal" min="0" max="9999999999.99" step="0.01" value={openingBalance} onChange={e=>setOpeningBalance(e.target.value)} placeholder="اختياري — 0" aria-describedby="opening-balance-help"/></div></label>
+                <p id="opening-balance-help" className="text-xs leading-6 text-slate-500">المبلغ الموجود في خزينة العمارة قبل بدء استخدام التطبيق. يُحفظ مرة واحدة عند الإنشاء، ولا يُحسب ضمن تحصيل الشقق. اتركه فارغًا لو الخزينة بدون رصيد.</p>
                 <button type="submit" disabled={busy} className="fotouh-primary-button w-full">{busy ? 'جارٍ إنشاء العمارة...' : 'إنشاء العمارة'}</button>
               </form>
               <form onSubmit={submitJoinRequest} className="space-y-3 rounded-2xl border border-teal-200 bg-teal-50/50 p-4">
