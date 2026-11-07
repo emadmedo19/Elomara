@@ -82,7 +82,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Settings className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-base text-slate-900">إعدادات التطبيق والعمارة</h3>
+              <h3 className="font-bold text-base text-slate-900">إعدادات العمارة والتحصيل</h3>
               <p className="text-xs text-slate-500">بيانات المسؤول، الحساب المالي، وتفضيلات النظام</p>
             </div>
           </div>

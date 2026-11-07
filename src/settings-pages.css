@@ -1,0 +1,60 @@
+.settings-page { --settings-ink:#173a58;--settings-muted:#71849a;--settings-card:#fff;--settings-line:#dae8f6;max-width:680px;margin-inline:auto;color:var(--settings-ink);padding:4px 2px 20px; }
+.settings-page-heading { display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:10px;margin-bottom:24px; }
+.settings-page-heading h1 { text-align:center;font-size:1.45rem;font-weight:850;line-height:1.6;outline:none; }
+.settings-back { height:44px;width:44px;display:grid;place-items:center;background:var(--settings-card);border:1px solid var(--settings-line);border-radius:50%;color:var(--settings-ink); }
+.settings-list { display:flex;flex-direction:column;gap:13px; }
+.settings-row { display:flex;align-items:center;gap:14px;width:100%;min-height:80px;text-align:right;border:1px solid var(--settings-line);border-radius:21px;background:var(--settings-card);padding:14px 17px;box-shadow:0 5px 0 #b5cde414,0 9px 22px #23477706;transition:transform .15s,box-shadow .15s; }
+.settings-row:hover { transform:translateY(-1px);box-shadow:0 7px 20px #23477710; }
+.settings-row:focus-visible,.settings-back:focus-visible,.settings-options button:focus-visible { outline:3px solid #3b82f6;outline-offset:3px; }
+.settings-row-copy { flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;font-size:1rem;font-weight:700;line-height:1.7; }
+.settings-row-copy small { color:var(--settings-muted);font-size:.78rem;font-weight:450; }
+.settings-chevron { flex-shrink:0;color:#8ba0b5; }
+.settings-icon { position:relative;display:grid;place-items:center;width:46px;height:46px;flex-shrink:0;border-radius:15px;border:1px solid #ffffffa6;box-shadow:inset 0 2px 2px #ffffffb3,inset 0 -3px 5px #00000012,0 7px 12px #31547c1a; }
+.settings-icon svg { filter:drop-shadow(0 2px 1px #ffffffa6);stroke-width:2.3; }
+.settings-icon-blue { color:#2563d7;background:linear-gradient(145deg,#eff8ff,#c3e0ff); }
+.settings-icon-teal { color:#0e9a8c;background:linear-gradient(145deg,#ecfff9,#a6e6d9); }
+.settings-icon-gold { color:#d69713;background:linear-gradient(145deg,#fffde9,#ffe6a0); }
+.settings-icon-violet { color:#7c5bd5;background:linear-gradient(145deg,#f6f0ff,#ded1ff); }
+.settings-icon-rose { color:#e45b68;background:linear-gradient(145deg,#fff4ec,#ffd5d9); }
+.settings-count { position:absolute;top:-7px;right:-7px;border:2px solid white;border-radius:20px;background:#e54459;color:white;min-width:21px;padding:0 3px;font-size:10px;text-align:center; }
+.settings-help { margin:18px 5px;color:var(--settings-muted);font-size:.8rem;line-height:1.9; }
+.settings-panel { padding:23px;background:var(--settings-card);border:1px solid var(--settings-line);border-radius:23px;box-shadow:0 8px 24px #23477706;line-height:1.9; }
+.settings-panel h2 { font-weight:800;font-size:1.05rem;margin-bottom:9px; }
+.settings-panel p { font-size:.9rem;color:var(--settings-muted); }
+.settings-document h2:not(:first-child) { margin-top:24px; }
+.settings-options { display:flex;flex-wrap:wrap;gap:10px;margin-top:18px; }
+.settings-options button { display:flex;align-items:center;justify-content:center;gap:7px;flex:1;min-width:110px;padding:13px 10px;border:1px solid var(--settings-line);border-radius:15px;font-size:.85rem;font-weight:700; }
+.settings-options button[aria-pressed=true] { background:#e9f6ff;border-color:#81bce7;color:#135a96; }
+.settings-font-preview { border:1px dashed var(--settings-line);border-radius:16px;margin-top:25px;padding:18px; }
+.settings-notice { background:#e7f8ef;color:#126349;border:1px solid #b9e6d3;border-radius:14px;padding:12px 15px;font-size:.85rem;line-height:1.8;margin-bottom:16px; }
+.settings-error { background:#fff0f2;color:#a3263a;border:1px solid #f1c1cb;border-radius:14px;padding:12px 15px;font-size:.85rem;line-height:1.8;margin-bottom:16px; }
+.settings-save { display:flex;justify-content:center;align-items:center;width:100%;min-height:48px;border-radius:15px;margin-top:20px;padding:12px 18px;font-weight:750;background:#157bab;color:#fff; }
+.settings-save:disabled { opacity:.55;cursor:wait; }
+.settings-about { text-align:center; }.settings-about img { width:130px;height:180px;object-fit:contain;margin:0 auto 15px; }
+.settings-finance-summary { display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px; }
+.settings-finance-summary div { border:1px solid var(--settings-line);border-radius:15px;padding:12px;min-width:0; }
+.settings-finance-summary span { display:block;font-size:.75rem;color:var(--settings-muted); }
+.settings-finance-summary strong { font-size:1.1rem;overflow-wrap:anywhere; }
+.settings-form-label { display:block;margin-top:18px;font-size:.9rem;font-weight:750; }
+.settings-form-label input { width:100%;margin-top:8px;padding:12px 14px;border:1px solid var(--settings-line);border-radius:14px;background:transparent;color:var(--settings-ink);font-weight:500;font-size:1rem; }
+.settings-finance-choice { border:1px solid var(--settings-line);border-radius:15px;padding:14px;margin-top:16px; }.settings-finance-choice legend { font-size:.85rem;font-weight:750;padding-inline:5px; }.settings-finance-choice label { display:flex;align-items:flex-start;gap:8px;margin-block:10px;font-size:.82rem;line-height:1.8; }.settings-finance-choice input { margin-top:6px;flex-shrink:0; }
+@media(max-width:360px) { .settings-row { padding:12px;gap:10px;min-height:74px; }.settings-icon { width:40px;height:40px;border-radius:13px; }.settings-row-copy { font-size:.93rem; }.settings-panel { padding:17px; } }
+/* Device preferences cover the existing screens as well as the new settings. */
+html[data-font-size=large] #root :is(p,span,label,input,select,textarea,button,td,th),html[data-font-size=extra-large] #root :is(p,span,label,input,select,textarea,button,td,th) { font-size:max(1em,.87rem); }
+html[data-font-size=large] #root :is(.elomara-bottom-nav,.resident-bottom-nav) button,html[data-font-size=extra-large] #root :is(.elomara-bottom-nav,.resident-bottom-nav) button { font-size:11px!important; }
+html[data-font-size=large] #root :is(.elomara-bottom-nav,.resident-bottom-nav) button span,html[data-font-size=extra-large] #root :is(.elomara-bottom-nav,.resident-bottom-nav) button span { font-size:inherit!important;overflow-wrap:normal!important;word-break:normal; }
+html[data-appearance=dark] { background:#111e2d;color:#e6eef6; }
+html[data-appearance=dark] body,html[data-appearance=dark] .bunyan-manager-shell.elomara-light-shell,html[data-appearance=dark] .bunyan-resident { background:#111e2d!important;color:#e6eef6!important; }
+html[data-appearance=dark] .settings-page { --settings-ink:#e3edf8;--settings-muted:#a8b9cc;--settings-card:#1b2b3e;--settings-line:#354960; }
+html[data-appearance=dark] :is(.elomara-header,.elomara-bottom-nav,.resident-bottom-nav,.bunyan-resident header) { background:#192b3e!important;border-color:#354960!important;color:#e6eef6!important; }
+html[data-appearance=dark] #root :is(.bg-white,.bg-white\/95,.bg-white\/90,.bg-slate-50,.bg-slate-100,.bg-slate-50\/80) { background-color:#1b2b3e!important;border-color:#354960!important; }
+html[data-appearance=dark] #root :is(.text-slate-900,.text-slate-800,.text-slate-700,.text-indigo-900) { color:#e3edf8!important; }
+html[data-appearance=dark] #root :is(.text-slate-600,.text-slate-500,.text-slate-400) { color:#a8b9cc!important; }
+html[data-appearance=dark] .elomara-light-shell :is(.light-stat,.light-collection-rate,.elomara-light-dashboard>section:not(.light-welcome),.elomara-light-dashboard>div.grid>section),html[data-appearance=dark] .elomara-header label { background:#1b2b3e!important;border-color:#354960!important; }
+html[data-appearance=dark] .elomara-light-dashboard :is(h1,h2,strong,.light-stat>div),html[data-appearance=dark] .light-welcome h1 { color:#e3edf8!important; }
+html[data-appearance=dark] .elomara-light-dashboard :is(p,.light-welcome p) { color:#a8b9cc!important; }
+html[data-appearance=dark] .elomara-light-dashboard > section:nth-child(3) button { background:#223c53!important;border-color:#354960!important; }
+html[data-appearance=dark] .settings-options button[aria-pressed=true] { background:#1e4b70;color:#d3edff;border-color:#68a6d4; }
+@media(prefers-reduced-motion:reduce) { .settings-row { transition:none; } }
+
+html[data-appearance=dark] :is(.elomara-header,.fotouh-portal-header) .brand-lockup { background:#f8fcff;border-radius:12px!important;padding:4px; }

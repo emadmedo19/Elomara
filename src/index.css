@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./light-workspace.css";
+@import "./settings-pages.css";
 
 @layer base {
   body {

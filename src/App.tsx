@@ -31,16 +31,21 @@ import { AiStudioView } from './components/AiStudioView';
 import { PdfStatementModal } from './components/PdfStatementModal';
 import { BuildingManagementModal } from './components/BuildingManagementModal';
 import { SettingsModal } from './components/SettingsModal';
+import { MoreView } from './components/MoreView';
+import { AppPreferencesView } from './components/AppPreferencesView';
+import { TreasurySettingsView } from './components/TreasurySettingsView';
+import { initializeDevicePreferences } from './services/appPreferences';
 import { RegistrationApprovalsView } from './components/RegistrationApprovalsView';
 import { PollsView } from './components/PollsView';
 import { ExceptionalCollectionsView } from './components/ExceptionalCollectionsView';
-import { CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle, X, Wallet, BarChart3, FileText, Wrench, Sparkles, Palette, Building2, SlidersHorizontal } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { LoginView } from './components/LoginView';
 import { supabase } from './lib/supabase';
 import { checkForOtaUpdate } from './services/otaUpdates';
 
 export default function App() {
+  useEffect(initializeDevicePreferences, []);
   // Live Updates are initialized once in src/main.tsx. Keeping a second
   // initializer here caused two concurrent ready/download flows on Android.
   useEffect(() => {
@@ -52,7 +57,7 @@ export default function App() {
   const [showIntroSplash, setShowIntroSplash] = useState(true);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [currentBuildingId, setCurrentBuildingIdState] = useState<string>('');
-  const { user, userProfile, isAdmin, isPasswordRecovery, isLoading: isAuthLoading } = useAuth();
+  const { user, userProfile, isAdmin, isPasswordRecovery, isLoading: isAuthLoading, signOut } = useAuth();
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [role, setRole] = useState<UserRole>('manager');
   
@@ -158,7 +163,7 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get('tab');
-      if (tabParam && ['dashboard', 'collections', 'expenses', 'reports', 'resident', 'chat', 'image-studio', 'approvals', 'polls', 'exceptional-collections'].includes(tabParam)) {
+      if (tabParam && ['dashboard', 'collections', 'expenses', 'reports', 'resident', 'chat', 'image-studio', 'approvals', 'polls', 'exceptional-collections', 'more', 'app-settings', 'treasury-settings'].includes(tabParam)) {
         return tabParam;
       }
     }
@@ -345,6 +350,7 @@ export default function App() {
   // 6. Android Hardware Back Button & Browser History Handling
   useEffect(() => {
     const handlePopState = () => {
+      if (currentTab === 'app-settings' && document.querySelector('[data-settings-subpage]')) return;
       // If any modal is open, close modals first
       if (isBuildingModalOpen || isSettingsModalOpen || isAddExpenseModalOpen || isPdfModalOpen) {
         setIsBuildingModalOpen(false);
@@ -355,7 +361,7 @@ export default function App() {
       }
       // If not on dashboard, return to dashboard
       if (currentTab !== 'dashboard') {
-        setCurrentTabState('dashboard');
+        setCurrentTabState(currentTab === 'app-settings' || currentTab === 'treasury-settings' ? 'more' : 'dashboard');
       }
     };
 
@@ -386,7 +392,8 @@ export default function App() {
   const handleUpdateBuilding = async (id: string, updatedData: Partial<Building>) => {
     const current = buildings.find((b) => b.id === id);
     if (!current) return;
-    const next = { ...current, ...updatedData };
+    // This form edits building details; treasury changes use the dedicated RPC.
+    const next = { ...current, ...updatedData, balance: current.balance };
     const { error } = await supabase.from('buildings').update({
       name: next.name, address: next.address, total_units: next.totalUnits,
       total_floors: next.totalFloors ?? null, monthly_target: next.monthlyTarget,
@@ -1137,7 +1144,7 @@ export default function App() {
           currentBuilding={currentBuilding}
           onSelectBuilding={handleSelectBuilding}
           onOpenBuildingManagement={() => setIsBuildingModalOpen(true)}
-          onOpenSettings={() => setIsSettingsModalOpen(true)}
+          onOpenSettings={() => setCurrentTab('app-settings')}
           onOpenLogin={() => window.location.reload()}
           currentTab={currentTab}
           onSelectTab={setCurrentTab}
@@ -1147,6 +1154,22 @@ export default function App() {
 
         {/* Content Body */}
         <main className="flex-1 p-3 pb-28 sm:p-6 sm:pb-28 max-w-7xl mx-auto w-full">
+          {currentTab === 'more' && <MoreView onBack={() => setCurrentTab('dashboard')} onOpenAppSettings={() => setCurrentTab('app-settings')} onSignOut={() => void signOut()} items={[
+            ...(isAdmin ? [{ id: 'exceptional', label: 'التحصيلات الاستثنائية', icon: Wallet, tone: 'teal' as const, onClick: () => setCurrentTab('exceptional-collections') }] : []),
+            { id: 'polls', label: 'استطلاعات الرأي', icon: BarChart3, tone: 'violet', onClick: () => setCurrentTab('polls') },
+            { id: 'reports', label: 'التقارير', icon: FileText, onClick: () => setCurrentTab('reports') },
+            { id: 'maintenance', label: 'بوابة الساكن والمرافق', icon: Wrench, tone: 'gold', count: unreadTicketCount, onClick: () => setCurrentTab('resident') },
+            { id: 'chat', label: 'المساعد الذكي Gemini', icon: Sparkles, tone: 'violet', onClick: () => setCurrentTab('chat') },
+            { id: 'studio', label: 'الإعلانات والتصميم', icon: Palette, tone: 'gold', count: unreadAnnouncementCount, onClick: () => setCurrentTab('image-studio') },
+            ...(isAdmin ? [
+              { id: 'treasury', label: 'الرصيد الافتتاحي ووديعة الصيانة', icon: Wallet, tone: 'teal' as const, onClick: () => setCurrentTab('treasury-settings') },
+              { id: 'buildings', label: 'إدارة العقارات', icon: Building2, onClick: () => setIsBuildingModalOpen(true) },
+              { id: 'building-settings', label: 'إعدادات العمارة والتحصيل', icon: SlidersHorizontal, onClick: () => setIsSettingsModalOpen(true) },
+            ] : []),
+          ]}/>}
+          {currentTab === 'app-settings' && <AppPreferencesView onBack={() => setCurrentTab('more')} onSignOut={() => void signOut()} onBuildingSettings={isAdmin ? () => setIsSettingsModalOpen(true) : undefined}/>}
+          {currentTab === 'treasury-settings' && isAdmin && <TreasurySettingsView key={currentBuilding.id} buildingId={currentBuilding.id} onBack={() => setCurrentTab('more')} onSaved={({ balance, reserveFund }) => setBuildings(rows => rows.map(building => building.id === currentBuilding.id ? { ...building, balance, reserveFund } : building))}/>}
+
           {currentTab === 'polls' && <PollsView buildingId={currentBuilding.id} canManage />}
           {currentTab === 'exceptional-collections' && isAdmin && <ExceptionalCollectionsView buildingId={currentBuilding.id} apartments={apartments.filter(a => a.buildingId === currentBuilding.id)} />}
 
