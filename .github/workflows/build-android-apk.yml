@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: elomara-android-main
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -48,6 +52,9 @@ jobs:
       - name: TypeScript check
         run: npm run lint
 
+      - name: Test private signing persistence
+        run: PYTHONDONTWRITEBYTECODE=1 python tests/test_android_signing.py
+
       - name: Build web app
         run: npm run build
         env:
@@ -56,9 +63,19 @@ jobs:
       - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Build debug APK
+      - name: Restore stable private Android signing key
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SIGNING_WORKDIR: ${{ runner.temp }}/elomara-android-signing
+        run: python .github/scripts/prepare_android_signing.py
+
+      - name: Build upgrade baseline and installable APK with the same stable key
         working-directory: android
-        run: bash ./gradlew assembleDebug
+        run: |
+          set -euo pipefail
+          bash ./gradlew assembleDebug -PelomaraVersionCode=$((1000 + GITHUB_RUN_NUMBER - 1))
+          cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/elomara-upgrade-baseline.apk"
+          bash ./gradlew assembleDebug
 
       - name: Enable Android emulator acceleration
         run: sudo chmod 666 /dev/kvm
@@ -70,7 +87,9 @@ jobs:
           arch: x86_64
           target: google_apis
           disable-animations: true
-          script: cd android && bash ./gradlew :app:connectedDebugAndroidTest
+          script: |
+            bash .github/scripts/verify_android_upgrade.sh "$RUNNER_TEMP/elomara-upgrade-baseline.apk" android/app/build/outputs/apk/debug/app-debug.apk
+            cd android && bash ./gradlew :app:connectedDebugAndroidTest
 
       - name: Upload Android test reports
         if: always()
@@ -80,10 +99,10 @@ jobs:
           path: android/app/build/reports/androidTests/connected/
           if-no-files-found: ignore
 
-      - name: Print Android debug APK certificate SHA-1
+      - name: Print stable Android APK certificate fingerprints
         run: |
           APK="android/app/build/outputs/apk/debug/app-debug.apk"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | grep -i "certificate SHA-1 digest"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | grep -E "certificate SHA-(1|256) digest"
 
       - name: Rename APK for download
         run: |
@@ -97,3 +116,7 @@ jobs:
           path: release-apk/العمارة.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Remove private signing files
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/elomara-android-signing"

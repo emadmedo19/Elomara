@@ -7,3 +7,9 @@ coverage/
 backups/*.tar.gz
 .env*
 !.env.example
+
+# Private Android signing material belongs in private build storage only.
+*.jks
+*.keystore
+*.p12
+**/signing-config.json

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate one consistent set of Al-Emara brand assets for web and Android."""
+"""Generate in-app branding and the independently supplied Android launcher icon."""
 from pathlib import Path
 import io
 import cairosvg
@@ -37,23 +37,23 @@ for name in ("icon.png", "apple-touch-icon.png", "pwa-192x192.png", "pwa-512x512
     (assets / name).write_bytes((ROOT / "public" / name).read_bytes())
 (assets / "icon.svg").write_bytes(source)
 
-# Android launcher icon densities.
-for density, size in [("mdpi",48),("hdpi",72),("xhdpi",96),("xxhdpi",144),("xxxhdpi",192)]:
+# Launcher branding is intentionally separate from the in-app/web artwork.
+# The owner supplied this exact square illustration for the phone home screen.
+launcher = Image.open(ROOT / "android/branding/launcher-source.jpg").convert("RGBA")
+if launcher.width != launcher.height:
+    raise ValueError("Android launcher source must be square")
+for density, size, adaptive_size in [("mdpi",48,108),("hdpi",72,162),("xhdpi",96,216),("xxhdpi",144,324),("xxxhdpi",192,432)]:
     folder = ROOT / f"android/app/src/main/res/mipmap-{density}"
     folder.mkdir(parents=True, exist_ok=True)
-    render(size).save(folder / "ic_launcher.png", format="PNG", optimize=True)
-    # Foreground is inset into the adaptive-icon safe zone.
-    fg = Image.new("RGBA", (108,108), (0,0,0,0))
-    fg.alpha_composite(render(78).resize((78,78), Image.Resampling.LANCZOS), (15,15))
-    fg.save(folder / "ic_launcher_foreground.png", format="PNG", optimize=True)
-    render(size).save(folder / "ic_launcher_round.png", format="PNG", optimize=True)
-
-# Android 12+ adaptive foreground uses the same safe-zone artwork.
-fg = Image.new("RGBA", (108,108), (0,0,0,0))
-fg.alpha_composite(render(78).resize((78,78), Image.Resampling.LANCZOS), (15,15))
-for density, size in [("mdpi",108),("hdpi",162),("xhdpi",216),("xxhdpi",324),("xxxhdpi",432)]:
-    folder = ROOT / f"android/app/src/main/res/mipmap-{density}"
-    fg.resize((size,size), Image.Resampling.LANCZOS).save(folder / "ic_launcher_foreground.png", format="PNG", optimize=True)
+    launcher.resize((size,size), Image.Resampling.LANCZOS).save(folder / "ic_launcher.png", optimize=True)
+    launcher.resize((size,size), Image.Resampling.LANCZOS).save(folder / "ic_launcher_round.png", optimize=True)
+    # Keep the full gold frame within the Android adaptive icon safe circle.
+    # A solid navy surround blends with the supplied artwork under any mask.
+    fg = Image.new("RGBA", (adaptive_size,adaptive_size), (3,23,53,255))
+    art_size = round(adaptive_size * .62)
+    offset = (adaptive_size-art_size)//2
+    fg.alpha_composite(launcher.resize((art_size,art_size),Image.Resampling.LANCZOS),(offset,offset))
+    fg.save(folder / "ic_launcher_foreground.png", optimize=True)
 
 # Splash art: a dark canvas with the complete new logo centered.
 splash = Image.new("RGBA", (512,512), (241,248,255,255))
