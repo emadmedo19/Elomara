@@ -27,9 +27,11 @@ export function PushNotificationManager() {
         }));
         listeners.push(await PushNotifications.addListener('pushNotificationReceived', notification => {
           console.info('[Bunyan Push] Notification received:', notification.title || 'New notification');
+          window.dispatchEvent(new Event('elomara-notifications-refresh'));
         }));
         listeners.push(await PushNotifications.addListener('pushNotificationActionPerformed', action => {
           console.info('[Bunyan Push] Notification opened:', action.notification.title || 'Notification');
+          window.dispatchEvent(new Event('elomara-open-notifications'));
         }));
         const permission = await PushNotifications.checkPermissions();
         const result = permission.receive === 'granted' ? permission : await PushNotifications.requestPermissions();

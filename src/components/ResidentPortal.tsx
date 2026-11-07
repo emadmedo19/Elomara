@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { NotificationBell } from './NotificationBell';
 import { MoreView } from './MoreView';
 import { AppPreferencesView } from './AppPreferencesView';
 import { supabase } from '../lib/supabase';
@@ -27,7 +28,7 @@ export const ResidentPortal: React.FC = () => {
   };
   useEffect(() => {
     const back = (event: PopStateEvent) => {
-      if (document.querySelector('[data-settings-subpage]')) return;
+      if (document.querySelector('[data-settings-subpage], [data-notification-dialog]')) return;
       const previous = event.state?.residentPage;
       setActiveTab(previous === 'more' || previous === 'app-settings' ? previous : 'home');
     };
@@ -207,7 +208,11 @@ export const ResidentPortal: React.FC = () => {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button id="resident-refresh-button" onClick={() => void load(true)} disabled={refreshing} className="p-2 rounded-xl" style={{ backgroundColor: "#e6f4f1", color: "#0f766e", border: "1px solid #9acfc4", opacity: 1, minWidth: 42, minHeight: 42 }} title="تحديث البيانات"><RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} style={{ color: "#0f766e", stroke: "#0f766e" }}/></button>
-
+          <NotificationBell onNavigate={page => {
+            const allowed: ResidentTab[] = ['home','payments','reports','announcements','maintenance','bookings','building','polls'];
+            setActiveTab(allowed.includes(page as ResidentTab) ? page as ResidentTab : 'home');
+            setNotice(''); setError(''); void load(true);
+          }}/>
         </div>
       </div>
 
@@ -215,8 +220,8 @@ export const ResidentPortal: React.FC = () => {
 
     <nav aria-label="التنقل الرئيسي" className="resident-bottom-nav fixed bottom-0 inset-x-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur-md shadow-[0_-5px_20px_rgba(15,40,50,.08)]" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 8px)" }}>
       <div className="mx-auto grid max-w-xl grid-cols-4 gap-1 px-2 pt-2">
-        {primaryNav.map(item => <button key={item.id} onClick={() => { setActiveTab(item.id); setNotice(''); setError(''); }} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold transition ${activeTab === item.id ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><span className="relative">{item.icon}{item.id==='maintenance' && unreadTicketCount>0 && <span className="absolute -right-3 -top-3 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[10px] font-black leading-none text-white">{unreadTicketCount}</span>}</span><span className="truncate max-w-full">{item.label}</span></button>)}
-        <button onClick={() => navigateSettings('more')} aria-current={['more', 'app-settings', ...moreNav.map(item => item.id)].includes(activeTab) ? 'page' : undefined} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold ${['more', 'app-settings', ...moreNav.map(item => item.id)].includes(activeTab) ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><MoreHorizontal className="w-5 h-5"/><span>المزيد</span></button>
+        {primaryNav.map(item => <button key={item.id} onClick={() => { setActiveTab(item.id); setNotice(''); setError(''); }} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold transition ${activeTab === item.id ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><span className={`settings-icon settings-icon-${item.id==='maintenance'?'violet':item.id==='payments'?'teal':'blue'} nav-color-icon`}>{item.icon}{item.id==='maintenance' && unreadTicketCount>0 && <span className="absolute -right-3 -top-3 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[10px] font-black leading-none text-white">{unreadTicketCount}</span>}</span><span className="truncate max-w-full">{item.label}</span></button>)}
+        <button onClick={() => navigateSettings('more')} aria-current={['more', 'app-settings', ...moreNav.map(item => item.id)].includes(activeTab) ? 'page' : undefined} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold ${['more', 'app-settings', ...moreNav.map(item => item.id)].includes(activeTab) ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><span className="settings-icon settings-icon-blue nav-color-icon"><MoreHorizontal className="w-5 h-5"/></span><span>المزيد</span></button>
       </div>
     </nav>
     <main key={activeTab} className="bunyan-page-enter max-w-6xl mx-auto p-3 sm:p-5 pb-28 space-y-4">
@@ -248,7 +253,7 @@ export const ResidentPortal: React.FC = () => {
             {label:'بلاغات الصيانة',value:tickets.length,unit:'بلاغ',icon:<Wrench/>,tab:'maintenance' as ResidentTab},
             {label:'طلبات الحجز',value:bookings.length,unit:'طلب',icon:<CalendarDays/>,tab:'bookings' as ResidentTab},
             {label:'إعلانات جديدة',value:announcements.length,unit:'إعلان',icon:<Megaphone/>,tab:'announcements' as ResidentTab},
-          ].map(card=><button key={card.tab} onClick={()=>setActiveTab(card.tab)} className="bg-white rounded-2xl border p-4 text-right shadow-sm hover:border-teal-300"><div className="text-teal-700 mb-2">{card.icon}</div><div className="text-xs text-slate-500">{card.label}</div><div className="text-xl font-black mt-1">{card.value} <span className="text-xs font-normal text-slate-500">{card.unit}</span></div></button>)}
+          ].map(card=><button key={card.tab} onClick={()=>setActiveTab(card.tab)} className="bg-white rounded-2xl border p-4 text-right shadow-sm hover:border-teal-300"><div className={`settings-icon settings-icon-${card.tab==='maintenance'?'violet':card.tab==='bookings'?'gold':card.tab==='announcements'?'blue':'teal'} mb-2`}>{card.icon}</div><div className="text-xs text-slate-500">{card.label}</div><div className="text-xl font-black mt-1">{card.value} <span className="text-xs font-normal text-slate-500">{card.unit}</span></div></button>)}
         </section>
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <div className="bg-white rounded-2xl border p-4 shadow-sm"><h3 className="font-bold mb-3">آخر الإعلانات</h3>{announcements.slice(0,3).length ? announcements.slice(0,3).map(n=><div key={n.id} className="border-t py-2"><b className="text-sm">{n.title}</b><p className="text-xs text-slate-500 mt-1 line-clamp-2">{n.content}</p></div>) : <p className="text-sm text-slate-500">لا توجد إعلانات حاليًا.</p>}<button onClick={()=>setActiveTab('announcements')} className="text-teal-700 text-xs font-bold mt-2">عرض كل الإعلانات</button></div>

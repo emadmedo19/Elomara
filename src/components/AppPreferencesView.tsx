@@ -11,7 +11,7 @@ export function AppPreferencesView({ onBack, onSignOut, onBuildingSettings }: { 
   const [notice, setNotice] = useState('');
   useEffect(() => {
     if (page === 'list') return;
-    const back = (event: PopStateEvent) => { event.stopImmediatePropagation(); setPage('list'); setNotice(''); };
+    const back = (event: PopStateEvent) => { if (document.querySelector('[data-notification-dialog]')) return; event.stopImmediatePropagation(); setPage('list'); setNotice(''); };
     window.addEventListener('popstate', back, true);
     return () => window.removeEventListener('popstate', back, true);
   }, [page]);

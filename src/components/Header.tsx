@@ -5,6 +5,7 @@ import {
   UserCheck, LayoutDashboard, Receipt, Wrench, Palette, MoreHorizontal, FileText, BarChart3,
   Wallet
 } from 'lucide-react';
+import { NotificationBell } from './NotificationBell';
 import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
@@ -55,6 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
               </select><ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
             </label>
             <button onClick={onOpenBuildingManagement} title="إدارة العقارات" aria-label="إدارة العقارات" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-teal-200 hover:text-teal-700"><SlidersHorizontal className="h-4 w-4" /></button>
+            <NotificationBell onNavigate={onSelectTab}/>
           </div>
         </div>
         <div className="mx-auto hidden max-w-7xl items-center justify-between px-6 pb-2 md:flex">
@@ -65,8 +67,8 @@ export const Header: React.FC<HeaderProps> = ({
 
       <nav aria-label="التنقل الرئيسي" className="elomara-bottom-nav fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200/80 bg-white/95 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 shadow-[0_-10px_35px_rgba(15,40,55,.10)] backdrop-blur-xl">
         <div className="mx-auto grid w-full max-w-3xl gap-1" style={{ gridTemplateColumns: `repeat(${navItems.length + 1}, minmax(0, 1fr))` }}>
-          {navItems.map(item => { const Icon=item.icon; const active=currentTab===item.id; return <button key={item.id} onClick={() => onSelectTab(item.id)} aria-current={active ? 'page' : undefined} className={`relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[9px] font-bold transition sm:text-[10px] ${active ? 'bg-teal-50 text-teal-800' : 'text-slate-500 hover:bg-slate-50'}`}><span className="relative flex h-7 w-8 items-center justify-center"><Icon className={`h-5 w-5 ${active ? 'text-teal-700' : 'text-slate-500'}`} /></span><span className="w-full text-center">{item.label}</span>{active && <span className="absolute bottom-0 h-0.5 w-7 rounded-full bg-teal-600" />}</button>; })}
-          <button type="button" onClick={() => onSelectTab('more')} aria-current={['more', 'app-settings', 'treasury-settings', ...moreItems.map(item => item.id)].includes(currentTab) ? 'page' : undefined} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[10px] font-bold ${['more', 'app-settings', 'treasury-settings', ...moreItems.map(item => item.id)].includes(currentTab) ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><span className="flex h-7 w-8 items-center justify-center"><MoreHorizontal className="h-5 w-5"/></span><span>المزيد</span></button>
+          {navItems.map(item => { const Icon=item.icon; const active=currentTab===item.id; return <button key={item.id} onClick={() => onSelectTab(item.id)} aria-current={active ? 'page' : undefined} className={`relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[9px] font-bold transition sm:text-[10px] ${active ? 'bg-teal-50 text-teal-800' : 'text-slate-500 hover:bg-slate-50'}`}><span className={`settings-icon settings-icon-${item.id==='expenses'?'rose':item.id==='approvals'?'violet':item.id==='collections'?'teal':'blue'} nav-color-icon`}><Icon className={`h-5 w-5 ${active ? 'text-teal-700' : 'text-slate-500'}`} /></span><span className="w-full text-center">{item.label}</span>{active && <span className="absolute bottom-0 h-0.5 w-7 rounded-full bg-teal-600" />}</button>; })}
+          <button type="button" onClick={() => onSelectTab('more')} aria-current={['more', 'app-settings', 'treasury-settings', ...moreItems.map(item => item.id)].includes(currentTab) ? 'page' : undefined} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[10px] font-bold ${['more', 'app-settings', 'treasury-settings', ...moreItems.map(item => item.id)].includes(currentTab) ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><span className="settings-icon settings-icon-blue nav-color-icon"><MoreHorizontal className="h-5 w-5"/></span><span>المزيد</span></button>
         </div>
       </nav>
     </>
