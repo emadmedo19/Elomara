@@ -20,6 +20,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaveSettings,
   currentBuilding,
 }) => {
+  const [guardName, setGuardName] = useState(settings.guardName || '');
+  const [guardPhone, setGuardPhone] = useState(settings.guardPhone || '');
+  const [guardNote, setGuardNote] = useState(settings.guardNote || '');
   const [managerName, setManagerName] = useState(settings.managerName || 'أمين صندوق العمارة');
   const [managerPhone, setManagerPhone] = useState(settings.managerPhone || '01001234567');
   const [emergencyPhone, setEmergencyPhone] = useState(settings.emergencyPhone || '01229876543');
@@ -33,6 +36,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Settings may arrive asynchronously from Supabase after the modal component mounts.
   useEffect(() => {
+    setGuardName(settings.guardName || '');
+    setGuardPhone(settings.guardPhone || '');
+    setGuardNote(settings.guardNote || '');
     setManagerName(settings.managerName || 'أمين صندوق العمارة');
     setManagerPhone(settings.managerPhone || '01001234567');
     setEmergencyPhone(settings.emergencyPhone || '01229876543');
@@ -53,6 +59,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     e.preventDefault();
     const saved = await onSaveSettings({
       ...settings,
+      guardName: guardName.trim(), guardPhone: guardPhone.trim(), guardNote: guardNote.trim(),
       managerName: managerName.trim(),
       managerPhone: managerPhone.trim(),
       emergencyPhone: emergencyPhone.trim(),
@@ -109,6 +116,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               نشطة
             </span>
           </div>
+
+          <section className="space-y-3 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+            <h3 className="font-bold text-sm">حارس العقار وبيانات التواصل</h3>
+            <label className="block text-xs">اسم الحارس<input className="block w-full border rounded-xl p-2 mt-1" value={guardName} onChange={e=>setGuardName(e.target.value)} placeholder="اسم حارس العقار" /></label>
+            <label className="block text-xs">رقم الهاتف<input type="tel" dir="ltr" className="block w-full border rounded-xl p-2 mt-1" value={guardPhone} onChange={e=>setGuardPhone(e.target.value)} /></label>
+            <label className="block text-xs">ملاحظة التواصل<input className="block w-full border rounded-xl p-2 mt-1" value={guardNote} onChange={e=>setGuardNote(e.target.value)} placeholder="مثل مواعيد التواجد" /></label>
+            <button type="button" className="text-xs font-bold text-rose-700" onClick={()=>{setGuardName('');setGuardPhone('');setGuardNote('');}}>مسح بيانات الحارس</button>
+            <p className="text-xs text-slate-500">اضغط حفظ الإعدادات لتأكيد الإضافة أو التعديل أو المسح.</p>
+          </section>
 
           {/* Manager & Contact Information */}
           <div className="space-y-3 p-4 rounded-2xl bg-slate-50/80 border border-slate-200">

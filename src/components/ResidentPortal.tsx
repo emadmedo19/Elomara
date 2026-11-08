@@ -1,3 +1,4 @@
+import { GuardContact } from './GuardContact';
 import React, { useEffect, useRef, useState } from 'react';
 import { NotificationBell } from './NotificationBell';
 import { MoreView } from './MoreView';
@@ -257,7 +258,7 @@ export const ResidentPortal: React.FC = () => {
         </section>
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <div className="bg-white rounded-2xl border p-4 shadow-sm"><h3 className="font-bold mb-3">آخر الإعلانات</h3>{announcements.slice(0,3).length ? announcements.slice(0,3).map(n=><div key={n.id} className="border-t py-2"><b className="text-sm">{n.title}</b><p className="text-xs text-slate-500 mt-1 line-clamp-2">{n.content}</p></div>) : <p className="text-sm text-slate-500">لا توجد إعلانات حاليًا.</p>}<button onClick={()=>setActiveTab('announcements')} className="text-teal-700 text-xs font-bold mt-2">عرض كل الإعلانات</button></div>
-          <div className="bg-white rounded-2xl border p-4 shadow-sm"><h3 className="font-bold mb-3">التواصل مع الإدارة</h3><p className="text-sm text-slate-600">{building?.manager_name || 'إدارة العمارة'}</p>{building?.manager_phone ? <a className="inline-flex items-center gap-2 mt-3 rounded-xl bg-teal-50 text-teal-800 px-3 py-2 text-sm font-bold" href={`tel:${building.manager_phone}`}><Phone className="w-4 h-4"/> {building.manager_phone}</a> : <p className="text-xs text-slate-500 mt-2">يمكنك إرسال بلاغ صيانة من قسم الصيانة والبلاغات.</p>}</div>
+          <div className="bg-white rounded-2xl border p-4 shadow-sm"><h3 className="font-bold mb-3">التواصل مع الإدارة</h3><p className="text-sm text-slate-600">{building?.manager_name || 'إدارة العمارة'}</p><GuardContact buildingId={userProfile.buildingId} />{building?.manager_phone ? <a className="inline-flex items-center gap-2 mt-3 rounded-xl bg-teal-50 text-teal-800 px-3 py-2 text-sm font-bold" href={`tel:${building.manager_phone}`}><Phone className="w-4 h-4"/> {building.manager_phone}</a> : <p className="text-xs text-slate-500 mt-2">يمكنك إرسال بلاغ صيانة من قسم الصيانة والبلاغات.</p>}</div>
         </section>
       </>}
 
@@ -348,7 +349,7 @@ export const ResidentPortal: React.FC = () => {
           <div className="rounded-xl bg-slate-50 border p-3"><p className="text-xs text-slate-500">صندوق الاحتياطي</p><b>{money(building?.reserve_fund)} جنيه</b></div>
         </div>
         <div><p className="text-xs text-slate-500">العنوان</p><p className="font-semibold mt-1">{building?.address || 'غير مسجل'}</p></div>
-        <div className="rounded-xl bg-teal-50 border border-teal-100 p-4"><p className="text-sm font-bold text-teal-900">التواصل مع الإدارة</p><p className="text-sm text-teal-800 mt-1">{building?.manager_name || 'إدارة العمارة'}</p>{building?.manager_phone ? <a href={`tel:${building.manager_phone}`} className="inline-flex items-center gap-2 mt-2 text-sm font-bold text-teal-800"><Phone className="w-4 h-4"/>{building.manager_phone}</a> : <p className="text-xs text-teal-700 mt-1">رقم التواصل غير متاح حاليًا.</p>}</div>
+        <div className="rounded-xl bg-teal-50 border border-teal-100 p-4"><p className="text-sm font-bold text-teal-900">التواصل مع الإدارة</p><p className="text-sm text-teal-800 mt-1">{building?.manager_name || 'إدارة العمارة'}</p><GuardContact buildingId={userProfile.buildingId} />{building?.manager_phone ? <a href={`tel:${building.manager_phone}`} className="inline-flex items-center gap-2 mt-2 text-sm font-bold text-teal-800"><Phone className="w-4 h-4"/>{building.manager_phone}</a> : <p className="text-xs text-teal-700 mt-1">رقم التواصل غير متاح حاليًا.</p>}</div>
         <p className="text-[11px] text-slate-500">المعلومات المعروضة هنا تعريفية فقط. التقارير المالية التفصيلية وبيانات الشقق الأخرى متاحة للإدارة وحدها.</p>
       </section>}
     </main>

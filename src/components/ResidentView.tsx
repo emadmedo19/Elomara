@@ -285,11 +285,12 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
                     {building.managerPhone} 📞
                   </a>
                 </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-slate-400 block text-[10px]">حارس العقار (عم شعبان):</span>
-                  <span className="font-bold text-slate-800">متاح 24/7 بالبوابة والجراج</span>
-                  <span className="text-slate-500 font-mono block text-[11px] mt-0.5">+201201112233 📱</span>
-                </div>
+                {(settings.guardName || settings.guardPhone) && <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+                  <span className="text-slate-400 block text-[10px]">حارس العقار:</span>
+                  <span className="font-bold text-slate-800">{settings.guardName}</span>
+                  {settings.guardNote && <p>{settings.guardNote}</p>}
+                  {settings.guardPhone && <a dir="ltr" className="text-teal-700 block" href={`tel:${settings.guardPhone.replace(/[^+0-9]/g, '')}`}>{settings.guardPhone} 📞</a>}
+                </div>}
               </div>
             </div>
           </div>

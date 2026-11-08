@@ -123,6 +123,9 @@ export interface ChatMessage {
 export type GeminiModel = 'gemini-3.1-flash-lite';
 
 export interface AppSettings {
+  guardName?: string;
+  guardPhone?: string;
+  guardNote?: string;
   managerName?: string;
   managerPhone?: string;
   emergencyPhone?: string;
