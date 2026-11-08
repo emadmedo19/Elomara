@@ -1,0 +1,65 @@
+name: Elomara E2E Smoke (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: elomara-e2e-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install application
+        run: npm install
+      - name: Check TypeScript
+        run: npm run lint
+      - name: Build web application
+        run: npm run build
+      - name: Install e2e runner and Chromium
+        run: |
+          npm install --no-save e2e @e2e-dev/web
+          npx @e2e-dev/web install chromium --with-deps
+      - name: Generate isolated smoke test
+        run: |
+          mkdir -p .e2e-smoke
+          cat > e2e.config.ts <<'EOF'
+          import { defineConfig } from 'e2e';
+          import { web } from '@e2e-dev/web';
+          export default defineConfig({
+            tests: '.e2e-smoke/*.e2e.ts',
+            targets: [{ name: 'web', engine: web(), app: { url: 'http://127.0.0.1:4173' } }],
+          });
+          EOF
+          cat > .e2e-smoke/app.e2e.ts <<'EOF'
+          import { test } from '@e2e-dev/web';
+          import { expect } from 'e2e';
+          test('Elomara shell loads without a blank page', async ({ app, browser }) => {
+            await app.open('/');
+            await expect(browser.locator('body')).toBeVisible();
+            await expect(browser.locator('#root')).toBeVisible();
+          });
+          EOF
+      - name: Start isolated Vite preview
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/elomara-preview.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/elomara-preview.log
+          exit 1
+      - name: Run e2e smoke test
+        env:
+          E2E_TELEMETRY_DISABLED: '1'
+        run: npx e2e test
