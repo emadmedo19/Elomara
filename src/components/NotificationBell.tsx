@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { applyOtaUpdate, getOtaSnapshot, subscribeToOta } from '../services/otaUpdates';
 interface Notice { id: string; title: string; body: string; category: string; created_at: string; read_at: string | null; manager_target: string; member_target: string; }
-const categoryIcons = { announcements: Megaphone, maintenance_tickets: Wrench, payments: Wallet, expenses: Wallet, facility_bookings: CalendarDays, building_join_requests: UserCheck, building_polls: BarChart3, building_treasury_settings_audit: Wallet, app_settings: Settings };
+const categoryIcons = { app_updates: Download, announcements: Megaphone, maintenance_tickets: Wrench, payments: Wallet, expenses: Wallet, facility_bookings: CalendarDays, building_join_requests: UserCheck, building_polls: BarChart3, building_treasury_settings_audit: Wallet, app_settings: Settings };
 const dateLabel = (value: string) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium', timeStyle: 'short' }).format(date); };
 export function NotificationBell({ onNavigate }: { onNavigate: (page: string) => void }) {
   const { user, userProfile, isAdmin } = useAuth();

@@ -36,6 +36,11 @@ export function PushNotificationManager() {
         const permission = await PushNotifications.checkPermissions();
         const result = permission.receive === 'granted' ? permission : await PushNotifications.requestPermissions();
         if (cancelled || result.receive !== 'granted') return;
+        await PushNotifications.createChannel({
+          id: 'default', name: 'إشعارات العمارة',
+          description: 'التحديثات والتحصيل والمصروفات والإعلانات والصيانة',
+          importance: 4, visibility: 1, vibration: true,
+        });
         await PushNotifications.register();
       } catch (error) {
         console.warn('[Bunyan Push] Push setup unavailable:', error);

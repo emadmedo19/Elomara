@@ -84,3 +84,10 @@ Before declaring any task or code change complete, verify:
 [ ] Scoped Changes: git diff contains only files relevant to the requested task.
 
 For documentation-only changes, review the diff and links; a full application build is unnecessary. For workflow changes, validate workflow structure and branch guards, then inspect GitHub Actions results. Report any check that could not be run.
+
+## Mobile notification release notes
+
+- When shipping a user-visible improvement, update `release-notes.json` with a new stable `release_id` and short, friendly Arabic title/body explaining the benefit. Never copy commit messages, code names, or technical details into the user notification. Routine internal changes keep the existing release ID.
+- OTA publishes that notice only after uploading the bundle. The database deduplicates by release ID and queues each registered device separately.
+- `deliver-mobile-notifications` authenticates scheduled calls using the existing hashed cron secret. Its gateway JWT verification is disabled because its own secret authentication is required. Keep this check; no unauthenticated delivery is permitted.
+- Phone notifications use generic text for financial/maintenance events; amounts and private details stay inside the authenticated inbox. Never test delivery by broadcasting fictional events to real members.
