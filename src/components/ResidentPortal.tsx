@@ -189,7 +189,7 @@ export const ResidentPortal: React.FC = () => {
     { id: 'maintenance', label: 'الصيانة والبلاغات', icon: <Wrench className="w-5 h-5"/> },
   ];
   const moreNav: { id: ResidentTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'polls', label: 'استطلاعات الرأي', icon: <BarChart3 className="w-5 h-5"/> },
+    { id: 'polls', label: 'تصويت الجمعية والقرارات', icon: <BarChart3 className="w-5 h-5"/> },
     { id: 'reports', label: 'تقارير العمارة', icon: <Wallet className="w-5 h-5"/> },
     { id: 'bookings', label: 'حجز المرافق', icon: <CalendarDays className="w-5 h-5"/> },
     { id: 'announcements', label: 'إعلانات العمارة', icon: <Megaphone className="w-5 h-5"/> },
@@ -229,7 +229,7 @@ export const ResidentPortal: React.FC = () => {
       {notice && <div className="rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-100 p-3 text-sm flex gap-2"><CheckCircle2 className="w-5 h-5 shrink-0"/>{notice}</div>}
 
       {activeTab === 'more' && <MoreView onBack={() => navigateSettings('home')} onOpenAppSettings={() => navigateSettings('app-settings')} onSignOut={() => void signOut()} items={[
-        { id: 'polls', label: 'استطلاعات الرأي', icon: BarChart3, tone: 'violet', onClick: () => setActiveTab('polls') },
+        { id: 'polls', label: 'تصويت الجمعية والقرارات', icon: BarChart3, tone: 'violet', onClick: () => setActiveTab('polls') },
         { id: 'reports', label: 'تقارير العمارة', icon: Wallet, tone: 'teal', onClick: () => setActiveTab('reports') },
         { id: 'bookings', label: 'حجز المرافق', icon: CalendarDays, tone: 'gold', onClick: () => setActiveTab('bookings') },
         { id: 'announcements', label: 'إعلانات العمارة', icon: Megaphone, count: unreadAnnouncementCount, onClick: () => setActiveTab('announcements') },

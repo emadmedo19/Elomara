@@ -150,6 +150,28 @@ export const PollsView: React.FC<Props> = ({ buildingId, canManage }) => {
     else { setNotice('تم إغلاق الاستطلاع وحفظ نتائجه في الأرشيف.'); await loadPolls(); }
   };
 
+  const managePoll = async (poll: Poll, remove: boolean) => {
+    let question: string | null = poll.question;
+    let description: string | null = poll.description;
+    if (remove) {
+      if (!window.confirm('حذف هذا القرار والتصويت ونتائجه نهائيًا؟')) return;
+    } else {
+      question = window.prompt('عنوان القرار (التعديل متاح قبل أول مشاركة):', poll.question);
+      if (question === null) return;
+      description = window.prompt('تفاصيل القرار:', poll.description);
+      if (description === null) return;
+      if (question.trim().length < 5 || question.trim().length > 300) { setError('عنوان القرار يجب أن يكون بين 5 و300 حرف.'); return; }
+    }
+    setBusy(true); setError('');
+    try {
+      const { error } = await supabase.rpc('manage_building_poll', { p_poll_id: poll.id, p_remove: remove, p_question: question, p_description: description });
+      if (error) { setError(error.message.includes('Voting has started') ? 'بدأت المشاركة بالفعل. أنشئ قرارًا جديدًا للحفاظ على صحة الأصوات.' : 'تعذر حفظ التغيير. حاول مرة أخرى.'); return; }
+      setNotice(remove ? 'تم حذف القرار والتصويت.' : 'تم تعديل القرار.');
+      await loadPolls();
+    } catch { setError('تعذر الاتصال. حاول مرة أخرى.'); }
+    finally { setBusy(false); }
+  };
+
   const visiblePolls = useMemo(() => {
     if (canManage) return polls;
     if (residentFilter === 'participated') return polls.filter(poll => poll.result?.has_voted);
@@ -259,6 +281,8 @@ export const PollsView: React.FC<Props> = ({ buildingId, canManage }) => {
               {canManage && (
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
                   <div className="flex items-center gap-2 text-xs text-slate-500"><Users className="h-4 w-4" />{result?.participants_count ?? 0} من {result?.targeted_count ?? 0} شاركوا</div>
+                  <button disabled={busy || (result?.participants_count ?? 0) > 0 || ended} onClick={() => void managePoll(poll, false)} className="rounded-xl border px-3 py-2 text-xs font-bold disabled:opacity-40">تعديل القرار</button>
+                  <button disabled={busy} onClick={() => void managePoll(poll, true)} className="rounded-xl border border-rose-200 px-3 py-2 text-xs font-bold text-rose-700">حذف</button>
                   {!ended && <button disabled={busy} onClick={() => closePoll(poll.id)} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-50"><XCircle className="h-4 w-4" />إنهاء الاستطلاع</button>}
                 </div>
               )}

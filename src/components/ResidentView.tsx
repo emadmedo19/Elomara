@@ -1,3 +1,4 @@
+import { PollsView } from './PollsView';
 import React, { useState } from 'react';
 
 const displayDateTime = (value?: string) => {
@@ -57,11 +58,7 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
   const [bookingDate, setBookingDate] = useState(new Date().toISOString().split('T')[0]);
   const [bookingTimeSlot, setBookingTimeSlot] = useState('06:00 م - 09:00 م');
 
-  // Voting state
-  const [votes, setVotes] = useState<{ [key: string]: 'yes' | 'no' | null }>({
-    'poll-1': 'yes',
-    'poll-2': null,
-  });
+
 
   const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -406,58 +403,7 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
         </div>
       )}
 
-      {/* Tab 4: General Assembly Voting */}
-      {activeTab === 'voting' && (
-        <div className="space-y-3">
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80">
-            <h3 className="font-bold text-sm text-slate-900">التصويت والقرارات المعروضة على الملاك</h3>
-            <p className="text-xs text-slate-500">قرارات الجمعية العمومية للاتحاد وفقاً للائحة التنفيذية</p>
-          </div>
-
-          {/* Poll 1 */}
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded-full font-bold">
-                  تصويت رسمي نشط • ينتهي في 5 نوفمبر
-                </span>
-                <h4 className="font-bold text-sm text-slate-900 mt-1">
-                  تركيب منظومة كاميرات مراقبة IP بدقة 4K للمداخل وبوابات الجراج
-                </h4>
-                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                  بناءً على طلب السادة الملاك لتأمين العقار، تم تقديم عرض أسعار من شركة فالكون سيستمز بملغ إجمالي 18,000 ج.م يسدد من فائض الصندوق دون أعباء إضافية.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                onClick={() => setVotes({ ...votes, 'poll-1': 'yes' })}
-                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-                  votes['poll-1'] === 'yes'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'bg-slate-100 hover:bg-emerald-50 text-slate-700'
-                }`}
-              >
-                <span>موافق على القرار (8 أصوات)</span>
-                {votes['poll-1'] === 'yes' && <Check className="w-4 h-4" />}
-              </button>
-
-              <button
-                onClick={() => setVotes({ ...votes, 'poll-1': 'no' })}
-                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-                  votes['poll-1'] === 'no'
-                    ? 'bg-rose-600 text-white shadow-sm'
-                    : 'bg-slate-100 hover:bg-rose-50 text-slate-700'
-                }`}
-              >
-                <span>غير موافق (صوت واحد)</span>
-                {votes['poll-1'] === 'no' && <Check className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {activeTab === 'voting' && <PollsView buildingId={building.id} canManage={isAdmin} />}
 
       {/* Ticket Modal */}
       {isTicketModalOpen && (
