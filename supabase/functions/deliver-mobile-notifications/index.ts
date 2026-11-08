@@ -76,7 +76,7 @@ Deno.serve(async (request: Request) => {
         const response=await fetch("https://fcm.googleapis.com/v1/projects/elfotoh/messages:send",{
           method:"POST",headers:{Authorization:`Bearer ${access}`,"Content-Type":"application/json"},
           signal:AbortSignal.timeout(15000),
-          body:JSON.stringify({message:{token:row.token,notification: row.category === 'app_updates'
+          body:JSON.stringify({message:{token:row.token,notification: ['app_updates','engagement'].includes(row.category)
               ? {title:row.title,body:row.body}
               : {title:'العمارة 🔔',body:({payments:'تم تحديث السداد. افتح التطبيق لمتابعة التفاصيل.',expenses:'مصروف جديد أو تحديث للمصروفات. تابع التفاصيل داخل التطبيق.',announcements:'إعلان جديد أو تحديث من إدارة العمارة. افتح التطبيق للاطلاع عليه.',maintenance_tickets:'فيه جديد بخصوص الصيانة. افتح التطبيق لمتابعة الطلب.'} as Record<string,string>)[row.category] || 'لديك إشعار جديد في التطبيق.'},
             data:{type:row.category},
