@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { Apartment, Payment, UserRole } from '../types';
 import { calculateApartmentFinancials } from '../services/financialAccounting';
 import { 
@@ -36,6 +36,12 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
 }) => {
   const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
   const [isDeletingApartment, setIsDeletingApartment] = useState(false);
+  const detailsScrollRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (isOpen && apartment?.id) {
+      detailsScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, [isOpen, apartment?.id]);
 
   if (!isOpen || !apartment) return null;
 
@@ -60,7 +66,7 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[70] bg-white sm:bg-[#0f2537]/70 sm:backdrop-blur-xs flex items-stretch sm:items-center sm:justify-center p-0 sm:p-4">
-      <div className="bg-white rounded-none sm:rounded-3xl w-full sm:max-w-2xl p-4 sm:p-6 shadow-none sm:shadow-2xl border-0 sm:border sm:border-slate-200 h-[100dvh] sm:h-auto sm:max-h-[92dvh] overflow-y-auto overscroll-contain flex flex-col" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+      <div ref={detailsScrollRef} className="bg-white rounded-none sm:rounded-3xl w-full sm:max-w-2xl p-4 sm:p-6 shadow-none sm:shadow-2xl border-0 sm:border sm:border-slate-200 h-[100dvh] sm:h-auto sm:max-h-[92dvh] overflow-y-auto overscroll-contain flex flex-col" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
