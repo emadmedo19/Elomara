@@ -47,7 +47,16 @@ jobs:
         run: |
           mkdir -p ota-upload
           (cd dist && zip -qr "../ota-upload/${GITHUB_SHA}.zip" .)
+      - name: Prevent an older run from replacing the latest OTA
+        run: |
+          set -euo pipefail
+          latest="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [ "$latest" != "$GITHUB_SHA" ]; then
+            echo "::notice::Newer main commit exists; skip publishing obsolete OTA."
+            echo "SKIP_NEON_OTA=true" >> "$GITHUB_ENV"
+          fi
       - name: Publish verified Neon OTA
+        if: env.SKIP_NEON_OTA != 'true'
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         run: node neon/scripts/publish-ota.mjs
