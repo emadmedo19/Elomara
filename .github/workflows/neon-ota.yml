@@ -1,0 +1,53 @@
+name: Neon OTA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: elomara-neon-ota-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install Neon tooling
+        run: npm ci --prefix neon
+      - name: Resolve production Neon endpoints
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: node neon/scripts/runtime-config.mjs
+      - name: Install branding tools
+        run: python -m pip install cairosvg pillow
+      - name: Generate branding
+        run: python .github/scripts/generate_brand_assets.py
+      - name: Install application dependencies
+        run: npm install
+      - name: Verify native session and OTA logic
+        run: node --test tests/neonClient.test.mjs tests/otaUpdates.test.mjs
+      - name: TypeScript check
+        run: npm run lint
+      - name: Build Neon bundle
+        env:
+          VITE_BUILD_ID: ${{ github.sha }}
+        run: npm run build
+      - name: Package bundle
+        run: |
+          mkdir -p ota-upload
+          (cd dist && zip -qr "../ota-upload/${GITHUB_SHA}.zip" .)
+      - name: Publish verified Neon OTA
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: node neon/scripts/publish-ota.mjs
