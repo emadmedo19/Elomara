@@ -55,14 +55,20 @@ test('native session keeps the old application UUID and queries with the refresh
   assert.equal(reply.data.text, 'fixture reply');
   assert.equal(mock.initializeCount, 1);
 });
-test('candidate blocks financial writes and notification sends before a network request', async () => {
+test('Neon allows authenticated building creation and application writes', async () => {
   const { api, requests } = setup();
+  const create = await api.neonClient.rpc('create_building_with_opening_balance', {
+    building_name: 'Test building', building_address: 'Test address',
+    units_count: 2, floors_count: 1, opening_balance: 0,
+  });
+  assert.equal(create.error, null);
+  assert.ok(requests.some(request => request.url.endsWith('/rpc/create_building_with_opening_balance')));
   const write = await api.neonClient.from('payments').insert({ amount: 1 });
-  assert.ok(write.error);
-  assert.equal(requests.length, 0);
+  assert.equal(write.error, null);
+  assert.ok(requests.some(request => request.url.endsWith('/payments')));
   const push = await api.neonClient.functions.invoke('send-announcement-push');
-  assert.ok(push.error);
-  assert.equal(requests.length, 0);
+  assert.equal(push.error, null);
+  assert.ok(requests.some(request => request.url.includes('/functions/v1/send-announcement-push')));
 });
 test('Google opens the deployed HTTPS callback and failed initialization removes its listener', async () => {
   const { api, mock } = setup();
