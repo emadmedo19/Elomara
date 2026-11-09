@@ -56,6 +56,12 @@ async function firebaseAccessToken(service: FirebaseService) {
 }
 
 
+// Preserve event-specific details in Android notifications without overflowing the shade.
+function summarize(value: string | null | undefined, limit: number) {
+  const normalized = String(value || '').replace(/\\s+/g, ' ').trim();
+  return normalized.length > limit ? normalized.slice(0, limit - 1).trimEnd() + '…' : normalized;
+}
+
 export default async function handle(request: Request) {
   if(request.method!=="POST") return json({error:"Method not allowed"},405);
   const admin=createBackendClient();
@@ -71,9 +77,10 @@ export default async function handle(request: Request) {
         const response=await fetch("https://fcm.googleapis.com/v1/projects/elfotoh/messages:send",{
           method:"POST",headers:{Authorization:`Bearer ${access}`,"Content-Type":"application/json"},
           signal:AbortSignal.timeout(15000),
-          body:JSON.stringify({message:{token:row.token,notification: ['app_updates','engagement'].includes(row.category)
-              ? {title:row.title,body:row.body}
-              : {title:'العمارة 🔔',body:({payments:'تم تحديث السداد. افتح التطبيق لمتابعة التفاصيل.',expenses:'مصروف جديد أو تحديث للمصروفات. تابع التفاصيل داخل التطبيق.',announcements:'إعلان جديد أو تحديث من إدارة العمارة. افتح التطبيق للاطلاع عليه.',maintenance_tickets:'فيه جديد بخصوص الصيانة. افتح التطبيق لمتابعة الطلب.'} as Record<string,string>)[row.category] || 'لديك إشعار جديد في التطبيق.'},
+          body:JSON.stringify({message:{token:row.token,notification: {
+              title: summarize(row.title, 75) || 'العمارة 🔔',
+              body: summarize(row.body, 180) || 'لديك إشعار جديد في التطبيق.',
+            },
             data:{type:row.category},
             android:{priority:"high",ttl:"86400s",notification:{channel_id:"default",tag:row.notification_id}}}}),
         });
