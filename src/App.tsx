@@ -1020,7 +1020,7 @@ export default function App() {
           .intro-ground { position:absolute; z-index:2; left:0; bottom:0; width:100%; height:auto; pointer-events:none; }
           .intro-city-art { position:absolute; left:0; bottom:0; width:100%; max-width:none; height:auto; }
           .intro-city-building { position:absolute; inset:0; animation:introCityBuilding .7s cubic-bezier(.2,.8,.2,1) both; }
-          .intro-city-tree { animation:introCityTree .3s cubic-bezier(.2,.8,.2,1) 4.7s both; }
+          .intro-city-tree { animation:introCityTree .3s cubic-bezier(.2,.8,.2,1) 3s both; }
           .intro-progress { position:absolute; z-index:5; left:50%; bottom:24%; transform:translateX(-50%); width:72px; height:4px; border-radius:99px; overflow:hidden; background:#77bce5; }
           .intro-progress:after { content:""; display:block; width:42%; height:100%; border-radius:inherit; background:#f4bd20; animation:introProgress 1.15s ease-in-out infinite; }
           @media (max-height:650px) { .intro-building { top:16%; width:min(52vw,30vh); } .intro-title { top:53%; } .intro-city { height:20%; } }
