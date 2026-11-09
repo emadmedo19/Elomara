@@ -1181,9 +1181,9 @@ export default function App() {
           {currentTab === 'dashboard' && (
             <DashboardView
               building={currentBuilding}
-              apartments={apartments.filter((a) => !a.buildingId || a.buildingId === currentBuilding.id)}
+              apartments={apartments.filter((a) => a.buildingId === currentBuilding.id)}
               payments={payments}
-              expenses={expenses.filter((e) => !e.buildingId || e.buildingId === currentBuilding.id)}
+              expenses={expenses.filter((e) => e.buildingId === currentBuilding.id)}
               announcements={announcements.filter((a) => !a.buildingId || a.buildingId === currentBuilding.id)}
               canManageAnnouncements={isAdmin}
               onDeleteAnnouncement={handleDeleteAnnouncement}
@@ -1228,9 +1228,9 @@ export default function App() {
           {currentTab === 'reports' && (
             <ReportsView
               building={currentBuilding}
-              apartments={apartments.filter((a) => !a.buildingId || a.buildingId === currentBuilding.id)}
+              apartments={apartments.filter((a) => a.buildingId === currentBuilding.id)}
               payments={payments}
-              expenses={expenses.filter((e) => !e.buildingId || e.buildingId === currentBuilding.id)}
+              expenses={expenses.filter((e) => e.buildingId === currentBuilding.id)}
               onOpenPdfModal={() => setIsPdfModalOpen(true)}
             />
           )}
@@ -1238,7 +1238,7 @@ export default function App() {
           {currentTab === 'resident' && (
             <ResidentView
               building={currentBuilding}
-              apartments={apartments.filter((a) => !a.buildingId || a.buildingId === currentBuilding.id)}
+              apartments={apartments.filter((a) => a.buildingId === currentBuilding.id)}
               payments={payments}
               settings={settings}
               tickets={tickets.filter((t) => !t.buildingId || t.buildingId === currentBuilding.id)}
@@ -1303,9 +1303,9 @@ export default function App() {
       {isPdfModalOpen && (
         <PdfStatementModal
           building={currentBuilding}
-          apartments={apartments.filter((a) => !a.buildingId || a.buildingId === currentBuilding.id)}
+          apartments={apartments.filter((a) => a.buildingId === currentBuilding.id)}
           payments={payments}
-          expenses={expenses.filter((e) => !e.buildingId || e.buildingId === currentBuilding.id)}
+          expenses={expenses.filter((e) => e.buildingId === currentBuilding.id)}
           onClose={() => setIsPdfModalOpen(false)}
         />
       )}
