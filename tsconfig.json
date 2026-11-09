@@ -30,6 +30,7 @@
   "exclude": [
     "dist",
     "backups",
-    "supabase/functions"
+    "supabase/functions",
+    "neon"
   ]
 }

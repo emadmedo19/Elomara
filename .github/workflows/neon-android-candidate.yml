@@ -79,9 +79,12 @@ jobs:
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           SIGNING_WORKDIR: ${{ runner.temp }}/elomara-android-signing
-        run: |
-          node neon/scripts/download-signing.mjs
-          python .github/scripts/prepare_android_signing.py
+        run: node neon/scripts/download-signing.mjs
+
+      - name: Verify restored private signing bundle and configure Gradle
+        env:
+          SIGNING_WORKDIR: ${{ runner.temp }}/elomara-android-signing
+        run: python .github/scripts/prepare_android_signing.py
 
       - name: Build upgrade baseline and installable APK with the same stable key
         working-directory: android

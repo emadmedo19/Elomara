@@ -120,3 +120,25 @@ $$;
    scheduled-job shutdown, and verify the installed app before retiring Supabase.
 
 Do not interpret the preflight or schema rehearsal as completing these steps.
+
+
+## Native candidate rollout
+
+`Deploy Neon backend` copies storage (byte checks, no source deletion), deploys the
+active chat/push handlers, registers the HTTPS mobile callback origin and checks
+unauthenticated access. `Build Neon Android candidate` runs only from main after
+that deployment succeeds and uses the exact source SHA from the deployment.
+The candidate uses native Neon auth, maps verified users to preserved application
+UUIDs, and obtains fresh Data API JWTs from native session storage. Browser storage
+is not used for the session token. Live membership/inbox refresh uses a five-second
+poll while visible and still applies the database policies on every query.
+
+Candidate writes and notification sends are blocked in the client, and candidate
+OTA checks are disabled so a legacy bundle cannot replace the native Neon build.
+The normal main APK/legacy OTA still use the current provider. Candidate status is
+not a production cutover: final source-write reconciliation, device confirmation,
+Neon OTA publication and the scheduled-job handover still remain.
+
+The candidate restores the original signing object from private Neon storage and
+runs the same certificate/upgrade tests. CI version codes now use epoch seconds
+so the separate candidate/main workflow counters cannot produce a downgrade.

@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "lint": "tsc --noEmit -p tsconfig.json",
     "preflight": "node scripts/preflight.mjs",
     "import": "node scripts/import-supabase.mjs",
     "test": "node --test tests/*.test.mjs"
@@ -14,7 +15,10 @@
     "pg": "8.23.1"
   },
   "devDependencies": {
+    "@types/node": "22.14.0",
+    "@types/pg": "8.23.1",
     "esbuild": "0.28.0",
-    "neon": "9.2.1"
+    "neon": "9.2.1",
+    "typescript": "7.0.2"
   }
 }
