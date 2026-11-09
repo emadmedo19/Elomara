@@ -3,7 +3,7 @@ name: Deploy Neon backend
 on:
   push:
     branches: [main]
-    paths: ['neon/functions/**', 'neon/package*.json', 'neon/tsconfig.json', 'neon/scripts/**', 'src/**', 'android/**', 'package*.json', '.github/workflows/neon-backend-deploy.yml', '.github/workflows/neon-android-candidate.yml']
+    paths: ['neon/functions/**', 'neon/package*.json', 'neon/tsconfig.json', 'neon/scripts/**', 'src/**', 'android/**', 'package*.json', 'vite.config.ts', '.github/workflows/neon-backend-deploy.yml', '.github/workflows/neon-android-candidate.yml']
   workflow_dispatch:
 
 permissions:

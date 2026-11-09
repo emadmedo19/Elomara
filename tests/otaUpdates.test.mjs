@@ -5,14 +5,19 @@ import { build } from 'esbuild';
 
 const id = 'a'.repeat(40);
 const manifest = { bundleId: id, url: `https://yvoylicirtdarroqcxoq.supabase.co/storage/v1/object/public/bunyan-ota/bundles/${id}.zip`, checksum: 'c'.repeat(64) };
-const compiled = await build({
+const compile = candidate => build({
   entryPoints: ['src/services/otaUpdates.ts'], bundle: true, write: false, platform: 'node', format: 'cjs',
-  define: { 'import.meta.env.VITE_BUILD_ID': JSON.stringify('b'.repeat(40)) },
+  define: { 'import.meta.env.VITE_BUILD_ID': JSON.stringify('b'.repeat(40)),
+    'import.meta.env.VITE_BACKEND_PROVIDER': JSON.stringify(candidate ? 'neon' : 'supabase'),
+    'import.meta.env.VITE_NEON_CANDIDATE': JSON.stringify(candidate ? 'true' : 'false') },
   plugins: [{ name: 'native-test-double', setup(b) {
     b.onResolve({ filter: /^@capacitor\/|^@capawesome\// }, args => ({ path: args.path, namespace: 'mock' }));
     b.onLoad({ filter: /.*/, namespace: 'mock' }, () => ({ contents: 'export const Capacitor=globalThis.mock.Capacitor; export const App=globalThis.mock.App; export const LiveUpdate=globalThis.mock.LiveUpdate;' }));
   } }],
 });
+
+const compiled = await compile(false);
+const compiledCandidate = await compile(true);
 
 function setup(options = {}) {
   const calls = [];
@@ -32,7 +37,7 @@ function setup(options = {}) {
     mock, module: { exports: {} }, console: { info() {}, warn() {} }, AbortSignal,
     fetch: async () => { calls.push('fetch'); if (options.offline) throw Error('offline'); return { ok: true, json: async () => options.manifest ?? manifest }; },
   };
-  vm.runInNewContext(compiled.outputFiles[0].text, context);
+  vm.runInNewContext((options.candidate ? compiledCandidate : compiled).outputFiles[0].text, context);
   return { api: context.module.exports, calls, mock };
 }
 
@@ -107,4 +112,14 @@ test('startup/resume checks share one initialization and do not stack listeners'
   await api.checkForOtaUpdate(); mock.resume({ isActive: true }); await api.checkForOtaUpdate();
   assert.equal(calls.filter(c => c === 'ready').length, 1);
   assert.equal(calls.includes('reload'), false);
+});
+
+
+test('Neon candidate acknowledges native readiness without fetching or staging legacy OTA', async () => {
+  const { api, calls, mock } = setup({ candidate: true });
+  api.initializeLiveUpdates(); api.initializeLiveUpdates();
+  await api.checkForOtaUpdate();
+  assert.deepEqual(calls, ['ready']);
+  assert.equal(mock.resume, undefined);
+  assert.equal(api.getOtaSnapshot().manifest, null);
 });

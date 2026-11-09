@@ -109,10 +109,11 @@ export async function applyOtaUpdate() {
 
 let started = false;
 export function initializeLiveUpdates() {
-  // A native Neon candidate must not load a legacy Supabase OTA bundle.
-  if (isNeonCandidate) return;
   if (started || !Capacitor.isNativePlatform()) return;
   started = true;
+  // Mark the packaged native build healthy even when legacy OTA checks are off.
+  // Otherwise the native LiveUpdate rollback timer is never acknowledged.
+  if (isNeonCandidate) { initialization ??= markCurrentBundleReady(); return; }
   void checkForOtaUpdate();
   void CapacitorApp.addListener('appStateChange', ({ isActive }) => {
     if (isActive) void checkForOtaUpdate();

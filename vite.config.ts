@@ -1,15 +1,29 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig, loadEnv} from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), 'VITE_');
+  const backend = env.VITE_BACKEND_PROVIDER === 'neon' ? 'neon' : 'supabase';
+  const buildId = env.VITE_BUILD_ID || 'local';
   return {
     plugins: [
+      {
+        name: 'elomara-runtime-identity',
+        transformIndexHtml() {
+          return [{ tag: 'meta', attrs: { name: 'elomara-backend', content: backend }, injectTo: 'head-prepend' }];
+        },
+        generateBundle() {
+          this.emitFile({ type: 'asset', fileName: 'elomara-runtime.json', source: JSON.stringify({ backend, buildId }) });
+        },
+      },
       react(),
       tailwindcss(),
       VitePWA({
+        // Native Neon builds use packaged assets/LiveUpdate, not a second PWA cache.
+        injectRegister: backend === 'neon' ? false : 'auto',
         registerType: 'autoUpdate',
         includeAssets: ['brand-lockup.png', 'icon.svg', 'icon.png', 'pwa-maskable-512x512.png', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
         manifest: {

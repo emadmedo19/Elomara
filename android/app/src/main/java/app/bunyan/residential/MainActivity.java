@@ -5,6 +5,12 @@ import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
     @Override
+    protected void load() {
+        NativeBackendBootstrap.attach(this, bridgeBuilder);
+        super.load();
+    }
+
+    @Override
     protected void onNewIntent(Intent intent) {
         // Keep the latest OAuth deep-link intent available to Capacitor plugins.
         setIntent(intent);

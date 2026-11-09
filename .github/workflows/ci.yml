@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Verify native Neon session and candidate guards
-        run: node --test tests/neonClient.test.mjs
+        run: node --test tests/neonClient.test.mjs tests/otaUpdates.test.mjs
       - name: TypeScript check
         run: npm run lint
       - name: Production build
