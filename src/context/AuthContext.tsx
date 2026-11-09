@@ -184,7 +184,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Ignore a stale null event while the OAuth callback is exchanging its code.
       if (!session && oauthCallbackInProgress.current) return;
       if (active) window.setTimeout(() => {
-        if (active && !(oauthCallbackInProgress.current && !session)) void loadProfile(session?.user ?? null);
+        if (!active || (oauthCallbackInProgress.current && !session)) return;
+        // Neon may emit a transient null while Android restores its persisted session.
+        // Confirm a missing session before showing login, rather than flashing the
+        // login page and requiring the user to restart the app.
+        if (isNeonBackend && !session) {
+          void supabase.auth.getSession().then(({ data: { session: restored } }) => {
+            if (active) void loadProfile(restored?.user ?? null);
+          }).catch(error => {
+            if (active) { setAuthError(friendlyError(error)); setIsLoading(false); }
+          });
+          return;
+        }
+        void loadProfile(session?.user ?? null);
       }, 0);
     });
 
