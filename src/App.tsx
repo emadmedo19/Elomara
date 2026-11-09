@@ -1,3 +1,4 @@
+import { IntroWindowLights } from './components/IntroWindowLights';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Building, UserRole, Apartment, Payment, Expense, MaintenanceTicket, 
@@ -1027,6 +1028,7 @@ export default function App() {
         `}</style>
         <div className="intro-layer intro-building">
           <img className="intro-building-art" src="/splash-hq/building.png" alt="مبنى العمارة" />
+          <IntroWindowLights />
         </div>
         <div className="intro-layer intro-title">
           <img className="intro-title-art" src="/splash-hq/title.png" alt="العمارة - نظام إدارة العقارات والملاك" />
