@@ -23,15 +23,16 @@ export const ResidentPortal: React.FC = () => {
   const [bookings, setBookings] = useState<any[]>([]);
   const [financialReport, setFinancialReport] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<ResidentTab>('home');
-  const navigateSettings = (tab: 'home' | 'more' | 'app-settings') => {
-    setActiveTab(tab);
+  const navigateSettings = (tab: ResidentTab) => {
+    if (tab === activeTab) return;
     window.history.pushState({ ...window.history.state, residentPage: tab }, '', window.location.href);
+    setActiveTab(tab);
   };
   useEffect(() => {
     const back = (event: PopStateEvent) => {
       if (document.querySelector('[data-settings-subpage], [data-notification-dialog]')) return;
       const previous = event.state?.residentPage;
-      setActiveTab(previous === 'more' || previous === 'app-settings' ? previous : 'home');
+      setActiveTab((['home', 'payments', 'reports', 'announcements', 'maintenance', 'bookings', 'building', 'polls', 'more', 'app-settings'] as ResidentTab[]).includes(previous) ? previous : 'home');
     };
     window.addEventListener('popstate', back);
     return () => window.removeEventListener('popstate', back);
@@ -229,14 +230,14 @@ export const ResidentPortal: React.FC = () => {
       {error && <div className="rounded-xl bg-rose-50 text-rose-800 border border-rose-100 p-3 text-sm flex gap-2"><AlertCircle className="w-5 h-5 shrink-0"/>{error}</div>}
       {notice && <div className="rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-100 p-3 text-sm flex gap-2"><CheckCircle2 className="w-5 h-5 shrink-0"/>{notice}</div>}
 
-      {activeTab === 'more' && <MoreView onBack={() => navigateSettings('home')} onOpenAppSettings={() => navigateSettings('app-settings')} onSignOut={() => void signOut()} items={[
-        { id: 'polls', label: 'تصويت الجمعية والقرارات', icon: BarChart3, tone: 'violet', onClick: () => setActiveTab('polls') },
-        { id: 'reports', label: 'تقارير العمارة', icon: Wallet, tone: 'teal', onClick: () => setActiveTab('reports') },
-        { id: 'bookings', label: 'حجز المرافق', icon: CalendarDays, tone: 'gold', onClick: () => setActiveTab('bookings') },
-        { id: 'announcements', label: 'إعلانات العمارة', icon: Megaphone, count: unreadAnnouncementCount, onClick: () => setActiveTab('announcements') },
-        { id: 'building', label: 'عن العمارة', icon: Building2, tone: 'teal', onClick: () => setActiveTab('building') },
+      {activeTab === 'more' && <MoreView onBack={() => window.history.back()} onOpenAppSettings={() => navigateSettings('app-settings')} onSignOut={() => void signOut()} items={[
+        { id: 'polls', label: 'تصويت الجمعية والقرارات', icon: BarChart3, tone: 'violet', onClick: () => navigateSettings('polls') },
+        { id: 'reports', label: 'تقارير العمارة', icon: Wallet, tone: 'teal', onClick: () => navigateSettings('reports') },
+        { id: 'bookings', label: 'حجز المرافق', icon: CalendarDays, tone: 'gold', onClick: () => navigateSettings('bookings') },
+        { id: 'announcements', label: 'إعلانات العمارة', icon: Megaphone, count: unreadAnnouncementCount, onClick: () => navigateSettings('announcements') },
+        { id: 'building', label: 'عن العمارة', icon: Building2, tone: 'teal', onClick: () => navigateSettings('building') },
       ]}/>}
-      {activeTab === 'app-settings' && <AppPreferencesView onBack={() => navigateSettings('more')} onSignOut={() => void signOut()}/>}
+      {activeTab === 'app-settings' && <AppPreferencesView onBack={() => window.history.back()} onSignOut={() => void signOut()}/>}
       {activeTab === 'home' && <>
         <section className="rounded-2xl bg-gradient-to-l from-[#0f2537] to-[#1c4467] text-white p-5 shadow">
           <div className="flex items-center justify-between gap-2"><div className="text-sm text-teal-200">أهلاً بك في بوابة السكان</div><span className="text-[11px] rounded-full bg-emerald-400/15 text-emerald-200 px-3 py-1">حساب معتمد</span></div>
