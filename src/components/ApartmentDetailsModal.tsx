@@ -1,4 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Apartment, Payment, UserRole } from '../types';
 import { calculateApartmentFinancials } from '../services/financialAccounting';
 import { 
@@ -42,6 +43,12 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
       detailsScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     }
   }, [isOpen, apartment?.id]);
+  useLayoutEffect(() => {
+    if (!isOpen || !apartment) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [isOpen, apartment?.id]);
 
   if (!isOpen || !apartment) return null;
 
@@ -64,8 +71,9 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
     window.open(`https://wa.me/${apartment.residentPhone.replace('+', '')}?text=${text}`, '_blank');
   };
 
-  return (
-    <div className="fixed inset-0 z-[70] bg-white sm:bg-[#0f2537]/70 sm:backdrop-blur-xs flex items-stretch sm:items-center sm:justify-center p-0 sm:p-4">
+  // Keep viewport positioning independent of the animated collections screen.
+  return createPortal(
+    <div dir="rtl" role="dialog" aria-modal="true" aria-label="تفاصيل الشقة" className="fixed inset-0 z-[70] bg-white sm:bg-[#0f2537]/70 sm:backdrop-blur-xs flex items-stretch sm:items-center sm:justify-center p-0 sm:p-4">
       <div ref={detailsScrollRef} className="bg-white rounded-none sm:rounded-3xl w-full sm:max-w-2xl p-4 sm:p-6 shadow-none sm:shadow-2xl border-0 sm:border sm:border-slate-200 h-[100dvh] sm:h-auto sm:max-h-[92dvh] overflow-y-auto overscroll-contain flex flex-col" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))', paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
@@ -405,6 +413,6 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>, document.body
   );
 };
