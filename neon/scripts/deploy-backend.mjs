@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { writeFile, readFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
+import { storageClient } from './storage-client.mjs';
 
 const project = 'misty-glitter-45861249';
 const branch = 'br-ancient-thunder-be36ds8e';
@@ -42,7 +43,8 @@ const probe = await fetch(origin + '/cron/probe', { method: 'POST',
     id: 'trigger-forged', name: 'elomara-probe' }, data: { scheduled_at: new Date().toISOString() } }),
 });
 if (probe.status !== 401) throw new Error('Platform did not reject a well-formed forged trigger (probe has no side effects)');
-const storage = JSON.parse(await readFile('neon-storage-runtime.json', 'utf8'));
-await writeFile('neon-runtime.json', JSON.stringify({ functionsUrl: origin, oauthRedirectUrl: origin + '/auth/callback', ...storage }, null, 2));
+const { client: storageConnection, endpoint: storageEndpoint } = await storageClient();
+storageConnection.destroy();
+await writeFile('neon-runtime.json', JSON.stringify({ functionsUrl: origin, oauthRedirectUrl: origin + '/auth/callback', otaBaseUrl: `${storageEndpoint}/bunyan-ota` }, null, 2));
 console.log(`PASS: backend deployed at ${origin}; user routes and schedules reject unauthenticated requests`);
 console.log('Scheduled jobs remain disabled until the app cutover is verified.');
