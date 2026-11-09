@@ -59,12 +59,9 @@ export function calculateApartmentFinancials(
     ? aptPayments.filter((p) => p.month === periodMonth)
     : aptPayments;
 
-  // Sum payments from records ledger.
-  // If no ledger payment exists but apartment has a legacy paidAmount recorded, use it as fallback.
-  let totalPaid = relevantPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
-  if (relevantPayments.length === 0 && (apartment.paidAmount || 0) > 0) {
-    totalPaid = apartment.paidAmount || 0;
-  }
+  // The receipt ledger is authoritative, including an empty ledger after deletion.
+  // A cached apartment summary must not resurrect a deleted receipt.
+  const totalPaid = relevantPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
 
   // Calculate total dues:
   // If apartment has overdue months > 0, total dues is monthlyFee * overdueMonths
@@ -92,7 +89,7 @@ export function calculateApartmentFinancials(
   const lastPayment = relevantPayments.length > 0
     ? [...relevantPayments].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
     : undefined;
-  const lastPaymentDate = lastPayment?.date || apartment.lastPaymentDate;
+  const lastPaymentDate = lastPayment?.date;
 
   // Track advance credit origin
   let advanceCreditOrigin;

@@ -731,10 +731,10 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-xs text-right border-collapse">
+              <table className="w-full min-w-[760px] text-xs text-right border-collapse">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
                   <tr>
-                    <th className="p-3">نوع العملية</th>
+                    <th className="p-3 whitespace-nowrap">نوع العملية</th>
                     <th className="p-3">الوحدة المستهدفة</th>
                     <th className="p-3">تفاصيل التغيير</th>
                     <th className="p-3">القائم بالعملية</th>
@@ -752,7 +752,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
                       <tr key={log.id} className="hover:bg-slate-50/70 transition">
                         <td className="p-3">
                           <span
-                            className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                            className={`inline-flex items-center whitespace-nowrap px-2 py-0.5 rounded-full font-bold text-[10px] ${
                               isCreate
                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                 : isUpdate

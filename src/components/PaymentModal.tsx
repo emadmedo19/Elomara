@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Apartment, Payment } from '../types';
 import { DollarSign, Calendar, Check, X, AlertTriangle, CreditCard, Tag } from 'lucide-react';
+
+const DEFAULT_PAYMENT_METHODS = ['إنستاباي', 'تحويل بنكي', 'فودافون كاش', 'نقدي', 'أخرى'];
 
 const getCurrentPaymentPeriod = () => new Intl.DateTimeFormat('ar-EG', { month: 'long', year: 'numeric' }).format(new Date());
 
@@ -31,7 +34,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   editingPayment,
   onSavePayment,
   existingPayments,
-  paymentMethods = ['إنستاباي', 'تحويل بنكي', 'فودافون كاش', 'نقدي', 'أخرى'],
+  paymentMethods = DEFAULT_PAYMENT_METHODS,
 }) => {
   const [apartmentId, setApartmentId] = useState<string>(selectedApartment?.id || apartments[0]?.id || '');
   const [amount, setAmount] = useState<number>(selectedApartment?.monthlyFee || 1500);
@@ -65,6 +68,13 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       setDuplicateWarning(null);
     }
   }, [selectedApartment, editingPayment, isOpen, paymentMethods]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -104,17 +114,17 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     if (saved) onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-[60] bg-[#0f2537]/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-      <form onSubmit={handleSubmit} className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-labelledby="payment-modal-title" dir="rtl" className="fixed inset-0 z-[60] bg-[#0f2537]/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+      <form onSubmit={handleSubmit} className="bg-white rounded-3xl max-w-lg w-full min-w-0 p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="flex shrink-0 items-center justify-between gap-2 pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
               <DollarSign className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-slate-900">
+              <h3 id="payment-modal-title" className="font-bold text-sm text-slate-900">
                 {editingPayment ? 'تعديل دفعة سابقة' : 'تسجيل وقيد دفعة سداد جديدة'}
               </h3>
               <p className="text-xs text-slate-500">
@@ -127,148 +137,151 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700"
+            aria-label="إغلاق نافذة السداد"
+            className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-700"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Duplicate Payment Alert */}
-        {duplicateWarning && (
-          <div className="my-3.5 p-3.5 rounded-2xl bg-amber-50 border border-amber-300 space-y-2 animate-in fade-in">
-            <div className="flex items-start gap-2.5">
-              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-900 font-medium leading-relaxed">
-                {duplicateWarning}
-              </p>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {/* Duplicate Payment Alert */}
+          {duplicateWarning && (
+            <div className="my-3.5 p-3.5 rounded-2xl bg-amber-50 border border-amber-300 space-y-2 animate-in fade-in">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-900 font-medium leading-relaxed">
+                  {duplicateWarning}
+                </p>
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setDuplicateWarning(null)}
+                  className="text-xs bg-white text-slate-700 font-bold px-3 py-1.5 rounded-xl border border-slate-200"
+                >
+                  تعديل البيانات
+                </button>
+                <button
+                  type="submit"
+                  className="text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold px-3.5 py-1.5 rounded-xl shadow-xs"
+                >
+                  نعم، تسجيل الدفعة رغم التشابه
+                </button>
+              </div>
             </div>
-            <div className="flex items-center justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setDuplicateWarning(null)}
-                className="text-xs bg-white text-slate-700 font-bold px-3 py-1.5 rounded-xl border border-slate-200"
-              >
-                تعديل البيانات
-              </button>
-              <button
-                type="submit"
-                className="text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold px-3.5 py-1.5 rounded-xl shadow-xs"
-              >
-                نعم، تسجيل الدفعة رغم التشابه
-              </button>
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* Form Fields */}
-        <div className="my-4 space-y-3.5">
-          {/* Select Apartment */}
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700">الشقة المستهدفة *</label>
-            <select
-              value={apartmentId}
-              onChange={(e) => {
-                setApartmentId(e.target.value);
-                const apt = apartments.find((a) => a.id === e.target.value);
-                if (apt && !editingPayment) {
-                  setAmount(apt.monthlyFee);
-                  setNotes(`سداد اشتراك الصيانة عن ${apt.unitNumber}`);
-                }
-              }}
-              className="w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
-            >
-              {apartments.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.unitNumber} - {a.residentName} (الدور {a.floor} • اشتراك {a.monthlyFee} ج.م)
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {/* Amount */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700">المبلغ المدفوع (ج.م) *</label>
-              <input
-                type="number"
-                min="1"
-                required
-                value={amount}
-                onChange={(e) => setAmount(Number(e.target.value))}
-                onFocus={(e) => e.currentTarget.select()}
-                className="w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 font-bold text-teal-800"
-              />
-            </div>
-
-            {/* Date */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700">تاريخ السداد *</label>
-              <input
-                type="date"
-                required
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {/* Month/Period */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700">عن شهر / دورة</label>
-              <input
-                type="text"
-                value={month}
-                onChange={(e) => setMonth(e.target.value)}
-                placeholder="مثال: الشهر الحالي"
-                className="w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
-              />
-            </div>
-
-            {/* Payment Method */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700">طريقة السداد</label>
+          {/* Form Fields */}
+          <div className="my-4 space-y-3.5">
+            {/* Select Apartment */}
+            <div className="min-w-0 space-y-1">
+              <label className="text-xs font-bold text-slate-700">الشقة المستهدفة *</label>
               <select
-                value={method}
-                onChange={(e) => setMethod(e.target.value)}
-                className="w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
+                value={apartmentId}
+                onChange={(e) => {
+                  setApartmentId(e.target.value);
+                  const apt = apartments.find((a) => a.id === e.target.value);
+                  if (apt && !editingPayment) {
+                    setAmount(apt.monthlyFee);
+                    setNotes(`سداد اشتراك الصيانة عن ${apt.unitNumber}`);
+                  }
+                }}
+                className="min-w-0 max-w-full w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
               >
-                {[...new Set([...(method && !paymentMethods.includes(method) ? [method] : []), ...paymentMethods])].map((item) => (
-                  <option key={item} value={item}>{item}</option>
+                {apartments.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.unitNumber} - {a.residentName} (الدور {a.floor} • اشتراك {a.monthlyFee} ج.م)
+                  </option>
                 ))}
               </select>
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            {/* Receipt Number */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700">رقم الإيصال / المعاملة</label>
-              <input
-                type="text"
-                value={receiptNumber}
-                onChange={(e) => setReceiptNumber(e.target.value)}
-                className="w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 font-mono"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              {/* Amount */}
+              <div className="min-w-0 space-y-1">
+                <label className="text-xs font-bold text-slate-700">المبلغ المدفوع (ج.م) *</label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={amount}
+                  onChange={(e) => setAmount(Number(e.target.value))}
+                  onFocus={(e) => e.currentTarget.select()}
+                  className="min-w-0 max-w-full w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 font-bold text-teal-800"
+                />
+              </div>
+
+              {/* Date */}
+              <div className="min-w-0 space-y-1">
+                <label className="text-xs font-bold text-slate-700">تاريخ السداد *</label>
+                <input
+                  type="date"
+                  required
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="min-w-0 max-w-full w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
+                />
+              </div>
             </div>
 
-            {/* Notes */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700">ملاحظات إضافية</label>
-              <input
-                type="text"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="أي ملاحظات حول السداد..."
-                className="w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              {/* Month/Period */}
+              <div className="min-w-0 space-y-1">
+                <label className="text-xs font-bold text-slate-700">عن شهر / دورة</label>
+                <input
+                  type="text"
+                  value={month}
+                  onChange={(e) => setMonth(e.target.value)}
+                  placeholder="مثال: الشهر الحالي"
+                  className="min-w-0 max-w-full w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
+                />
+              </div>
+
+              {/* Payment Method */}
+              <div className="min-w-0 space-y-1">
+                <label className="text-xs font-bold text-slate-700">طريقة السداد</label>
+                <select
+                  value={method}
+                  onChange={(e) => setMethod(e.target.value)}
+                  className="min-w-0 max-w-full w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
+                >
+                  {[...new Set([...(method && !paymentMethods.includes(method) ? [method] : []), ...paymentMethods])].map((item) => (
+                    <option key={item} value={item}>{item}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Receipt Number */}
+              <div className="min-w-0 space-y-1">
+                <label className="text-xs font-bold text-slate-700">رقم الإيصال / المعاملة</label>
+                <input
+                  type="text"
+                  value={receiptNumber}
+                  onChange={(e) => setReceiptNumber(e.target.value)}
+                  className="min-w-0 max-w-full w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 font-mono"
+                />
+              </div>
+
+              {/* Notes */}
+              <div className="min-w-0 space-y-1">
+                <label className="text-xs font-bold text-slate-700">ملاحظات إضافية</label>
+                <input
+                  type="text"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="أي ملاحظات حول السداد..."
+                  className="min-w-0 max-w-full w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
+                />
+              </div>
             </div>
           </div>
+
         </div>
-
         {/* Footer Buttons */}
-        <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+        <div className="flex shrink-0 items-center justify-end gap-2 pt-3 border-t border-slate-100">
           <button
             type="button"
             onClick={onClose}
@@ -285,6 +298,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body
   );
 };
