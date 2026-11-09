@@ -130,7 +130,7 @@ export function calculateBuildingFinancials(
   periodMonth?: string
 ): BuildingFinancials {
   const buildingApts = apartments.filter(
-    (a) => a.buildingId === buildingId
+    (a) => !a.buildingId || a.buildingId === buildingId
   );
 
   let totalExpectedDues = 0;

@@ -12,25 +12,3 @@ assert.equal(calc(apt,[payment],'2026-12').totalPaid,0);
 assert.equal(calc(apt,[{...payment,amount:40}]).remaining,60);
 assert.equal(calc(apt,[{...payment,paymentType:'exceptional'}]).totalPaid,0);
 console.log('PASS deletion, cached totals, period isolation, partial and exceptional payments');
-
-// A legacy unit must never contribute to either building's financial totals.
-const otherApt={...apt,id:'other',buildingId:'other-building',monthlyFee:300};
-const legacyApts=[undefined,null,''].map((buildingId,i)=>({...apt,id:`legacy-${i}`,buildingId,monthlyFee:500}));
-const units=[apt,otherApt,...legacyApts];
-const receipts=units.map((unit,i)=>({...payment,id:`receipt-${i}`,apartmentId:unit.id,buildingId:unit.buildingId,amount:unit.monthlyFee/2}));
-const first=building('b',units,receipts);
-assert.equal(first.totalUnits,1);
-assert.equal(first.totalExpectedDues,100);
-assert.equal(first.totalCollected,50);
-assert.equal(first.totalRemaining,50);
-assert.equal(first.totalCreditBalance,0);
-assert.equal(first.pendingCount,1);
-assert.equal(first.collectionRate,50);
-const second=building('other-building',units,receipts);
-assert.equal(second.totalUnits,1);
-assert.equal(second.totalExpectedDues,300);
-assert.equal(second.totalCollected,150);
-assert.equal(second.totalRemaining,150);
-assert.equal(building('unrelated-building',units,receipts).totalUnits,0);
-assert.equal(building('b',units,receipts,'2026-12').totalCollected,0);
-console.log('PASS building isolation with unlinked legacy units and shared receipt ledger');

@@ -75,17 +75,17 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
 
   // Filter apartments by current building
   const buildingApartments = apartments.filter(
-    (a) => a.buildingId === currentBuilding.id
+    (a) => !a.buildingId || a.buildingId === currentBuilding.id
   );
 
   // Filter payments by current building
   const buildingPayments = payments.filter(
-    (p) => p.buildingId === currentBuilding.id
+    (p) => !p.buildingId || p.buildingId === currentBuilding.id
   );
 
   // Filter audit logs by current building
   const buildingAuditLogs = auditLogs.filter(
-    (l) => l.buildingId === currentBuilding.id
+    (l) => !l.buildingId || l.buildingId === currentBuilding.id
   );
 
   // Calculate unified building financial metrics

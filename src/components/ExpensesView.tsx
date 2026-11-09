@@ -50,7 +50,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
 
   // Filter expenses by building
   const buildingExpenses = expenses.filter(
-    (exp) => exp.buildingId === currentBuilding.id
+    (exp) => !exp.buildingId || exp.buildingId === currentBuilding.id
   );
 
   const filteredExpenses = buildingExpenses.filter((exp) => {
