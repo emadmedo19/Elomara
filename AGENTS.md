@@ -6,6 +6,15 @@ This repository contains Elomara (العمارة). These instructions apply to a
 
 Owner decision (2026-11-06): the app currently visible to the owner is the desired product. Historical branch differences are not a feature backlog and do not authorize restoring old functionality.
 
+### Owner-approved restored baseline (2026-11-09)
+
+- The owner explicitly selected the release that added password visibility controls and removed sample contact defaults: `08e7bfe70030491234e2fb7aafc00c64ed4b095b`. Its tracked project snapshot was restored on main by `21aade31306b93cd3455694e40e64c5f90f0e3b2`. This replaces later app versions as the accepted product baseline.
+- The owner canceled the changes introduced after that selected release and before the restoration. Those canceled changes are historical work, not pending fixes or an approved backlog. Do not reintroduce them through merges, cherry-picks, old file copies, cleanup, or unrelated feature requests unless the owner explicitly requests the particular change again.
+- Start all future work from the latest synchronized main containing this restoration and subsequent owner-approved work. The historical baseline SHA identifies the accepted restoration; it is not an instruction to reset future work to that SHA.
+- Preserve the password visibility controls, removal of sample contact defaults, and existing restored screens and behavior. Make only the specific new change requested by the owner.
+- Keep canceled code out of the working tree and release inputs. Do not restore abandoned drafts or historical deployment bundles as a starting point. Retain Git history for audit; never force-push or rewrite main to erase canceled commits.
+- This restoration changed project files only. Existing database records and already-applied database changes were not rolled back; do not drop data or reverse live migrations as part of this cleanup.
+
 - Implement every requested feature on the latest main, within the existing app screens and flows. Never implement it in an alternative app, an old branch, or a replacement version.
 - Preserve existing features, navigation, appearance, authentication methods, financial behavior and data unless the owner specifically requests a change to them. A request to add a feature is not permission to remove, redesign or rewrite existing behavior.
 - Read the affected current implementation before editing. Make the smallest coherent change; do not replace whole files with historical branch versions.
