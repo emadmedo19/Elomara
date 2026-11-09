@@ -72,7 +72,7 @@ public class NeonCacheUpgradeTest {
             AtomicReference<Bridge> bridgeRef = new AtomicReference<>();
             scenario.onActivity(activity -> bridgeRef.set(activity.getBridge()));
             WebView view = bridgeRef.get().getWebView();
-            waitFor(view, "!!document.querySelector('[data-testid=neon-candidate]')");
+            waitFor(view, "document.querySelector('meta[name=elomara-backend]')?.content==='neon' && !!document.querySelector('.fotouh-login')");
             scenario.onActivity(activity -> {
                 Bridge bridge = activity.getBridge();
                 bridge.setWebViewClient(new BridgeWebViewClient(bridge) {
@@ -104,7 +104,7 @@ public class NeonCacheUpgradeTest {
             scenario.recreate();
             scenario.onActivity(activity -> bridgeRef.set(activity.getBridge()));
             view = bridgeRef.get().getWebView();
-            waitFor(view, "!!document.querySelector('[data-testid=neon-candidate]')");
+            waitFor(view, "document.querySelector('meta[name=elomara-backend]')?.content==='neon' && !!document.querySelector('.fotouh-login')");
             assertEquals("\"neon\"", evaluate(view, "document.querySelector('meta[name=elomara-backend]').content"));
             assertEquals("\"preserved\"", evaluate(view, "localStorage.getItem('elomara-upgrade-local-probe')"));
             evaluate(view, "window.__storedProbe=null;const req=indexedDB.open('elomara-upgrade-probe',1);" +
