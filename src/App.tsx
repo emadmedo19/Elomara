@@ -20,6 +20,7 @@ import {
   reconcileApartment 
 } from './services/financialAccounting';
 import { Header } from './components/Header';
+import { IntroCity } from './components/IntroCity';
 import { DashboardView } from './components/DashboardView';
 import { CollectionsView } from './components/CollectionsView';
 import { ExpensesView } from './components/ExpensesView';
@@ -1002,8 +1003,8 @@ export default function App() {
         <style>{`
           @keyframes introBuilding { from { opacity:0; transform:translate(-50%,18px) } to { opacity:1; transform:translate(-50%,0) } }
           @keyframes introLogo { from { opacity:0; transform:translate(-50%,14px) scale(.97) } to { opacity:1; transform:translate(-50%,0) scale(1) } }
-          @keyframes introLeft { from { opacity:0; transform:translate(-100%,0) } to { opacity:1; transform:translate(0,0) } }
-          @keyframes introRight { from { opacity:0; transform:translate(100%,0) } to { opacity:1; transform:translate(0,0) } }
+          @keyframes introCityBuilding { from { opacity:0; transform:translateX(var(--intro-city-entry)) } to { opacity:1; transform:translateX(0) } }
+          @keyframes introCityTree { from { opacity:0; transform:translateY(100%) } to { opacity:1; transform:translateY(0) } }
           @keyframes introProgress { from { transform:translateX(120%) } to { transform:translateX(-120%) } }
           .elomara-intro { position:fixed; inset:0; z-index:9999; width:100%; height:100vh; height:100dvh; overflow:hidden; isolation:isolate; background:radial-gradient(ellipse at 50% 55%,#f2fbff 0%,#d8f1ff 38%,transparent 75%),linear-gradient(155deg,#078cdd 0%,#83d2fb 35%,#c2eaff 74%,#5ebcf0 100%); }
           .elomara-intro:before { content:""; position:absolute; top:0; left:0; width:min(88vw,600px); height:30%; background:url('/splash-hq/curve.png') left top / 100% auto no-repeat; pointer-events:none; }
@@ -1014,17 +1015,15 @@ export default function App() {
           /* One combined title/tagline asset keeps the Arabic logo intact and prevents gaps or clipping. */
           .intro-title { left:50%; top:54%; width:min(78vw,40vh,400px); aspect-ratio:1429 / 615; overflow:hidden; animation:introLogo .8s ease 1.8s both; }
           .intro-title-art { position:absolute; width:151.9944%; height:117.7236%; max-width:none; left:-25.8223%; top:-6.8293%; }
-          .intro-city { bottom:0; width:50%; height:22%; overflow:hidden; }
+          .intro-city { position:absolute; left:0; bottom:0; width:100%; height:22%; overflow:hidden; pointer-events:none; }
           .intro-ground { position:absolute; z-index:2; left:0; bottom:0; width:100%; height:auto; pointer-events:none; }
-          .intro-city-art { position:absolute; bottom:0; width:200%; max-width:none; height:auto; }
-          .intro-city-left .intro-city-art { left:0; }
-          .intro-city-right .intro-city-art { right:0; }
-          .intro-city-left { left:0; bottom:0; object-position:left bottom; animation:introLeft 1.1s cubic-bezier(.2,.8,.2,1) 3s both; }
-          .intro-city-right { right:0; bottom:0; object-position:right bottom; animation:introRight 1.1s cubic-bezier(.2,.8,.2,1) 3s both; }
+          .intro-city-art { position:absolute; left:0; bottom:0; width:100%; max-width:none; height:auto; }
+          .intro-city-building { position:absolute; inset:0; animation:introCityBuilding .7s cubic-bezier(.2,.8,.2,1) both; }
+          .intro-city-tree { animation:introCityTree .3s cubic-bezier(.2,.8,.2,1) 4.7s both; }
           .intro-progress { position:absolute; z-index:5; left:50%; bottom:24%; transform:translateX(-50%); width:72px; height:4px; border-radius:99px; overflow:hidden; background:#77bce5; }
           .intro-progress:after { content:""; display:block; width:42%; height:100%; border-radius:inherit; background:#f4bd20; animation:introProgress 1.15s ease-in-out infinite; }
           @media (max-height:650px) { .intro-building { top:16%; width:min(52vw,30vh); } .intro-title { top:53%; } .intro-city { height:20%; } }
-          @media (prefers-reduced-motion:reduce) { .intro-layer,.intro-progress:after { animation:none !important; opacity:1; } .intro-building,.intro-title { transform:translateX(-50%); } }
+          @media (prefers-reduced-motion:reduce) { .intro-layer,.intro-city-building,.intro-city-tree,.intro-progress:after { animation:none !important; opacity:1; } .intro-building,.intro-title { transform:translateX(-50%); } }
         `}</style>
         <div className="intro-layer intro-building">
           <img className="intro-building-art" src="/splash-hq/building.png" alt="مبنى العمارة" />
@@ -1032,8 +1031,7 @@ export default function App() {
         <div className="intro-layer intro-title">
           <img className="intro-title-art" src="/splash-hq/title.png" alt="العمارة - نظام إدارة العقارات والملاك" />
         </div>
-        <div className="intro-layer intro-city intro-city-left" aria-hidden="true"><img className="intro-city-art" src="/splash-hq/houses.png" alt="" /></div>
-        <div className="intro-layer intro-city intro-city-right" aria-hidden="true"><img className="intro-city-art" src="/splash-hq/houses.png" alt="" /></div>
+        <IntroCity />
         <img className="intro-ground" src="/splash-hq/ground.png" alt="" aria-hidden="true" />
         <div className="intro-progress" aria-hidden="true" />
       </div>
