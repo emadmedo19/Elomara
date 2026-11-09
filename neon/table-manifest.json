@@ -1,0 +1,434 @@
+[
+  {
+    "name": "buildings",
+    "columns": [
+      "id",
+      "name",
+      "address",
+      "total_units",
+      "total_floors",
+      "balance",
+      "monthly_target",
+      "reserve_fund",
+      "manager_name",
+      "manager_phone",
+      "created_at",
+      "updated_at",
+      "manager2_name",
+      "manager2_phone",
+      "manager3_name",
+      "manager3_phone",
+      "opening_balance",
+      "latitude",
+      "longitude"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "apartments",
+    "columns": [
+      "id",
+      "building_id",
+      "unit_number",
+      "floor",
+      "resident_name",
+      "resident_phone",
+      "is_owner",
+      "monthly_fee",
+      "payment_status",
+      "overdue_months",
+      "last_payment_date",
+      "paid_amount",
+      "credit_balance",
+      "created_at",
+      "updated_at"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "app_settings",
+    "columns": [
+      "id",
+      "building_id",
+      "setting_key",
+      "setting_value",
+      "updated_by",
+      "updated_at"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "push_devices",
+    "columns": [
+      "id",
+      "user_id",
+      "token",
+      "platform",
+      "created_at",
+      "updated_at"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "announcements",
+    "columns": [
+      "id",
+      "building_id",
+      "title",
+      "content",
+      "announcement_type",
+      "image_url",
+      "pinned",
+      "created_by",
+      "created_at",
+      "archived_at"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "building_polls",
+    "columns": [
+      "id",
+      "building_id",
+      "created_by",
+      "question",
+      "description",
+      "starts_at",
+      "ends_at",
+      "status",
+      "show_results_before_close",
+      "created_at",
+      "closed_at"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "building_invites",
+    "columns": [
+      "id",
+      "building_id",
+      "apartment_id",
+      "invited_email",
+      "invite_code",
+      "invited_by",
+      "expires_at",
+      "accepted_at",
+      "created_at",
+      "invited_phone",
+      "invited_name"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "app_notifications",
+    "columns": [
+      "id",
+      "recipient_id",
+      "building_id",
+      "category",
+      "title",
+      "body",
+      "manager_target",
+      "member_target",
+      "entity_id",
+      "source_key",
+      "created_at",
+      "read_at"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "facility_bookings",
+    "columns": [
+      "id",
+      "building_id",
+      "apartment_id",
+      "facility",
+      "unit_number",
+      "resident_name",
+      "booking_date",
+      "time_slot",
+      "status",
+      "created_by",
+      "created_at"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "payment_audit_logs",
+    "columns": [
+      "id",
+      "action",
+      "payment_id",
+      "apartment_id",
+      "unit_number",
+      "building_id",
+      "performed_by",
+      "previous_data",
+      "new_data",
+      "notes",
+      "created_at"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "app_release_notices",
+    "columns": [
+      "release_id",
+      "title",
+      "body",
+      "created_at"
+    ],
+    "primaryKey": [
+      "release_id"
+    ]
+  },
+  {
+    "name": "engagement_messages",
+    "columns": [
+      "id",
+      "title",
+      "body"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "maintenance_tickets",
+    "columns": [
+      "id",
+      "building_id",
+      "apartment_id",
+      "unit_number",
+      "resident_name",
+      "category",
+      "title",
+      "description",
+      "urgency",
+      "status",
+      "created_by",
+      "created_at",
+      "updated_at"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "building_access_codes",
+    "columns": [
+      "building_id",
+      "code",
+      "created_by",
+      "created_at",
+      "revoked_at"
+    ],
+    "primaryKey": [
+      "building_id"
+    ]
+  },
+  {
+    "name": "building_poll_options",
+    "columns": [
+      "id",
+      "poll_id",
+      "label",
+      "sort_order"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "building_join_requests",
+    "columns": [
+      "id",
+      "user_id",
+      "building_id",
+      "full_name",
+      "requested_floor",
+      "requested_unit_number",
+      "resident_type",
+      "status",
+      "reviewed_by",
+      "reviewed_at",
+      "created_at",
+      "requested_label"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "exceptional_collections",
+    "columns": [
+      "id",
+      "building_id",
+      "title",
+      "description",
+      "amount_mode",
+      "total_amount",
+      "per_apartment_amount",
+      "target_apartment_ids",
+      "keywords",
+      "notify_residents",
+      "status",
+      "created_by",
+      "created_at"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "notification_deliveries",
+    "columns": [
+      "id",
+      "notification_id",
+      "device_id",
+      "attempts",
+      "available_at",
+      "lease_id",
+      "completed_at",
+      "outcome"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "building_poll_participation",
+    "columns": [
+      "poll_id",
+      "user_id"
+    ],
+    "primaryKey": [
+      "poll_id",
+      "user_id"
+    ]
+  },
+  {
+    "name": "building_treasury_settings_audit",
+    "columns": [
+      "id",
+      "building_id",
+      "previous_opening_balance",
+      "opening_balance",
+      "previous_reserve_fund",
+      "reserve_fund",
+      "previous_balance",
+      "balance",
+      "opening_already_included",
+      "changed_by",
+      "created_at"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "expenses",
+    "columns": [
+      "id",
+      "building_id",
+      "title",
+      "category",
+      "amount",
+      "expense_date",
+      "vendor",
+      "notes",
+      "receipt_url",
+      "approved_by",
+      "created_at",
+      "legacy_id"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "payments",
+    "columns": [
+      "id",
+      "apartment_id",
+      "building_id",
+      "unit_number",
+      "resident_name",
+      "amount",
+      "payment_date",
+      "month",
+      "method",
+      "notes",
+      "receipt_number",
+      "idempotency_key",
+      "recorded_by",
+      "recorded_at",
+      "legacy_id",
+      "payment_type"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "profiles",
+    "columns": [
+      "id",
+      "full_name",
+      "phone",
+      "role",
+      "building_id",
+      "apartment_id",
+      "approved",
+      "created_at",
+      "updated_at",
+      "disabled_at",
+      "resident_label"
+    ],
+    "primaryKey": [
+      "id"
+    ]
+  },
+  {
+    "name": "engagement_history",
+    "columns": [
+      "user_id",
+      "message_id",
+      "day",
+      "slot"
+    ],
+    "primaryKey": [
+      "user_id",
+      "message_id"
+    ]
+  },
+  {
+    "name": "building_poll_ballots",
+    "columns": [
+      "poll_id",
+      "option_id"
+    ],
+    "primaryKey": []
+  }
+]

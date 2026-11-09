@@ -1,0 +1,30 @@
+name: Neon migration preflight
+
+on:
+  push:
+    branches: [main]
+    paths: ['neon/**', '.github/workflows/neon-migration-preflight.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate migration tooling
+        run: node --test neon/tests/*.test.mjs
+      - name: Verify stored credentials without changing production
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node neon/scripts/preflight.mjs
