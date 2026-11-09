@@ -46,6 +46,12 @@ import { LoginView } from './components/LoginView';
 import { supabase } from './lib/supabase';
 import { checkForOtaUpdate } from './services/otaUpdates';
 
+const managerTabs = ['dashboard', 'collections', 'expenses', 'reports', 'resident', 'chat', 'image-studio', 'approvals', 'polls', 'exceptional-collections', 'more', 'app-settings', 'treasury-settings'];
+const tabFromLocation = () => {
+  const tab = new URLSearchParams(window.location.search).get('tab');
+  return tab && managerTabs.includes(tab) ? tab : 'dashboard';
+};
+
 export default function App() {
   useEffect(initializeDevicePreferences, []);
   // Live Updates are initialized once in src/main.tsx. Keeping a second
@@ -161,16 +167,7 @@ export default function App() {
   }, [user?.id, isAdmin]);
 
   // 3. Navigation State (Defaults directly to 'dashboard')
-  const [currentTab, setCurrentTabState] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const tabParam = params.get('tab');
-      if (tabParam && ['dashboard', 'collections', 'expenses', 'reports', 'resident', 'chat', 'image-studio', 'approvals', 'polls', 'exceptional-collections', 'more', 'app-settings', 'treasury-settings'].includes(tabParam)) {
-        return tabParam;
-      }
-    }
-    return 'dashboard';
-  });
+  const [currentTab, setCurrentTabState] = useState<string>(() => typeof window === 'undefined' ? 'dashboard' : tabFromLocation());
 
   const notificationStorageKey = (kind: 'tickets' | 'announcements') => `bunyan-seen-${kind}-${user?.id || 'guest'}-${currentBuildingId || 'all'}`;
   const getSeenNotificationIds = (kind: 'tickets' | 'announcements'): string[] => {
@@ -183,14 +180,19 @@ export default function App() {
   const unreadAnnouncementCount = announcements.filter(item => !getSeenNotificationIds('announcements').includes(item.id)).length;
 
   const setCurrentTab = (tab: string) => {
+    if (tab === currentTab) return;
     if (tab === 'resident') markNotificationsSeen('tickets', tickets.map(item => item.id));
     if (tab === 'image-studio') markNotificationsSeen('announcements', announcements.map(item => item.id));
     setCurrentTabState(tab);
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       url.searchParams.set('tab', tab);
-      window.history.pushState({}, '', url.toString());
+      window.history.pushState({ managerPreviousTab: currentTab }, '', url.toString());
     }
+  };
+  const goBack = (fallback: string) => {
+    if (window.history.state?.managerPreviousTab) window.history.back();
+    else setCurrentTab(fallback);
   };
 
   const handleSelectBuilding = (b: Building) => {
@@ -356,16 +358,20 @@ export default function App() {
       if (currentTab === 'app-settings' && document.querySelector('[data-settings-subpage]')) return;
       // If any modal is open, close modals first
       if (isBuildingModalOpen || isSettingsModalOpen || isAddExpenseModalOpen || isPdfModalOpen) {
+        // These dialogs do not push a route when opened. Preserve their parent
+        // entry so closing one with Back does not also consume that page.
+        const previousTab = tabFromLocation();
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', currentTab);
+        window.history.pushState({ managerPreviousTab: previousTab }, '', url.toString());
         setIsBuildingModalOpen(false);
         setIsSettingsModalOpen(false);
         setIsAddExpenseModalOpen(false);
         setIsPdfModalOpen(false);
         return;
       }
-      // If not on dashboard, return to dashboard
-      if (currentTab !== 'dashboard') {
-        setCurrentTabState(currentTab === 'app-settings' || currentTab === 'treasury-settings' ? 'more' : 'dashboard');
-      }
+      // popstate has already moved the URL to the actual previous/next entry.
+      setCurrentTabState(tabFromLocation());
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -1155,7 +1161,7 @@ export default function App() {
 
         {/* Content Body */}
         <main className="flex-1 p-3 pb-28 sm:p-6 sm:pb-28 max-w-7xl mx-auto w-full">
-          {currentTab === 'more' && <MoreView onBack={() => setCurrentTab('dashboard')} onOpenAppSettings={() => setCurrentTab('app-settings')} onSignOut={() => void signOut()} items={[
+          {currentTab === 'more' && <MoreView onBack={() => goBack('dashboard')} onOpenAppSettings={() => setCurrentTab('app-settings')} onSignOut={() => void signOut()} items={[
             ...(isAdmin ? [{ id: 'exceptional', label: 'التحصيلات الاستثنائية', icon: Wallet, tone: 'teal' as const, onClick: () => setCurrentTab('exceptional-collections') }] : []),
             { id: 'polls', label: 'استطلاعات الرأي', icon: BarChart3, tone: 'violet', onClick: () => setCurrentTab('polls') },
             { id: 'reports', label: 'التقارير', icon: FileText, onClick: () => setCurrentTab('reports') },
@@ -1168,8 +1174,8 @@ export default function App() {
               { id: 'building-settings', label: 'إعدادات العمارة والتحصيل', icon: SlidersHorizontal, onClick: () => setIsSettingsModalOpen(true) },
             ] : []),
           ]}/>}
-          {currentTab === 'app-settings' && <AppPreferencesView onBack={() => setCurrentTab('more')} onSignOut={() => void signOut()} onBuildingSettings={isAdmin ? () => setIsSettingsModalOpen(true) : undefined}/>}
-          {currentTab === 'treasury-settings' && isAdmin && <TreasurySettingsView key={currentBuilding.id} buildingId={currentBuilding.id} onBack={() => setCurrentTab('more')} onSaved={({ balance, reserveFund }) => setBuildings(rows => rows.map(building => building.id === currentBuilding.id ? { ...building, balance, reserveFund } : building))}/>}
+          {currentTab === 'app-settings' && <AppPreferencesView onBack={() => goBack('more')} onSignOut={() => void signOut()} onBuildingSettings={isAdmin ? () => setIsSettingsModalOpen(true) : undefined}/>}
+          {currentTab === 'treasury-settings' && isAdmin && <TreasurySettingsView key={currentBuilding.id} buildingId={currentBuilding.id} onBack={() => goBack('more')} onSaved={({ balance, reserveFund }) => setBuildings(rows => rows.map(building => building.id === currentBuilding.id ? { ...building, balance, reserveFund } : building))}/>}
 
           {currentTab === 'polls' && <PollsView buildingId={currentBuilding.id} canManage />}
           {currentTab === 'exceptional-collections' && isAdmin && <ExceptionalCollectionsView buildingId={currentBuilding.id} apartments={apartments.filter(a => a.buildingId === currentBuilding.id)} />}
