@@ -1,3 +1,4 @@
+import { PasswordInput } from './PasswordInput';
 import React, { useEffect, useState } from 'react';
 import { AlertCircle, Building2, CheckCircle2, Chrome, LogOut, ShieldCheck, Users, Mail, Lock, User, Wallet } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -109,8 +110,8 @@ export const LoginView: React.FC = () => {
               {authError && <p className="fotouh-message error"><AlertCircle/>{authError}</p>}
               {error && <p className="fotouh-message error"><AlertCircle/>{error}</p>}
               {notice && <p className="fotouh-message success"><CheckCircle2/>{notice}</p>}
-              <label className="fotouh-field"><span>كلمة المرور الجديدة</span><div><Lock/><input type="password" minLength={8} autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} required placeholder="8 أحرف على الأقل"/></div></label>
-              <label className="fotouh-field"><span>تأكيد كلمة المرور</span><div><Lock/><input type="password" minLength={8} autoComplete="new-password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} required placeholder="أعد كتابة كلمة المرور"/></div></label>
+              <label className="fotouh-field"><span>كلمة المرور الجديدة</span><div><Lock/><PasswordInput minLength={8} autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} required placeholder="8 أحرف على الأقل"/></div></label>
+              <label className="fotouh-field"><span>تأكيد كلمة المرور</span><div><Lock/><PasswordInput minLength={8} autoComplete="new-password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} required placeholder="أعد كتابة كلمة المرور"/></div></label>
               <button disabled={isLoading} className="fotouh-primary-button w-full" type="submit">{isLoading ? 'جارٍ الحفظ...' : 'حفظ كلمة المرور'}</button>
             </form>
           ) : !user ? (
@@ -124,8 +125,8 @@ export const LoginView: React.FC = () => {
               {notice && <p className="fotouh-message success"><CheckCircle2/>{notice}</p>}
               {authMode === 'signup' && <label className="fotouh-field"><span>الاسم بالكامل</span><div><User/><input form="auth-form" value={fullName} onChange={e=>setFullName(e.target.value)} autoComplete="name" required placeholder="اسمك بالكامل"/></div></label>}
               <label className="fotouh-field"><span>البريد الإلكتروني</span><div><Mail/><input form="auth-form" type="email" dir="ltr" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" required placeholder="name@example.com"/></div></label>
-              {authMode !== 'forgot' && <label className="fotouh-field"><span>كلمة المرور</span><div><Lock/><input form="auth-form" type="password" dir="ltr" minLength={8} value={password} onChange={e=>setPassword(e.target.value)} autoComplete={authMode==='signup'?'new-password':'current-password'} required placeholder={authMode==='signup'?'8 أحرف على الأقل':'كلمة المرور'}/></div></label>}
-              {authMode === 'signup' && <label className="fotouh-field"><span>تأكيد كلمة المرور</span><div><Lock/><input form="auth-form" type="password" dir="ltr" minLength={8} value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="new-password" required placeholder="أعد كتابة كلمة المرور"/></div></label>}
+              {authMode !== 'forgot' && <label className="fotouh-field"><span>كلمة المرور</span><div><Lock/><PasswordInput form="auth-form" dir="ltr" minLength={8} value={password} onChange={e=>setPassword(e.target.value)} autoComplete={authMode==='signup'?'new-password':'current-password'} required placeholder={authMode==='signup'?'8 أحرف على الأقل':'كلمة المرور'}/></div></label>}
+              {authMode === 'signup' && <label className="fotouh-field"><span>تأكيد كلمة المرور</span><div><Lock/><PasswordInput form="auth-form" dir="ltr" minLength={8} value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="new-password" required placeholder="أعد كتابة كلمة المرور"/></div></label>}
               <form id="auth-form" onSubmit={async event => {
                 event.preventDefault(); setError(''); setNotice(''); clearError();
                 if (authMode === 'forgot') {

@@ -150,7 +150,7 @@ export default function App() {
             notes:r.notes || undefined, receiptUrl:r.receipt_url || undefined, approvedBy:r.approved_by || '',
           })));
           if (settingsResult.error) showToast('تعذر تحميل إعدادات العمارة: ' + settingsResult.error.message, 'error');
-          else { const mergedSettings = { ...getStoredSettings(), ...(settingsResult.data?.setting_value || {}) }; setSettings(mergedSettings); saveStoredSettings(mergedSettings); }
+          else { const mergedSettings = { customGeminiApiKey: getStoredSettings().customGeminiApiKey || '', backendUrl: getStoredSettings().backendUrl || '', ...(settingsResult.data?.setting_value || {}) }; setSettings(mergedSettings); saveStoredSettings(mergedSettings); }
         }
       }
       setIsDataLoading(false);
@@ -332,7 +332,7 @@ export default function App() {
         notes:r.notes || undefined, receiptUrl:r.receipt_url || undefined, approvedBy:r.approved_by || '',
       })));
       if (settingsResult.error) throw settingsResult.error;
-      const mergedSettings = { ...getStoredSettings(), ...(settingsResult.data?.setting_value || {}) };
+      const mergedSettings = { customGeminiApiKey: getStoredSettings().customGeminiApiKey || '', backendUrl: getStoredSettings().backendUrl || '', ...(settingsResult.data?.setting_value || {}) };
       setSettings(mergedSettings);
       saveStoredSettings(mergedSettings);
 
