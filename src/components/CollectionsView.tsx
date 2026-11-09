@@ -644,16 +644,16 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-xs text-right border-collapse">
+              <table className="w-full text-xs text-right border-collapse">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
                   <tr>
-                    <th className="p-3 whitespace-nowrap">رقم الإيصال</th>
-                    <th className="p-3 whitespace-nowrap">الشقة والشاغل</th>
-                    <th className="p-3 whitespace-nowrap">المبلغ المسدد</th>
-                    <th className="p-3 whitespace-nowrap">دورة / شهر الاستحقاق</th>
-                    <th className="p-3 whitespace-nowrap">تاريخ الدفع</th>
-                    <th className="p-3 whitespace-nowrap">طريقة السداد</th>
-                    <th className="p-3 whitespace-nowrap">الملاحظات</th>
+                    <th className="p-3">رقم الإيصال</th>
+                    <th className="p-3">الشقة والشاغل</th>
+                    <th className="p-3">المبلغ المسدد</th>
+                    <th className="p-3">دورة / شهر الاستحقاق</th>
+                    <th className="p-3">تاريخ الدفع</th>
+                    <th className="p-3">طريقة السداد</th>
+                    <th className="p-3">الملاحظات</th>
                     {isManager && <th className="p-3 text-center">الإجراءات</th>}
                   </tr>
                 </thead>
@@ -734,12 +734,12 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
               <table className="w-full text-xs text-right border-collapse">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
                   <tr>
-                    <th className="p-3 whitespace-nowrap">نوع العملية</th>
-                    <th className="p-3 whitespace-nowrap">الوحدة المستهدفة</th>
-                    <th className="p-3 whitespace-nowrap">تفاصيل التغيير</th>
-                    <th className="p-3 whitespace-nowrap">القائم بالعملية</th>
-                    <th className="p-3 whitespace-nowrap">تاريخ ووقت العملية</th>
-                    <th className="p-3 whitespace-nowrap">البيان والملاحظات</th>
+                    <th className="p-3">نوع العملية</th>
+                    <th className="p-3">الوحدة المستهدفة</th>
+                    <th className="p-3">تفاصيل التغيير</th>
+                    <th className="p-3">القائم بالعملية</th>
+                    <th className="p-3">تاريخ ووقت العملية</th>
+                    <th className="p-3">البيان والملاحظات</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -752,7 +752,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
                       <tr key={log.id} className="hover:bg-slate-50/70 transition">
                         <td className="p-3">
                           <span
-                            className={`inline-flex whitespace-nowrap px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                            className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
                               isCreate
                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                 : isUpdate

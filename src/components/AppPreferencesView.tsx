@@ -1,27 +1,11 @@
-import { SuccessorManager } from './SuccessorManager';
-import { supabase } from '../lib/supabase';
 import React, { useEffect, useState } from 'react';
 import { Globe2, Palette, Type, ShieldCheck, FileText, RotateCcw, LogOut, Building2, SlidersHorizontal, Check } from 'lucide-react';
 import { SettingsList, SettingsPage } from './SettingsList';
 import { readDevicePreferences, saveDevicePreferences, defaultDevicePreferences, type Appearance, type FontSize } from '../services/appPreferences';
 
-type Page = 'delete' | 'list' | 'language' | 'appearance' | 'font' | 'privacy' | 'terms' | 'reset' | 'about';
-const titles: Record<Page, string> = { delete: 'حذف حسابي نهائيًا', list: 'إعدادات التطبيق', language: 'اللغة', appearance: 'المظهر', font: 'حجم الخط', privacy: 'سياسة الخصوصية', terms: 'شروط الاستخدام', reset: 'إعادة ضبط إعدادات العرض', about: 'عن التطبيق' };
+type Page = 'list' | 'language' | 'appearance' | 'font' | 'privacy' | 'terms' | 'reset' | 'about';
+const titles: Record<Page, string> = { list: 'إعدادات التطبيق', language: 'اللغة', appearance: 'المظهر', font: 'حجم الخط', privacy: 'سياسة الخصوصية', terms: 'شروط الاستخدام', reset: 'إعادة ضبط إعدادات العرض', about: 'عن التطبيق' };
 export function AppPreferencesView({ onBack, onSignOut, onBuildingSettings }: { onBack: () => void; onSignOut: () => void; onBuildingSettings?: () => void }) {
-  const [confirmation,setConfirmation] = useState('');
-  const [deleting,setDeleting] = useState(false);
-  const removeAccount = async () => {
-    if (deleting || confirmation !== 'حذف حسابي نهائيًا') return;
-    setDeleting(true); setNotice('');
-    try {
-      const {error} = await supabase.rpc('delete_my_account',{confirmation});
-      if(error) { setNotice(error.message.includes('LAST_MANAGER') ? 'أنت المدير الوحيد. أضف مديرًا آخر من أعضاء العمارة أولًا ثم أعد الحذف.' : 'تعذر حذف الحساب. حاول مرة أخرى.'); return; }
-      await supabase.auth.signOut({scope:'local'});
-      for(const key of Object.keys(localStorage)) if(key.startsWith('bunyan_') || key.startsWith('elomara-') || key.startsWith('sb-')) localStorage.removeItem(key);
-      window.location.replace('/');
-    } catch { setNotice('تعذر إتمام الطلب. تحقق من الاتصال.'); }
-    finally { setDeleting(false); }
-  };
   const [page, setPage] = useState<Page>('list');
   const [preferences, setPreferences] = useState(readDevicePreferences);
   const [notice, setNotice] = useState('');
@@ -52,12 +36,10 @@ export function AppPreferencesView({ onBack, onSignOut, onBuildingSettings }: { 
         ...(onBuildingSettings ? [{ id: 'building-settings', label: 'إعدادات العمارة والتحصيل', icon: SlidersHorizontal, tone: 'teal' as const, onClick: onBuildingSettings }] : []),
         { id: 'about', label: 'عن التطبيق', icon: Building2, onClick: () => open('about') },
         { id: 'reset', label: 'إعادة ضبط إعدادات العرض', icon: RotateCcw, tone: 'gold', onClick: () => open('reset') },
-        { id: 'delete', label: 'حذف حسابي نهائيًا', icon: LogOut, tone: 'rose', onClick: () => open('delete') },
         { id: 'logout', label: 'تسجيل الخروج', icon: LogOut, tone: 'rose', onClick: onSignOut },
       ]}/><p className="settings-help">المظهر وحجم الخط خاصان بهذا الجهاز، ولا يغيران إعدادات العمارة أو بيانات الحساب.</p>
     </>}
-    {page === 'delete' && <div className="settings-panel"><h2>حذف نهائي لا يمكن التراجع عنه</h2><p>سيُحذف حساب الدخول وملفك الشخصي وطلبات انضمامك وأجهزتك وإشعاراتك. ستحتاج تسجيل حساب جديد للعودة.</p><p>سجلات العمارة والمدفوعات المشتركة تظل محفوظة بعد فصلها عن حساب الدخول. لو أنت المدير الوحيد، يجب إضافة مدير آخر قبل الحذف.</p><SuccessorManager /><label className="block mt-4">اكتب «حذف حسابي نهائيًا» للتأكيد<input value={confirmation} onChange={e=>setConfirmation(e.target.value)} disabled={deleting} className="block w-full border rounded-xl p-3 my-3" autoComplete="off" /></label><button type="button" className="settings-save" disabled={deleting || confirmation!=='حذف حسابي نهائيًا'} onClick={()=>void removeAccount()}>{deleting?'جارٍ حذف الحساب…':'تأكيد الحذف النهائي'}</button></div>}
-    {page === 'appearance'  && <div className="settings-panel"><p>اختار المظهر المناسب لك.</p><div className="settings-options">{([['light','فاتح'],['dark','داكن'],['system','حسب إعداد الجهاز']] as [Appearance,string][]).map(([value,label])=><button type="button" key={value} aria-pressed={preferences.appearance===value} onClick={()=>choose({...preferences,appearance:value})}>{label}{preferences.appearance===value && <Check size={18}/>}</button>)}</div></div>}
+    {page === 'appearance' && <div className="settings-panel"><p>اختار المظهر المناسب لك.</p><div className="settings-options">{([['light','فاتح'],['dark','داكن'],['system','حسب إعداد الجهاز']] as [Appearance,string][]).map(([value,label])=><button type="button" key={value} aria-pressed={preferences.appearance===value} onClick={()=>choose({...preferences,appearance:value})}>{label}{preferences.appearance===value && <Check size={18}/>}</button>)}</div></div>}
     {page === 'font' && <div className="settings-panel"><p>التغيير يظهر فورًا في التطبيق.</p><div className="settings-options">{([['normal','عادي'],['large','كبير'],['extra-large','كبير جدًا']] as [FontSize,string][]).map(([value,label])=><button type="button" key={value} aria-pressed={preferences.fontSize===value} onClick={()=>choose({...preferences,fontSize:value})}>{label}{preferences.fontSize===value && <Check size={18}/>}</button>)}</div><div className="settings-font-preview"><strong>أهلًا بك في العمارة</strong><p>تابع أخبار العمارة وبياناتك بسهولة.</p></div></div>}
     {page === 'language' && <div className="settings-panel"><h2>العربية</h2><p>الواجهة الحالية متاحة باللغة العربية.</p></div>}
     {page === 'privacy' && <article className="settings-panel settings-document"><h2>بيانات الحساب والعمارة</h2><p>يستخدم التطبيق بيانات تسجيل الدخول والاسم وبيانات الشقة لربط حسابك بالعمارة ومنحك الصلاحيات المناسبة. تُحفظ سجلات التحصيل والمصروفات وطلبات الصيانة والرسائل التي ترسلها في خدمات التطبيق السحابية.</p><h2>صلاحيات الوصول</h2><p>يدير مدير العمارة بيانات عمارته. يعرض حساب الساكن بيانات شقته والمعلومات المتاحة له بعد موافقة الإدارة. لا تشارك كلمة المرور أو رابط استعادة الحساب مع أي شخص.</p><h2>الخدمات المرتبطة</h2><p>يستخدم التطبيق Supabase لتسجيل الدخول وحفظ البيانات، وقد يستخدم Google عند اختيار تسجيل الدخول به. عند استخدام المساعد الذكي أو إرسال محتوى لخدمة خارجية، قد يُرسل المحتوى اللازم لتلك الخدمة؛ تجنب إدخال كلمات المرور أو المعلومات الحساسة في المحادثات.</p><h2>بيانات الجهاز وطلبات الحساب</h2><p>تُحفظ تفضيلات العرض وبعض بيانات الجلسة والتخزين المؤقت على جهازك. لتصحيح بيانات العمارة أو طلب حذف بيانات حسابك، تواصل مع إدارة العمارة لتنسيق الطلب مع مسؤول التطبيق.</p></article>}

@@ -1,6 +1,6 @@
 import { PasswordInput } from './PasswordInput';
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, Building2, CheckCircle2, Chrome, LogOut, ShieldCheck, Users, Mail, Lock, User, Wallet, MapPin, LocateFixed } from 'lucide-react';
+import { AlertCircle, Building2, CheckCircle2, Chrome, LogOut, ShieldCheck, Users, Mail, Lock, User, Wallet } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -10,26 +10,6 @@ export const LoginView: React.FC = () => {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, updatePassword, isPasswordRecovery, clearPasswordRecovery, authError, isLoading, clearError, user, userProfile, isAdmin, signOut } = useAuth();
   const [buildingName, setBuildingName] = useState('');
   const [buildingAddress, setBuildingAddress] = useState('');
-  const [coordinates, setCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [locating, setLocating] = useState(false);
-  const locateBuilding = () => {
-    if (!navigator.geolocation) { setError('تحديد الموقع غير متاح على هذا الجهاز. اكتب العنوان يدويًا.'); return; }
-    setError(''); setLocating(true);
-    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
-      const position = { latitude: coords.latitude, longitude: coords.longitude };
-      setCoordinates(position);
-      try {
-        const params = new URLSearchParams({ lat: String(coords.latitude), lon: String(coords.longitude), format: 'jsonv2', 'accept-language': 'ar', zoom: '18' });
-        const response = await fetch('https://nominatim.openstreetmap.org/reverse?' + params);
-        if (response.ok) {
-          const result: { display_name?: string } = await response.json();
-          if (result.display_name) setBuildingAddress(result.display_name);
-        }
-      } catch { /* Keep coordinates even if address lookup is unavailable. */ }
-      setLocating(false);
-    }, () => { setLocating(false); setError('تعذر تحديد الموقع. فعّل خدمة الموقع واسمح للتطبيق، أو اكتب العنوان يدويًا.'); },
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
-  };
   const [unitsCount, setUnitsCount] = useState('0');
   const [floorsCount, setFloorsCount] = useState('');
   const [openingBalance, setOpeningBalance] = useState('');
@@ -64,21 +44,13 @@ export const LoginView: React.FC = () => {
       setError('اكتب رصيدًا افتتاحيًا من صفر إلى 9,999,999,999.99 ج.م، بحد أقصى رقمين بعد العلامة العشرية.'); return;
     }
     setBusy(true);
-    const { data: createdBuildingId, error: actionError } = await supabase.rpc('create_building_with_opening_balance', {
+    const { error: actionError } = await supabase.rpc('create_building_with_opening_balance', {
       building_name: buildingName.trim(),
       building_address: buildingAddress.trim(),
       units_count: Math.max(0, Number(unitsCount) || 0),
       floors_count: floorsCount.trim() ? Math.max(0, Number(floorsCount) || 0) : null,
       opening_balance: Number(balanceText || '0'),
     });
-    if (!actionError && coordinates && createdBuildingId) {
-      const { error: locationError } = await supabase.rpc('set_building_location', {
-        target_building_id: createdBuildingId,
-        new_latitude: coordinates.latitude,
-        new_longitude: coordinates.longitude,
-      });
-      if (locationError) console.warn('Building coordinates could not be saved:', locationError.message);
-    }
     setBusy(false);
     if (actionError) setError(actionError.message);
     else window.location.reload();
@@ -219,9 +191,7 @@ export const LoginView: React.FC = () => {
               <form onSubmit={createBuilding} className="space-y-3 rounded-2xl border border-slate-200 p-4">
                 <h3 className="font-bold text-slate-800">أنا مدير عمارة — إنشاء عمارة</h3>
                 <label className="fotouh-field"><span>اسم العمارة</span><div><Building2/><input value={buildingName} onChange={e=>setBuildingName(e.target.value)} placeholder="اسم العمارة" required/></div></label>
-                <label className="fotouh-field"><span>العنوان</span><div><Building2/><input value={buildingAddress} onChange={e=>{setBuildingAddress(e.target.value); setCoordinates(null);}} placeholder="العنوان"/></div></label>
-                <button type="button" onClick={locateBuilding} disabled={locating || busy} className="w-full flex items-center justify-center gap-2 rounded-xl border border-teal-300 bg-teal-50 px-4 py-3 text-sm font-bold text-teal-800"><LocateFixed className="h-5 w-5"/>{locating ? 'جارٍ تحديد موقع الهاتف...' : 'تحديد موقعي الحالي'}</button>
-                {coordinates && <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-600"><p className="flex items-center gap-2"><MapPin className="h-4 w-4"/>تم تحديد الموقع. تأكد أنك موجود عند العمارة.</p><a className="font-bold text-teal-700 underline" href={`https://www.openstreetmap.org/?mlat=${coordinates.latitude}&mlon=${coordinates.longitude}#map=18/${coordinates.latitude}/${coordinates.longitude}`} target="_blank" rel="noopener noreferrer">معاينة الموقع على الخريطة</a></div>}
+                <label className="fotouh-field"><span>العنوان</span><div><Building2/><input value={buildingAddress} onChange={e=>setBuildingAddress(e.target.value)} placeholder="العنوان"/></div></label>
                 <div className="grid grid-cols-2 gap-3">
                   <label className="fotouh-field"><span>عدد الشقق</span><div><Users/><input type="number" min="0" value={unitsCount} onChange={e=>setUnitsCount(e.target.value)}/></div></label>
                   <label className="fotouh-field"><span>عدد الأدوار</span><div><Building2/><input type="number" min="0" value={floorsCount} onChange={e=>setFloorsCount(e.target.value)} placeholder="اختياري"/></div></label>

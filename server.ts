@@ -7,16 +7,28 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
-import { createClient } from '@supabase/supabase-js';
-import { resolveSupabaseConfig } from './server/supabaseConfig';
-import { aiSecurity } from './server/aiSecurity';
 
 dotenv.config();
 process.env.DISABLE_HMR = process.env.DISABLE_HMR || 'true';
 
-const config = resolveSupabaseConfig(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
-const authClient = createClient(config.url, config.key, { auth: { persistSession: false, autoRefreshToken: false } });
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,https://localhost').split(',').map(origin => origin.trim()).filter(Boolean);
+// Normalize VITE_SUPABASE_URL if misconfigured with JWT token in environment
+if (process.env.VITE_SUPABASE_URL && !process.env.VITE_SUPABASE_URL.startsWith('http')) {
+  try {
+    const parts = process.env.VITE_SUPABASE_URL.split('.');
+    if (parts.length === 3) {
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+      if (payload.ref) {
+        if (!process.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY.startsWith('sb_secret_')) {
+          process.env.VITE_SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_URL;
+        }
+        process.env.VITE_SUPABASE_URL = `https://${payload.ref}.supabase.co`;
+      }
+    }
+  } catch {}
+  if (!process.env.VITE_SUPABASE_URL.startsWith('http')) {
+    process.env.VITE_SUPABASE_URL = 'https://yvoylicirtdarroqcxoq.supabase.co';
+  }
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,8 +36,18 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = 3000;
 
-app.use('/api/gemini', ...aiSecurity(authClient, allowedOrigins));
 app.use(express.json({ limit: '20mb' }));
+
+// CORS middleware to support client requests from web and Capacitor Android
+app.use((_req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  if (_req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 // Initialize Gemini SDK with telemetry header
 const getAIClient = () => {
@@ -66,7 +88,7 @@ app.post('/api/gemini/chat', async (req: Request, res: Response) => {
       parts: [{ text: m.text }],
     }));
 
-    const systemPrompt = systemInstruction || 'أنت «مساعد العمارة الذكي»، مساعد متخصص في إدارة العمارات السكنية، حسابات الخزينة والمصروفات، اتحادات الشاغلين في مصر، وحل مشكلات الصيانة والمرافق بأسلوب مهني وموجز وموثوق.';
+    const systemPrompt = systemInstruction || 'أنت «مساعد بُنيان الذكي»، مساعد متخصص في إدارة العمارات السكنية، حسابات الخزينة والمصروفات، اتحادات الشاغلين في مصر، وحل مشكلات الصيانة والمرافق بأسلوب مهني وموجز وموثوق.';
 
     let responseText = '';
     try {
@@ -75,7 +97,6 @@ app.post('/api/gemini/chat', async (req: Request, res: Response) => {
         contents,
         config: {
           systemInstruction: systemPrompt,
-          maxOutputTokens: 2048,
         },
       });
       responseText = response.text || '';
@@ -87,7 +108,6 @@ app.post('/api/gemini/chat', async (req: Request, res: Response) => {
         contents,
         config: {
           systemInstruction: systemPrompt,
-          maxOutputTokens: 2048,
         },
       });
       responseText = fallbackResponse.text || '';
@@ -330,7 +350,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Elomara Server running at http://localhost:${PORT}`);
+    console.log(`Bonyan Server running at http://localhost:${PORT}`);
   });
 }
 

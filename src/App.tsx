@@ -715,7 +715,7 @@ export default function App() {
     const pToDelete = payments.find((p) => p.id === paymentId);
     if (!pToDelete) return;
 
-    const { data: treasuryBalance, error: paymentDeleteError } = await supabase.rpc('delete_payment_with_treasury', { payment_id: paymentId });
+    const { error: paymentDeleteError } = await supabase.from('payments').delete().eq('id', paymentId);
     if (paymentDeleteError) { showToast('تعذر حذف الدفعة: ' + paymentDeleteError.message, 'error'); return; }
     const updatedPayments = payments.filter((p) => p.id !== paymentId);
     setPayments(updatedPayments);
@@ -751,8 +751,8 @@ export default function App() {
       finSummary = ` | المتبقي للشقة الآن: ${fin.remaining.toLocaleString()} ج.م`;
     }
 
-    // Server deletes the receipt and reverses cash atomically, exactly once.
-    setBuildings(rows => rows.map(b => b.id === (pToDelete.buildingId || currentBuilding.id) ? { ...b, balance: Number(treasuryBalance) } : b));
+    // Reverse the deleted payment from the shared treasury.
+    await persistTreasuryDelta(pToDelete.buildingId || currentBuilding.id, -pToDelete.amount);
 
     // Audit Log Entry
     logPaymentAudit(

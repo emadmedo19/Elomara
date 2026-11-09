@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useEffect } from 'react';
 import { Apartment, Payment } from '../types';
 import { DollarSign, Calendar, Check, X, AlertTriangle, CreditCard, Tag } from 'lucide-react';
 
@@ -41,26 +40,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [method, setMethod] = useState<string>(paymentMethods[0] || 'نقدي');
   const [notes, setNotes] = useState<string>('سداد اشتراك الصيانة الشهري');
   const [receiptNumber, setReceiptNumber] = useState<string>(`REC-${Date.now().toString().slice(-5)}`);
-
-  const dialog = useRef<HTMLFormElement>(null);
-  useEffect(() => {
-    if (!isOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    const previousFocus = document.activeElement as HTMLElement | null;
-    document.body.style.overflow = 'hidden';
-    dialog.current?.querySelector<HTMLElement>('button, input, select')?.focus();
-    const keyboard = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { event.preventDefault(); onClose(); }
-      if (event.key === 'Tab') {
-        const elements = Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled)') || []);
-        const first=elements[0], last=elements.at(-1);
-        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-      }
-    };
-    document.addEventListener('keydown',keyboard);
-    return () => { document.body.style.overflow=previousOverflow; document.removeEventListener('keydown',keyboard); previousFocus?.focus(); };
-  }, [isOpen]);
 
   // Duplicate warning state
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
@@ -125,9 +104,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
     if (saved) onClose();
   };
 
-  return createPortal(
-    <div dir="rtl" className="fixed inset-0 z-[10050] bg-[#0f2537]/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-      <form ref={dialog} role="dialog" aria-modal="true" aria-label={editingPayment ? "تعديل دفعة السداد" : "تسجيل تحصيل جديد"} onSubmit={handleSubmit} className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
+  return (
+    <div className="fixed inset-0 z-[60] bg-[#0f2537]/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+      <form onSubmit={handleSubmit} className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
@@ -306,6 +285,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </button>
         </div>
       </form>
-    </div>, document.body
+    </div>
   );
 };

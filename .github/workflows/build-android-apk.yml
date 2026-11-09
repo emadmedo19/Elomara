@@ -10,10 +10,6 @@ concurrency:
   group: elomara-android-main
   cancel-in-progress: false
 
-env:
-  VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://yvoylicirtdarroqcxoq.supabase.co' }}
-  VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'sb_publishable_HKL0bzKI5Lf0M7v4YDXNcw_DIz9CAre' }}
-
 permissions:
   contents: read
 
@@ -51,7 +47,7 @@ jobs:
         run: python .github/scripts/generate_brand_assets.py
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: TypeScript check
         run: npm run lint
