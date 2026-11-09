@@ -1,3 +1,4 @@
+import { clearNativeWebAppCache } from './webAppCache';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { LiveUpdate } from '@capawesome/capacitor-live-update';
@@ -95,6 +96,7 @@ export async function applyOtaUpdate() {
     publish({ manifest, phase: 'applying' });
     // Stage only after explicit consent, so "later" cannot install on restart.
     await LiveUpdate.setNextBundle({ bundleId: manifest.bundleId });
+    await clearNativeWebAppCache();
     await LiveUpdate.reload();
     publish(idle);
   } catch (error) {

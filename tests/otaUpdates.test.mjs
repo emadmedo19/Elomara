@@ -29,6 +29,10 @@ function setup(options = {}) {
     },
   };
   const context = {
+    ...(options.webCache ? {
+      navigator: { serviceWorker: { getRegistrations: async () => [{ unregister: async () => { calls.push('unregister-worker'); } }] } },
+      caches: { keys: async () => ['workbox-precache-old','unrelated-cache'], delete: async key => { calls.push(['clear-cache',key]); } },
+    } : {}),
     mock, module: { exports: {} }, console: { info() {}, warn() {} }, AbortSignal,
     fetch: async () => { calls.push('fetch'); if (options.offline) throw Error('offline'); return { ok: true, json: async () => options.manifest ?? manifest }; },
   };
@@ -107,4 +111,12 @@ test('startup/resume checks share one initialization and do not stack listeners'
   await api.checkForOtaUpdate(); mock.resume({ isActive: true }); await api.checkForOtaUpdate();
   assert.equal(calls.filter(c => c === 'ready').length, 1);
   assert.equal(calls.includes('reload'), false);
+});
+
+test('native apply removes PWA workers and only Workbox caches before reloading', async () => {
+  const {api,calls}=setup({webCache:true});
+  await api.checkForOtaUpdate(); await api.applyOtaUpdate();
+  assert.ok(calls.indexOf('unregister-worker') < calls.indexOf('reload'));
+  assert.ok(calls.some(call=>Array.isArray(call)&&call[0]==='clear-cache'&&call[1]==='workbox-precache-old'));
+  assert.equal(calls.some(call=>Array.isArray(call)&&call[1]==='unrelated-cache'),false);
 });
