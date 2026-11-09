@@ -8,9 +8,13 @@ if (!key) throw new Error('Missing source storage credential');
 const source = 'https://yvoylicirtdarroqcxoq.supabase.co/storage/v1';
 const headers = { apikey: key, Authorization: `Bearer ${key}` };
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-async function sourceRequest(path, options = {}) {
+async function sourceRequest(path, options = {}, allowExpiredBundle = false) {
   const response = await fetch(source + path, { ...options, headers: { ...headers, ...options.headers }, signal: AbortSignal.timeout(60000) });
-  if (!response.ok) throw new Error(`Source storage read failed (HTTP ${response.status}); no data removed`);
+  if (!response.ok) {
+    const detail = await response.clone().json().catch(() => ({}));
+    if (allowExpiredBundle && (response.status === 404 || (response.status === 400 && String(detail.statusCode) === '404'))) return null;
+    throw new Error(`Source storage read failed (HTTP ${response.status}); no data removed`);
+  }
   return response;
 }
 const { client, endpoint } = await storageClient();
@@ -34,7 +38,11 @@ try {
     if (bucket === 'elomara-android-signing' && !paths.includes('signing-v1.json')) throw new Error('Existing signing identity is missing; refusing replacement');
     for (const name of paths) {
       const path = name.split('/').map(encodeURIComponent).join('/');
-      const response = await sourceRequest(`/object/authenticated/${bucket}/${path}`);
+      const response = await sourceRequest(`/object/authenticated/${bucket}/${path}`, {}, expectedPublic && name.startsWith('bundles/'));
+      // The live legacy OTA workflow may retire historical bundles during copy.
+      // Only those optional historical objects may disappear; signing material
+      // and the active manifest still fail closed on every error.
+      if (!response) { console.log('Historical OTA bundle retired by source retention; skipped'); continue; }
       const bytes = new Uint8Array(await response.arrayBuffer());
       let existing;
       try { existing = await client.send(new GetObjectCommand({ Bucket: bucket, Key: name })); }

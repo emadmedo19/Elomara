@@ -240,4 +240,3 @@ async function deliver(devices: any[], adminClient: any, title: string, messageB
     return json({ error: "Push delivery failed" }, 502);
   }
 }
-

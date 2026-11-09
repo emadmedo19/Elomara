@@ -123,4 +123,3 @@ export default async function handle(req: Request) {
     });
   }
 }
-
