@@ -3,7 +3,10 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { LiveUpdate } from '@capawesome/capacitor-live-update';
 const isNeonCandidate = import.meta.env?.VITE_BACKEND_PROVIDER === 'neon' && import.meta.env?.VITE_NEON_CANDIDATE === 'true';
 
-const OTA_MANIFEST_URL = 'https://yvoylicirtdarroqcxoq.supabase.co/storage/v1/object/public/bunyan-ota/latest.json';
+const LEGACY_OTA_BASE = 'https://yvoylicirtdarroqcxoq.supabase.co/storage/v1/object/public/bunyan-ota';
+const neonOtaBase = (import.meta.env.VITE_OTA_BASE_URL || '').replace(/\/+$/, '');
+const OTA_BASE = isNeonCandidate ? neonOtaBase : LEGACY_OTA_BASE;
+const OTA_MANIFEST_URL = `${OTA_BASE}/latest.json`;
 type Manifest = { bundleId: string; url: string; checksum: string };
 type UpdateState = {
   manifest: Manifest | null;
@@ -41,7 +44,7 @@ async function markCurrentBundleReady(): Promise<boolean> {
 }
 
 export function checkForOtaUpdate(): Promise<void> {
-  if (isNeonCandidate) return Promise.resolve();
+  if (!OTA_BASE || (isNeonCandidate && !OTA_BASE.startsWith('https://'))) return Promise.resolve();
   if (checking) return checking;
   if (applying) return Promise.resolve();
   checking = (async () => {
@@ -56,7 +59,7 @@ export function checkForOtaUpdate(): Promise<void> {
         throw new Error('Invalid OTA manifest');
       }
       const { bundleId, url, checksum } = manifest;
-      const expectedPrefix = 'https://yvoylicirtdarroqcxoq.supabase.co/storage/v1/object/public/bunyan-ota/bundles/';
+      const expectedPrefix = `${OTA_BASE}/bundles/`;
       if (typeof bundleId !== 'string' || !/^[a-f0-9]{40}$/.test(bundleId) ||
           typeof url !== 'string' || !url.startsWith(expectedPrefix) || !url.endsWith(`/${bundleId}.zip`) ||
           typeof checksum !== 'string' || !/^[a-f0-9]{64}$/.test(checksum)) {
@@ -111,9 +114,6 @@ let started = false;
 export function initializeLiveUpdates() {
   if (started || !Capacitor.isNativePlatform()) return;
   started = true;
-  // Mark the packaged native build healthy even when legacy OTA checks are off.
-  // Otherwise the native LiveUpdate rollback timer is never acknowledged.
-  if (isNeonCandidate) { initialization ??= markCurrentBundleReady(); return; }
   void checkForOtaUpdate();
   void CapacitorApp.addListener('appStateChange', ({ isActive }) => {
     if (isActive) void checkForOtaUpdate();
