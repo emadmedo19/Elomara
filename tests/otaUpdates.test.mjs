@@ -4,12 +4,16 @@ import vm from 'node:vm';
 import { build } from 'esbuild';
 
 const id = 'a'.repeat(40);
-const manifest = { bundleId: id, url: `https://yvoylicirtdarroqcxoq.supabase.co/storage/v1/object/public/bunyan-ota/bundles/${id}.zip`, checksum: 'c'.repeat(64) };
+const legacyBase = 'https://yvoylicirtdarroqcxoq.supabase.co/storage/v1/object/public/bunyan-ota';
+const neonBase = 'https://br-ancient-thunder-be36ds8e.storage.c-9.us-east-2.aws.neon.tech/bunyan-ota';
+const makeManifest = base => ({ bundleId: id, url: `${base}/bundles/${id}.zip`, checksum: 'c'.repeat(64) });
+const manifest = makeManifest(legacyBase);
 const compile = candidate => build({
   entryPoints: ['src/services/otaUpdates.ts'], bundle: true, write: false, platform: 'node', format: 'cjs',
   define: { 'import.meta.env.VITE_BUILD_ID': JSON.stringify('b'.repeat(40)),
     'import.meta.env.VITE_BACKEND_PROVIDER': JSON.stringify(candidate ? 'neon' : 'supabase'),
-    'import.meta.env.VITE_NEON_CANDIDATE': JSON.stringify(candidate ? 'true' : 'false') },
+    'import.meta.env.VITE_NEON_CANDIDATE': JSON.stringify(candidate ? 'true' : 'false'),
+    'import.meta.env.VITE_OTA_BASE_URL': JSON.stringify(candidate ? neonBase : '') },
   plugins: [{ name: 'native-test-double', setup(b) {
     b.onResolve({ filter: /^@capacitor\/|^@capawesome\// }, args => ({ path: args.path, namespace: 'mock' }));
     b.onLoad({ filter: /.*/, namespace: 'mock' }, () => ({ contents: 'export const Capacitor=globalThis.mock.Capacitor; export const App=globalThis.mock.App; export const LiveUpdate=globalThis.mock.LiveUpdate;' }));
@@ -35,7 +39,7 @@ function setup(options = {}) {
   };
   const context = {
     mock, module: { exports: {} }, console: { info() {}, warn() {} }, AbortSignal,
-    fetch: async () => { calls.push('fetch'); if (options.offline) throw Error('offline'); return { ok: true, json: async () => options.manifest ?? manifest }; },
+    fetch: async () => { calls.push('fetch'); if (options.offline) throw Error('offline'); return { ok: true, json: async () => options.manifest ?? (options.candidate ? makeManifest(neonBase) : manifest) }; },
   };
   vm.runInNewContext((options.candidate ? compiledCandidate : compiled).outputFiles[0].text, context);
   return { api: context.module.exports, calls, mock };
@@ -115,11 +119,21 @@ test('startup/resume checks share one initialization and do not stack listeners'
 });
 
 
-test('Neon candidate acknowledges native readiness without fetching or staging legacy OTA', async () => {
+test('Neon Android checks its isolated Neon manifest and can stage its bundle', async () => {
   const { api, calls, mock } = setup({ candidate: true });
-  api.initializeLiveUpdates(); api.initializeLiveUpdates();
+  api.initializeLiveUpdates();
   await api.checkForOtaUpdate();
-  assert.deepEqual(calls, ['ready']);
-  assert.equal(mock.resume, undefined);
+  assert.equal(api.getOtaSnapshot().manifest.url, makeManifest(neonBase).url);
+  assert.deepEqual(calls.slice(0, 2), ['ready', 'fetch']);
+  assert.equal(typeof mock.resume, 'function');
+  await api.applyOtaUpdate();
+  assert.equal(calls.includes('reload'), true);
+  assert.equal(calls.some(call => Array.isArray(call) && call[0] === 'download' &&
+    call[1].url.startsWith(neonBase + '/bundles/')), true);
+});
+test('Neon refuses a legacy Supabase manifest', async () => {
+  const { api, calls } = setup({ candidate: true, manifest });
+  await api.checkForOtaUpdate();
   assert.equal(api.getOtaSnapshot().manifest, null);
+  assert.equal(calls.some(call => Array.isArray(call)), false);
 });
