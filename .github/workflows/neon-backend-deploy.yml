@@ -29,11 +29,6 @@ jobs:
         run: npm test --prefix neon
       - name: Check backend TypeScript independently of the Android app
         run: npm run lint --prefix neon
-      - name: Copy storage and verify the original Android signing identity
-        env:
-          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: node neon/scripts/migrate-storage.mjs
       - name: Deploy backend and verify authentication boundaries
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
