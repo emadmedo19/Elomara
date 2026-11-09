@@ -1,10 +1,15 @@
 name: CI
 
 on:
+  workflow_call:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+
+env:
+  VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://yvoylicirtdarroqcxoq.supabase.co' }}
+  VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'sb_publishable_HKL0bzKI5Lf0M7v4YDXNcw_DIz9CAre' }}
 
 permissions:
   contents: read
@@ -21,8 +26,10 @@ jobs:
         with:
           node-version: 22
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: TypeScript check
         run: npm run lint
+      - name: Application tests
+        run: npm test
       - name: Production build
         run: npm run build

@@ -3,6 +3,10 @@ name: Elomara E2E Smoke (manual)
 on:
   workflow_dispatch:
 
+env:
+  VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://yvoylicirtdarroqcxoq.supabase.co' }}
+  VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'sb_publishable_HKL0bzKI5Lf0M7v4YDXNcw_DIz9CAre' }}
+
 permissions:
   contents: read
 
@@ -21,7 +25,7 @@ jobs:
         with:
           node-version: 22
       - name: Install application
-        run: npm install
+        run: npm ci
       - name: Check TypeScript
         run: npm run lint
       - name: Build web application

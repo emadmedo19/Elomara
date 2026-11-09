@@ -99,12 +99,15 @@ export async function analyzeReceiptWithGemini(
   const base = getBackendBaseUrl();
   const endpoint = `${base}/api/gemini/analyze-receipt`;
 
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('يرجى تسجيل الدخول أولاً.');
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` };
   const body = JSON.stringify({ base64Image: cleanBase64, mimeType });
 
   try {
     const res = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body,
     });
 
@@ -119,13 +122,14 @@ export async function analyzeReceiptWithGemini(
       };
     }
 
-    throw new Error('تعذر قراءة الفاتورة عبر الخادم');
+    throw Object.assign(new Error('تعذر قراءة الفاتورة عبر الخادم'), { status: res.status });
   } catch (err: any) {
+    if (err?.status === 401 || err?.status === 403 || err?.status === 429) throw err;
     // Try hosted fallback if relative failed
     if (base !== HOSTED_BACKEND_FALLBACK) {
       const fbRes = await fetch(`${HOSTED_BACKEND_FALLBACK}/api/gemini/analyze-receipt`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body,
       }).catch(() => null);
 

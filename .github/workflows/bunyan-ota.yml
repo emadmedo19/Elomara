@@ -6,11 +6,18 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://yvoylicirtdarroqcxoq.supabase.co' }}
+  VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'sb_publishable_HKL0bzKI5Lf0M7v4YDXNcw_DIz9CAre' }}
+
 permissions:
   contents: read
 
 jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
   publish:
+    needs: verify
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -29,7 +36,7 @@ jobs:
         run: python .github/scripts/generate_brand_assets.py
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build app
         run: npm run build
