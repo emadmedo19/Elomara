@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Building } from '../types';
-import { Building2, Save, X, Phone, MapPin, Layers } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { Building2, Save, X, Phone, MapPin, Layers, LocateFixed } from 'lucide-react';
 
 interface BuildingManagementModalProps {
   isOpen: boolean;
@@ -19,6 +20,27 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
   const isNewBuilding = buildings.length === 0;
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [locating, setLocating] = useState(false);
+  const [locationMessage, setLocationMessage] = useState('');
+  const [position, setPosition] = useState<{latitude:number;longitude:number}|null>(null);
+  const locateBuilding = () => {
+    if (!navigator.geolocation) { setLocationMessage('تحديد الموقع غير متاح على هذا الجهاز.'); return; }
+    setLocating(true); setLocationMessage('');
+    navigator.geolocation.getCurrentPosition(async ({coords}) => {
+      const location = {latitude:coords.latitude,longitude:coords.longitude};
+      setPosition(location);
+      try {
+        const params = new URLSearchParams({lat:String(coords.latitude),lon:String(coords.longitude),format:'jsonv2','accept-language':'ar',zoom:'18'});
+        const response = await fetch('https://nominatim.openstreetmap.org/reverse?' + params);
+        if (response.ok) {
+          const result:{display_name?:string} = await response.json();
+          if (result.display_name) setAddress(result.display_name);
+        }
+      } catch { /* Coordinates remain available when lookup fails. */ }
+      setLocating(false);
+      setLocationMessage('تم تحديد الموقع. اضغط حفظ التعديلات لحفظه مع العنوان.');
+    }, () => {setLocating(false);setLocationMessage('تعذر تحديد الموقع. تأكد من السماح بصلاحية الموقع.');}, {enableHighAccuracy:true,timeout:15000,maximumAge:0});
+  };
   const [totalFloors, setTotalFloors] = useState(1);
   const [totalUnits, setTotalUnits] = useState(0);
   const [monthlyTarget, setMonthlyTarget] = useState(0);
@@ -35,6 +57,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
     if (isNewBuilding) {
       setName('');
       setAddress('');
+      setPosition(null); setLocationMessage('');
       setTotalFloors(1);
       setTotalUnits(0);
       setMonthlyTarget(0);
@@ -46,6 +69,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
     } else {
       setName(currentBuilding.name);
       setAddress(currentBuilding.address);
+      setPosition(null); setLocationMessage('');
       setTotalFloors(currentBuilding.totalFloors || 1);
       setTotalUnits(currentBuilding.totalUnits || 0);
       setMonthlyTarget(currentBuilding.monthlyTarget || 0);
@@ -64,6 +88,13 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+    if (position && !isNewBuilding) {
+      void supabase.rpc('set_building_location', {
+        target_building_id: currentBuilding.id,
+        new_latitude: position.latitude,
+        new_longitude: position.longitude,
+      }).then(({error}) => { if (error) console.error('Unable to save building location:', error.message); });
+    }
     const data = {
       name: name.trim(),
       address: address.trim(),
@@ -113,6 +144,9 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
           <div>
             <label className={label}><MapPin className="w-3.5 h-3.5 inline ml-1" />العنوان</label>
             <input value={address} onChange={e => setAddress(e.target.value)} placeholder="المدينة والحي والشارع" className={field} />
+            <button type="button" disabled={locating || isNewBuilding} onClick={locateBuilding} className="mt-2 w-full flex items-center justify-center gap-2 rounded-xl border border-teal-300 bg-teal-50 px-3 py-2.5 text-sm font-bold text-teal-800 disabled:opacity-50"><LocateFixed className="h-4 w-4"/>{locating ? 'جارٍ تحديد موقع الهاتف...' : 'تحديد موقع العمارة من هاتفي'}</button>
+            {locationMessage && <p role="status" className="mt-2 text-xs text-slate-600">{locationMessage}</p>}
+            {position && <a target="_blank" rel="noopener noreferrer" className="mt-2 block text-xs font-bold text-teal-700 underline" href={`https://www.openstreetmap.org/?mlat=${position.latitude}&mlon=${position.longitude}#map=18/${position.latitude}/${position.longitude}`}>معاينة الموقع على الخريطة</a>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
