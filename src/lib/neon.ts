@@ -50,12 +50,6 @@ async function currentSession(): Promise<Session | null> {
   return toAppSession((await CapacitorNeon.getSession()).session);
 }
 const data = new PostgrestClient(dataUrl, { fetch: async (input, init) => {
-  if (isNeonCandidate && (init?.method || 'GET').toUpperCase() !== 'GET') {
-    const path = new URL(String(input)).pathname.split('/').pop() || '';
-    const readRpcs = new Set(['resolve_app_identity', 'get_building_financial_summary', 'get_building_poll_results',
-      'list_building_users', 'list_resident_access_requests', 'list_pending_registrations', 'list_all_bunyan_users']);
-    if (!readRpcs.has(path)) throw new Error('نسخة اختبار: يمكنك تسجيل الدخول ومراجعة البيانات. التعديل متاح بعد إتمام النقل.');
-  }
   await nativeReady();
   const session = (await CapacitorNeon.getSession()).session;
   if (!session) throw new Error('سجّل الدخول أولًا.');
@@ -142,7 +136,7 @@ export const neonClient = {
   },
   functions: { async invoke(name: string, options?: { body?: unknown }) {
     try {
-      if (isNeonCandidate && name !== 'gemini-chat') throw new Error('إرسال الإشعارات غير متاح في نسخة الاختبار.');
+      
       const session = await currentSession();
       if (!session || !functionsUrl.startsWith('https://')) throw new Error('خدمة التطبيق غير متاحة. سجّل الدخول وحاول مرة أخرى.');
       const response = await fetch(`${functionsUrl}/functions/v1/${encodeURIComponent(name)}`, {
