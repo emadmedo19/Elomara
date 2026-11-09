@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { LiveUpdate } from '@capawesome/capacitor-live-update';
+const isNeonCandidate = import.meta.env?.VITE_BACKEND_PROVIDER === 'neon' && import.meta.env?.VITE_NEON_CANDIDATE === 'true';
 
 const OTA_MANIFEST_URL = 'https://yvoylicirtdarroqcxoq.supabase.co/storage/v1/object/public/bunyan-ota/latest.json';
 type Manifest = { bundleId: string; url: string; checksum: string };
@@ -40,6 +41,7 @@ async function markCurrentBundleReady(): Promise<boolean> {
 }
 
 export function checkForOtaUpdate(): Promise<void> {
+  if (isNeonCandidate) return Promise.resolve();
   if (checking) return checking;
   if (applying) return Promise.resolve();
   checking = (async () => {
@@ -107,6 +109,8 @@ export async function applyOtaUpdate() {
 
 let started = false;
 export function initializeLiveUpdates() {
+  // A native Neon candidate must not load a legacy Supabase OTA bundle.
+  if (isNeonCandidate) return;
   if (started || !Capacitor.isNativePlatform()) return;
   started = true;
   void checkForOtaUpdate();

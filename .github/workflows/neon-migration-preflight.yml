@@ -19,6 +19,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install isolated migration tooling
+        run: npm ci --prefix neon
       - name: Validate migration tooling
         run: node --test neon/tests/*.test.mjs
       - name: Verify stored credentials without changing production

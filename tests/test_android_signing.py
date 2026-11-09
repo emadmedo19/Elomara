@@ -1,6 +1,7 @@
 """Private signing persistence tests using a fake Storage API and real keytool."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -37,6 +38,18 @@ class PrivateStorage:
         raise AssertionError((method, path))
 
 class SigningTests(unittest.TestCase):
+    def test_neon_copy_restores_original_certificate_without_supabase_access(self):
+        storage = PrivateStorage()
+        with tempfile.TemporaryDirectory() as directory, patch.object(signing, 'request', storage.request):
+            root = Path(directory)
+            original = signing.restore(root / 'source', 'test-service-role')
+            bundle = root / 'copied-bundle.json'
+            bundle.write_bytes(storage.bundle)
+            with patch.dict(os.environ, {'NEON_SIGNING_BUNDLE_FILE': str(bundle)}), patch.object(signing, 'request', side_effect=AssertionError('Supabase must not be accessed')):
+                migrated = signing.restore(root / 'neon', '')
+            self.assertEqual(original, migrated)
+            self.assertEqual((root / 'source/elomara-android.p12').read_bytes(), (root / 'neon/elomara-android.p12').read_bytes())
+
     def test_two_builds_restore_the_same_private_identity(self):
         storage = PrivateStorage()
         with tempfile.TemporaryDirectory() as directory, patch.object(signing, 'request', storage.request):

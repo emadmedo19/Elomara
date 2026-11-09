@@ -8,7 +8,7 @@ database, scheduled jobs, storage and signing identity still use Supabase.
 
 - Source: Supabase `yvoylicirtdarroqcxoq` (Elomara).
 - Target: Neon project `misty-glitter-45861249`, branch `production`, database `neondb`.
-- Isolated rehearsal database: `elomara_migration_check` on that Neon branch.
+- Current isolated rehearsal database: `elomara_migration_check_v2` on that Neon branch.
 - Managed Better Auth is already enabled and Google now has owner-supplied credentials.
 - The owner accepted resetting the single password account. Five existing accounts
   use Google. Preserve their application memberships and permissions; never link
@@ -19,9 +19,9 @@ database, scheduled jobs, storage and signing identity still use Supabase.
 - `migrations/001_application_schema.sql` captures the **live** application schema,
   not an old repository baseline: 25 tables, 232 columns, 110 constraints,
   45 functions and 61 RLS policies. It reproduces the source table/function grants.
-- Calls to Supabase's `auth.uid()` become `auth.app_user_id()`. Neon's native
+- Calls to Supabase's `auth.uid()` become `app_auth.user_id()`. Neon's native
   `auth.uid()`, `auth.user_id()` and JWT extension functions are not replaced.
-- `auth.users` is a private application-reference table, not a replacement login
+- `app_auth.users` is a private application-reference table, not a replacement login
   server. `private.auth_identity_map` must map verified Neon users to preserved
   application UUIDs before any client cutover. Both tables deny public access.
 - `002_application_triggers.sql` installs the existing 11 notification triggers
@@ -91,13 +91,17 @@ $$;
 
 ## Still required for the complete migration
 
-1. Obtain explicit production-import confirmation after the automatic review
-   rejected the original generated role-grant SQL. The malformed role grants were
-   corrected and the corrected file passed rehearsal. Do not route around that
-   rejection through CI or another SQL transport.
-2. Implement and verify identity linking using a verified Neon identity, including
-   existing-user recovery and new-user profile provisioning. Importing the six
-   `auth.users` references alone does **not** migrate login accounts.
+1. Production database copy is complete following the owner's explicit approval.
+   A protected `auth` schema permission error rolled back the first transaction;
+   the corrected version uses `app_auth`, passed a fresh rehearsal, and copied all
+   25 tables / 270 application rows plus six user references to `neondb`. Every
+   restored row matched the exact source snapshot. This is still a snapshot,
+   not a live application cutover.
+2. Verified identity linking is installed in `003_verified_identity_link.sql`.
+   Rehearsal proved unverified emails cannot link, and a verified email resolves
+   to the existing application UUID and building permissions. Actual native
+   sign-in and existing-user recovery still require candidate APK verification.
+   Importing the six application references does **not** migrate credentials.
 3. Add native Android Neon session handling. The official Neon Capacitor guide
    requires native auth plus an HTTPS callback/App Link or bounce handler:
    https://neon.com/guides/capgo-capacitor-neon . A browser-only SDK replacement

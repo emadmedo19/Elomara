@@ -7,7 +7,7 @@ const client = new pg.Client({ connectionString: process.env.TARGET_DATABASE_URL
 await client.connect();
 try {
   const { rows: [db] } = await client.query('select current_database() as name');
-  assert.equal(db.name, 'elomara_migration_check', 'RLS fixtures must never run against production');
+  assert.equal(db.name, 'elomara_migration_check_v2', 'RLS fixtures must never run against production');
   const { rows: actors } = await client.query('select id,role,approved,building_id,disabled_at from public.profiles');
   assert.ok(actors.some(a => a.role === 'building_admin' && a.approved));
   assert.ok(actors.some(a => ['owner', 'tenant'].includes(a.role) && a.approved));

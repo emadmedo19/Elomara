@@ -1,0 +1,46 @@
+name: Deploy Neon backend
+
+on:
+  push:
+    branches: [main]
+    paths: ['neon/functions/**', 'neon/package*.json', 'neon/scripts/deploy-backend.mjs', '.github/workflows/neon-backend-deploy.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: elomara-neon-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install backend tooling
+        run: npm ci --prefix neon
+      - name: Test migration guards
+        run: npm test --prefix neon
+      - name: Copy storage and verify the original Android signing identity
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node neon/scripts/migrate-storage.mjs
+      - name: Deploy backend and verify authentication boundaries
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: node neon/scripts/deploy-backend.mjs
+      - name: Save public endpoint configuration
+        uses: actions/upload-artifact@v4
+        with:
+          name: neon-runtime
+          path: neon-runtime.json
+          if-no-files-found: error

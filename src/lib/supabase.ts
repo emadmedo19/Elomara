@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { isNeonBackend, neonClient } from './neon';
 
 const DEFAULT_URL = 'https://yvoylicirtdarroqcxoq.supabase.co';
 const DEFAULT_KEY = 'sb_publishable_HKL0bzKI5Lf0M7v4YDXNcw_DIz9CAre';
@@ -47,6 +48,8 @@ function resolveSupabaseConfig() {
 
 const { url: supabaseUrl, key: supabaseAnonKey } = resolveSupabaseConfig();
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+const legacyClient = isNeonBackend ? null : createClient(supabaseUrl, supabaseAnonKey, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
 });
+
+export const supabase = isNeonBackend ? neonClient as unknown as NonNullable<typeof legacyClient> : legacyClient!;

@@ -61,19 +61,20 @@ try {
     const relation = `${identifier(schema)}.${identifier(table)}`;
     await client.query(`INSERT INTO ${relation} SELECT * FROM jsonb_populate_recordset(NULL::${relation},$1::jsonb)`, [JSON.stringify(rows)]);
   }
-  await insert('auth', 'users', snapshot['auth.users']);
+  await insert('app_auth', 'users', snapshot['auth.users']);
   for (const table of manifest) await insert('public', table.name, snapshot[table.name]);
   const restored = {};
-  for (const table of [...manifest.map(t => ['public', t.name]), ['auth', 'users']]) {
+  for (const table of [...manifest.map(t => ['public', t.name]), ['app_auth', 'users']]) {
     const [schema, name] = table;
     const { rows: [row] } = await client.query(`select coalesce(jsonb_agg(to_jsonb(t)),'[]'::jsonb) as rows from ${identifier(schema)}.${identifier(name)} t`);
-    restored[schema === 'public' ? name : `${schema}.${name}`] = row.rows;
+    restored[schema === 'public' ? name : 'auth.users'] = row.rows;
   }
   assertMatchingSnapshot(snapshot, restored);
   // Abort if a source write happened while reading/importing. No automatic
   // overwrite/retry: a reviewed cutover must use an explicitly stable snapshot.
   assertMatchingSnapshot(snapshot, await readSource());
   await client.query(await readFile(new URL('../migrations/002_application_triggers.sql', import.meta.url), 'utf8'));
+  await client.query(await readFile(new URL('../migrations/003_verified_identity_link.sql', import.meta.url), 'utf8'));
   await client.query('COMMIT');
   console.log(`PASS: ${manifest.length} application tables and ${snapshot['auth.users'].length} user references copied and verified`);
   for (const table of manifest) console.log(`${table.name}: ${snapshot[table.name].length} rows; sha256=${fingerprint(snapshot[table.name])}`);

@@ -6,7 +6,8 @@ def stableSigning = signingConfigPath ? new groovy.json.JsonSlurper().parse(file
 if (System.getenv('CI') && !stableSigning) {
     throw new GradleException('Stable Android signing is required in CI. Refusing a randomly signed APK.')
 }
-def releaseVersionCode = 1000 + (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
+// Monotonic across the main and Neon candidate workflows, which have separate run counters.
+def releaseVersionCode = System.getenv('CI') ? Math.floorDiv(System.currentTimeMillis(), 1000L).toInteger() : 1000 + (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
 def effectiveVersionCode = providers.gradleProperty('elomaraVersionCode').map { it.toInteger() }.getOrElse(releaseVersionCode)
 
 

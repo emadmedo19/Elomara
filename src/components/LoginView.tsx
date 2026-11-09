@@ -2,12 +2,13 @@ import { PasswordInput } from './PasswordInput';
 import React, { useEffect, useState } from 'react';
 import { AlertCircle, Building2, CheckCircle2, Chrome, LogOut, ShieldCheck, Users, Mail, Lock, User, Wallet } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { isNeonBackend } from '../lib/neon';
 import { useAuth } from '../context/AuthContext';
 
 type JoinRequestStatus = 'pending' | 'approved' | 'rejected' | null;
 
 export const LoginView: React.FC = () => {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, updatePassword, isPasswordRecovery, clearPasswordRecovery, authError, isLoading, clearError, user, userProfile, isAdmin, signOut } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, updatePassword, isPasswordRecovery, clearPasswordRecovery, needsEmailVerification, verifyEmail, cancelEmailVerification, authError, isLoading, clearError, user, userProfile, isAdmin, signOut } = useAuth();
   const [buildingName, setBuildingName] = useState('');
   const [buildingAddress, setBuildingAddress] = useState('');
   const [unitsCount, setUnitsCount] = useState('0');
@@ -26,6 +27,7 @@ export const LoginView: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -103,16 +105,36 @@ export const LoginView: React.FC = () => {
               event.preventDefault(); setError(''); setNotice('');
               if (password.length < 8) { setError('كلمة المرور لازم تكون 8 أحرف على الأقل.'); return; }
               if (password !== confirmPassword) { setError('تأكيد كلمة المرور غير مطابق.'); return; }
-              try { await updatePassword(password); setPassword(''); setConfirmPassword(''); setNotice('تم تغيير كلمة المرور بنجاح. سجّل الدخول بكلمة المرور الجديدة.'); clearPasswordRecovery(); }
-              catch { setError('تعذر تغيير كلمة المرور. افتح رابط الاستعادة مرة أخرى وحاول.'); }
+              try { await updatePassword(password, verificationCode); setPassword(''); setConfirmPassword(''); setVerificationCode(''); setNotice('تم تغيير كلمة المرور بنجاح. سجّل الدخول بكلمة المرور الجديدة.'); clearPasswordRecovery(); }
+              catch { setError(isNeonBackend ? 'راجع رمز التأكيد وحاول مرة أخرى.' : 'تعذر تغيير كلمة المرور. افتح رابط الاستعادة مرة أخرى وحاول.'); }
             }}>
               <div className="text-center"><div className="fotouh-login-card-icon"><Lock className="h-8 w-8"/></div><h2 className="text-xl font-bold">تعيين كلمة مرور جديدة</h2><p className="text-sm text-slate-500">اكتب كلمة المرور الجديدة وأكدها.</p></div>
               {authError && <p className="fotouh-message error"><AlertCircle/>{authError}</p>}
               {error && <p className="fotouh-message error"><AlertCircle/>{error}</p>}
               {notice && <p className="fotouh-message success"><CheckCircle2/>{notice}</p>}
+              {isNeonBackend && <label className="fotouh-field"><span>رمز التأكيد المرسل لبريدك</span><div><Mail/><input inputMode="numeric" autoComplete="one-time-code" value={verificationCode} onChange={e=>setVerificationCode(e.target.value)} required placeholder="رمز التأكيد"/></div></label>}
               <label className="fotouh-field"><span>كلمة المرور الجديدة</span><div><Lock/><PasswordInput minLength={8} autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} required placeholder="8 أحرف على الأقل"/></div></label>
               <label className="fotouh-field"><span>تأكيد كلمة المرور</span><div><Lock/><PasswordInput minLength={8} autoComplete="new-password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} required placeholder="أعد كتابة كلمة المرور"/></div></label>
               <button disabled={isLoading} className="fotouh-primary-button w-full" type="submit">{isLoading ? 'جارٍ الحفظ...' : 'حفظ كلمة المرور'}</button>
+            </form>
+          ) : !user && isNeonBackend && needsEmailVerification ? (
+            <form className="space-y-4 py-5" onSubmit={async event => {
+              event.preventDefault(); setError('');
+              try { await verifyEmail(email, verificationCode, password); setVerificationCode(''); }
+              catch { setError('راجع رمز التأكيد المرسل لبريدك وحاول مرة أخرى.'); }
+            }}>
+              <h2 className="text-xl font-bold">تأكيد البريد الإلكتروني</h2>
+              <p className="text-sm text-slate-500">اكتب الرمز المرسل إلى {email} لإكمال تسجيل حسابك.</p>
+              {(error || authError) && <p role="alert" className="fotouh-message error"><AlertCircle/>{error || authError}</p>}
+              <label className="fotouh-field"><span>رمز التأكيد</span><div><Mail/><input inputMode="numeric" autoComplete="one-time-code" value={verificationCode} onChange={e=>setVerificationCode(e.target.value)} required placeholder="رمز التأكيد"/></div></label>
+              <button disabled={isLoading} type="submit" className="fotouh-primary-button w-full">{isLoading ? 'جارٍ التأكيد...' : 'تأكيد البريد'}</button>
+              <button disabled={isLoading || busy} type="button" onClick={async()=>{
+                setBusy(true); setError('');
+                try { const result = await supabase.auth.resend({ type: 'signup', email }); if (result.error) throw result.error; }
+                catch { setError('تعذر إرسال الرمز. حاول بعد قليل.'); }
+                finally { setBusy(false); }
+              }}>{busy ? 'جارٍ الإرسال...' : 'إعادة إرسال الرمز'}</button>
+              <button disabled={isLoading} type="button" onClick={()=>{ cancelEmailVerification(); setVerificationCode(''); setError(''); }}>العودة وتغيير البريد</button>
             </form>
           ) : !user ? (
             <div className="space-y-5 py-4">
@@ -130,7 +152,7 @@ export const LoginView: React.FC = () => {
               <form id="auth-form" onSubmit={async event => {
                 event.preventDefault(); setError(''); setNotice(''); clearError();
                 if (authMode === 'forgot') {
-                  try { await sendPasswordReset(email); setNotice('لو البريد مسجل، هيوصلك رابط استعادة كلمة المرور. راجع صندوق الوارد والرسائل غير المرغوب فيها.'); }
+                  try { await sendPasswordReset(email); setNotice(isNeonBackend ? 'لو البريد مسجل، هيوصلك رمز تأكيد لتعيين كلمة مرور جديدة.' : 'لو البريد مسجل، هيوصلك رابط استعادة كلمة المرور. راجع صندوق الوارد والرسائل غير المرغوب فيها.'); }
                   catch { setError('تعذر إرسال رابط الاستعادة. راجع البريد وحاول مرة أخرى.'); }
                   return;
                 }

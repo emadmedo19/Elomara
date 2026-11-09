@@ -4,6 +4,7 @@ import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { isNeonBackend, neonEmailRequest, startNeonGoogleSignIn } from '../lib/neon';
 
 export interface UserProfile {
   uid: string;
@@ -27,7 +28,10 @@ interface AuthContextType {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (fullName: string, email: string, password: string) => Promise<boolean>;
   sendPasswordReset: (email: string) => Promise<void>;
-  updatePassword: (password: string) => Promise<void>;
+  updatePassword: (password: string, token?: string) => Promise<void>;
+  needsEmailVerification: boolean;
+  verifyEmail: (email: string, token: string, password: string) => Promise<void>;
+  cancelEmailVerification: () => void;
   isPasswordRecovery: boolean;
   clearPasswordRecovery: () => void;
   signOut: () => Promise<void>;
@@ -51,6 +55,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
+  const recoveryEmail = useRef('');
   const profileLoadVersion = useRef(0);
   const oauthCallbackInProgress = useRef(false);
 
@@ -81,9 +87,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAdmin(Boolean(admin && profile?.status === 'active'));
     } catch (error) {
       if (loadVersion === profileLoadVersion.current && !quiet) {
-        console.error('Supabase profile loading failed:', error);
+        console.error('Account profile loading failed:', error);
         setUserProfile(null); setRole(null); setIsAdmin(false);
-        setAuthError('تم تسجيل الدخول لكن تعذر تحميل صلاحيات الحساب. راجع إعدادات Supabase.');
+        setAuthError('تم تسجيل الدخول لكن تعذر تحميل بيانات الحساب. حاول مرة أخرى.');
       }
     } finally {
       if (loadVersion === profileLoadVersion.current) setIsLoading(false);
@@ -96,6 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const processedOAuthCallbacks = new Set<string>();
 
     const completeOAuthCallback = async (callbackUrl: string) => {
+      if (isNeonBackend) return; // The native Neon plugin owns verifier exchange.
       if (processedOAuthCallbacks.has(callbackUrl)) return;
       processedOAuthCallbacks.add(callbackUrl);
       try {
@@ -222,6 +229,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthError(null);
     setIsLoading(true);
     try {
+      if (isNeonBackend) {
+        await startNeonGoogleSignIn();
+        setIsLoading(false);
+        return;
+      }
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -244,7 +256,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw error;
-    } catch (error) { setAuthError(friendlyError(error)); setIsLoading(false); }
+    } catch (error) {
+      if (isNeonBackend && /email.*verif|verif.*email/i.test(friendlyError(error))) setNeedsEmailVerification(true);
+      setAuthError(friendlyError(error)); setIsLoading(false);
+    }
   };
 
   const signUpWithEmail = async (fullName: string, email: string, password: string) => {
@@ -255,7 +270,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         options: { data: { full_name: fullName.trim() }, emailRedirectTo: getAuthRedirectUrl() },
       });
       if (error) throw error;
-      if (!data.session) { setIsLoading(false); return false; }
+      if (!data.session) { setNeedsEmailVerification(isNeonBackend); setIsLoading(false); return false; }
       return true;
     } catch (error) { setAuthError(friendlyError(error)); setIsLoading(false); return false; }
   };
@@ -263,18 +278,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const sendPasswordReset = async (email: string) => {
     setAuthError(null); setIsLoading(true);
     try {
+      if (isNeonBackend) {
+        await neonEmailRequest('/email-otp/send-verification-otp', { email: email.trim(), type: 'forget-password' });
+        recoveryEmail.current = email.trim();
+        setIsPasswordRecovery(true);
+        return;
+      }
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: getAuthRedirectUrl('reset-password') });
       if (error) throw error;
     } catch (error) { setAuthError(friendlyError(error)); throw error; }
     finally { setIsLoading(false); }
   };
 
-  const updatePassword = async (password: string) => {
+  const updatePassword = async (password: string, token?: string) => {
     setAuthError(null); setIsLoading(true);
     try {
+      if (isNeonBackend) {
+        if (!token?.trim() || !recoveryEmail.current) throw new Error('اكتب رمز التأكيد المرسل لبريدك الإلكتروني.');
+        await neonEmailRequest('/email-otp/reset-password', { email: recoveryEmail.current, otp: token.trim(), password });
+        recoveryEmail.current = '';
+        setIsPasswordRecovery(false);
+        return;
+      }
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       setIsPasswordRecovery(false);
+    } catch (error) { setAuthError(friendlyError(error)); throw error; }
+    finally { setIsLoading(false); }
+  };
+
+  const verifyEmail = async (email: string, token: string, password: string) => {
+    setAuthError(null); setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({ email: email.trim(), token: token.trim(), type: 'signup' });
+      if (error) throw error;
+      if (!data.session) {
+        const result = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        if (result.error) throw result.error;
+      }
+      setNeedsEmailVerification(false);
     } catch (error) { setAuthError(friendlyError(error)); throw error; }
     finally { setIsLoading(false); }
   };
@@ -288,6 +330,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return <AuthContext.Provider value={{ user, userProfile, role, isAdmin, isLoading, authError,
     signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, updatePassword,
     isPasswordRecovery, clearPasswordRecovery: () => setIsPasswordRecovery(false),
+    needsEmailVerification, verifyEmail,
+    cancelEmailVerification: () => { setNeedsEmailVerification(false); setAuthError(null); },
     signOut, clearError: () => setAuthError(null) }}>
     {children}
   </AuthContext.Provider>;

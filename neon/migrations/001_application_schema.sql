@@ -3,23 +3,25 @@
 -- Run once on an EMPTY application schema, in a transaction by import-supabase.mjs.
 SET check_function_bodies = false;
 CREATE SCHEMA IF NOT EXISTS private;
+CREATE SCHEMA app_auth;
+REVOKE ALL ON SCHEMA app_auth FROM PUBLIC;
 REVOKE ALL ON SCHEMA private FROM PUBLIC;
 DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon NOLOGIN; END IF;
 IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='service_role') THEN CREATE ROLE service_role NOLOGIN; END IF; END $$;
-CREATE TABLE auth.users (
+CREATE TABLE app_auth.users (
  id uuid PRIMARY KEY, email text, email_confirmed_at timestamptz, phone text,
  phone_confirmed_at timestamptz, banned_until timestamptz,
  raw_user_meta_data jsonb NOT NULL DEFAULT '{}'::jsonb
 );
-REVOKE ALL ON auth.users FROM PUBLIC, authenticated, anon;
-CREATE TABLE private.auth_identity_map (neon_user_id text PRIMARY KEY, app_user_id uuid UNIQUE NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE);
-CREATE FUNCTION auth.app_user_id() RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
- SELECT m.app_user_id FROM private.auth_identity_map m JOIN auth.users u ON u.id=m.app_user_id
+REVOKE ALL ON app_auth.users FROM PUBLIC, authenticated, anon;
+CREATE TABLE private.auth_identity_map (neon_user_id text PRIMARY KEY, app_user_id uuid UNIQUE NOT NULL REFERENCES app_auth.users(id) ON DELETE CASCADE);
+CREATE FUNCTION app_auth.user_id() RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
+ SELECT m.app_user_id FROM private.auth_identity_map m JOIN app_auth.users u ON u.id=m.app_user_id
  WHERE m.neon_user_id=auth.user_id() AND (u.banned_until IS NULL OR u.banned_until<now())
 $$;
-REVOKE ALL ON FUNCTION auth.app_user_id() FROM PUBLIC;
-GRANT USAGE ON SCHEMA auth TO authenticated;
-GRANT EXECUTE ON FUNCTION auth.app_user_id() TO authenticated;
+REVOKE ALL ON FUNCTION app_auth.user_id() FROM PUBLIC;
+GRANT USAGE ON SCHEMA app_auth TO authenticated;
+GRANT EXECUTE ON FUNCTION app_auth.user_id() TO authenticated;
 
 CREATE TABLE public."building_poll_participation" (
  "poll_id" uuid NOT NULL,
@@ -392,51 +394,51 @@ ALTER TABLE public."building_join_requests" ADD CONSTRAINT "building_join_reques
 ALTER TABLE public."building_join_requests" ADD CONSTRAINT "building_join_requests_resident_type_check" CHECK ((resident_type = ANY (ARRAY['owner'::text, 'tenant'::text])));
 ALTER TABLE public."building_join_requests" ADD CONSTRAINT "building_join_requests_status_check" CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])));
 ALTER TABLE public."building_poll_participation" ADD CONSTRAINT "building_poll_participation_poll_id_fkey" FOREIGN KEY (poll_id) REFERENCES building_polls(id) ON DELETE CASCADE;
-ALTER TABLE public."building_poll_participation" ADD CONSTRAINT "building_poll_participation_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public."building_poll_participation" ADD CONSTRAINT "building_poll_participation_user_id_fkey" FOREIGN KEY (user_id) REFERENCES app_auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public."building_poll_ballots" ADD CONSTRAINT "building_poll_ballots_option_id_fkey" FOREIGN KEY (option_id) REFERENCES building_poll_options(id) ON DELETE CASCADE;
 ALTER TABLE public."building_poll_ballots" ADD CONSTRAINT "building_poll_ballots_poll_id_fkey" FOREIGN KEY (poll_id) REFERENCES building_polls(id) ON DELETE CASCADE;
 ALTER TABLE public."building_polls" ADD CONSTRAINT "building_polls_building_id_fkey" FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE CASCADE;
-ALTER TABLE public."building_polls" ADD CONSTRAINT "building_polls_created_by_fkey" FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public."building_polls" ADD CONSTRAINT "building_polls_created_by_fkey" FOREIGN KEY (created_by) REFERENCES app_auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public."building_poll_options" ADD CONSTRAINT "building_poll_options_poll_id_fkey" FOREIGN KEY (poll_id) REFERENCES building_polls(id) ON DELETE CASCADE;
 ALTER TABLE public."building_treasury_settings_audit" ADD CONSTRAINT "building_treasury_settings_audit_building_id_fkey" FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE CASCADE;
-ALTER TABLE public."building_treasury_settings_audit" ADD CONSTRAINT "building_treasury_settings_audit_changed_by_fkey" FOREIGN KEY (changed_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public."building_treasury_settings_audit" ADD CONSTRAINT "building_treasury_settings_audit_changed_by_fkey" FOREIGN KEY (changed_by) REFERENCES app_auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public."notification_deliveries" ADD CONSTRAINT "notification_deliveries_device_id_fkey" FOREIGN KEY (device_id) REFERENCES push_devices(id) ON DELETE CASCADE;
 ALTER TABLE public."notification_deliveries" ADD CONSTRAINT "notification_deliveries_notification_id_fkey" FOREIGN KEY (notification_id) REFERENCES app_notifications(id) ON DELETE CASCADE;
 ALTER TABLE public."app_notifications" ADD CONSTRAINT "app_notifications_building_id_fkey" FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE CASCADE;
-ALTER TABLE public."app_notifications" ADD CONSTRAINT "app_notifications_recipient_id_fkey" FOREIGN KEY (recipient_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public."app_notifications" ADD CONSTRAINT "app_notifications_recipient_id_fkey" FOREIGN KEY (recipient_id) REFERENCES app_auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public."building_invites" ADD CONSTRAINT "building_invites_apartment_id_fkey" FOREIGN KEY (apartment_id) REFERENCES apartments(id) ON DELETE CASCADE;
 ALTER TABLE public."building_invites" ADD CONSTRAINT "building_invites_building_id_fkey" FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE CASCADE;
-ALTER TABLE public."building_invites" ADD CONSTRAINT "building_invites_invited_by_fkey" FOREIGN KEY (invited_by) REFERENCES auth.users(id);
+ALTER TABLE public."building_invites" ADD CONSTRAINT "building_invites_invited_by_fkey" FOREIGN KEY (invited_by) REFERENCES app_auth.users(id);
 ALTER TABLE public."payments" ADD CONSTRAINT "payments_apartment_id_fkey" FOREIGN KEY (apartment_id) REFERENCES apartments(id) ON DELETE RESTRICT;
 ALTER TABLE public."payments" ADD CONSTRAINT "payments_building_id_fkey" FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE RESTRICT;
-ALTER TABLE public."payments" ADD CONSTRAINT "payments_recorded_by_fkey" FOREIGN KEY (recorded_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public."payments" ADD CONSTRAINT "payments_recorded_by_fkey" FOREIGN KEY (recorded_by) REFERENCES app_auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public."profiles" ADD CONSTRAINT "profiles_apartment_id_fkey" FOREIGN KEY (apartment_id) REFERENCES apartments(id) ON DELETE SET NULL;
 ALTER TABLE public."profiles" ADD CONSTRAINT "profiles_building_id_fkey" FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE SET NULL;
-ALTER TABLE public."profiles" ADD CONSTRAINT "profiles_id_fkey" FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public."profiles" ADD CONSTRAINT "profiles_id_fkey" FOREIGN KEY (id) REFERENCES app_auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public."apartments" ADD CONSTRAINT "apartments_building_id_fkey" FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE RESTRICT;
 ALTER TABLE public."maintenance_tickets" ADD CONSTRAINT "maintenance_tickets_apartment_id_fkey" FOREIGN KEY (apartment_id) REFERENCES apartments(id) ON DELETE SET NULL;
 ALTER TABLE public."maintenance_tickets" ADD CONSTRAINT "maintenance_tickets_building_id_fkey" FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE RESTRICT;
-ALTER TABLE public."maintenance_tickets" ADD CONSTRAINT "maintenance_tickets_created_by_fkey" FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public."maintenance_tickets" ADD CONSTRAINT "maintenance_tickets_created_by_fkey" FOREIGN KEY (created_by) REFERENCES app_auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public."facility_bookings" ADD CONSTRAINT "facility_bookings_apartment_id_fkey" FOREIGN KEY (apartment_id) REFERENCES apartments(id) ON DELETE SET NULL;
 ALTER TABLE public."facility_bookings" ADD CONSTRAINT "facility_bookings_building_id_fkey" FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE RESTRICT;
-ALTER TABLE public."facility_bookings" ADD CONSTRAINT "facility_bookings_created_by_fkey" FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-ALTER TABLE public."payment_audit_logs" ADD CONSTRAINT "payment_audit_logs_performed_by_fkey" FOREIGN KEY (performed_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public."facility_bookings" ADD CONSTRAINT "facility_bookings_created_by_fkey" FOREIGN KEY (created_by) REFERENCES app_auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public."payment_audit_logs" ADD CONSTRAINT "payment_audit_logs_performed_by_fkey" FOREIGN KEY (performed_by) REFERENCES app_auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public."engagement_history" ADD CONSTRAINT "engagement_history_message_id_fkey" FOREIGN KEY (message_id) REFERENCES engagement_messages(id);
-ALTER TABLE public."engagement_history" ADD CONSTRAINT "engagement_history_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE public."push_devices" ADD CONSTRAINT "push_devices_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public."engagement_history" ADD CONSTRAINT "engagement_history_user_id_fkey" FOREIGN KEY (user_id) REFERENCES app_auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public."push_devices" ADD CONSTRAINT "push_devices_user_id_fkey" FOREIGN KEY (user_id) REFERENCES app_auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public."app_settings" ADD CONSTRAINT "app_settings_building_id_fkey" FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE CASCADE;
-ALTER TABLE public."app_settings" ADD CONSTRAINT "app_settings_updated_by_fkey" FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-ALTER TABLE public."expenses" ADD CONSTRAINT "expenses_approved_by_fkey" FOREIGN KEY (approved_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public."app_settings" ADD CONSTRAINT "app_settings_updated_by_fkey" FOREIGN KEY (updated_by) REFERENCES app_auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public."expenses" ADD CONSTRAINT "expenses_approved_by_fkey" FOREIGN KEY (approved_by) REFERENCES app_auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public."expenses" ADD CONSTRAINT "expenses_building_id_fkey" FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE RESTRICT;
 ALTER TABLE public."announcements" ADD CONSTRAINT "announcements_building_id_fkey" FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE RESTRICT;
-ALTER TABLE public."announcements" ADD CONSTRAINT "announcements_created_by_fkey" FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public."announcements" ADD CONSTRAINT "announcements_created_by_fkey" FOREIGN KEY (created_by) REFERENCES app_auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public."exceptional_collections" ADD CONSTRAINT "exceptional_collections_building_id_fkey" FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE CASCADE;
-ALTER TABLE public."exceptional_collections" ADD CONSTRAINT "exceptional_collections_created_by_fkey" FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public."exceptional_collections" ADD CONSTRAINT "exceptional_collections_created_by_fkey" FOREIGN KEY (created_by) REFERENCES app_auth.users(id) ON DELETE SET NULL;
 ALTER TABLE public."building_access_codes" ADD CONSTRAINT "building_access_codes_building_id_fkey" FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE CASCADE;
-ALTER TABLE public."building_access_codes" ADD CONSTRAINT "building_access_codes_created_by_fkey" FOREIGN KEY (created_by) REFERENCES auth.users(id);
+ALTER TABLE public."building_access_codes" ADD CONSTRAINT "building_access_codes_created_by_fkey" FOREIGN KEY (created_by) REFERENCES app_auth.users(id);
 ALTER TABLE public."building_join_requests" ADD CONSTRAINT "building_join_requests_building_id_fkey" FOREIGN KEY (building_id) REFERENCES buildings(id) ON DELETE CASCADE;
-ALTER TABLE public."building_join_requests" ADD CONSTRAINT "building_join_requests_reviewed_by_fkey" FOREIGN KEY (reviewed_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-ALTER TABLE public."building_join_requests" ADD CONSTRAINT "building_join_requests_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE public."building_join_requests" ADD CONSTRAINT "building_join_requests_reviewed_by_fkey" FOREIGN KEY (reviewed_by) REFERENCES app_auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public."building_join_requests" ADD CONSTRAINT "building_join_requests_user_id_fkey" FOREIGN KEY (user_id) REFERENCES app_auth.users(id) ON DELETE CASCADE;
 CREATE INDEX building_poll_ballots_poll_option_idx ON public.building_poll_ballots USING btree (poll_id, option_id);
 CREATE INDEX building_polls_building_created_idx ON public.building_polls USING btree (building_id, created_at DESC);
 CREATE INDEX building_poll_options_poll_idx ON public.building_poll_options USING btree (poll_id, sort_order);
@@ -467,7 +469,7 @@ CREATE OR REPLACE FUNCTION public.revoke_building_access_code(target_building_id
  SET search_path TO ''
 AS $function$
 begin
-  if auth.app_user_id() is null or not public.can_manage_bunyan_building(target_building_id) then
+  if app_auth.user_id() is null or not public.can_manage_bunyan_building(target_building_id) then
     raise exception 'غير مصرح بإدارة كود هذه العمارة' using errcode = '42501';
   end if;
   update public.building_access_codes set revoked_at = now()
@@ -503,7 +505,7 @@ CREATE OR REPLACE FUNCTION public.can_manage_bunyan_building(target_building_id 
 AS $function$
   select exists (
     select 1 from public.profiles p
-    where p.id = (select auth.app_user_id())
+    where p.id = (select app_auth.user_id())
       and p.approved = true
       and p.disabled_at is null
       and p.role = 'building_admin'
@@ -520,7 +522,7 @@ CREATE OR REPLACE FUNCTION public.is_active_bunyan_admin()
 AS $function$
   select exists (
     select 1 from public.profiles p
-    where p.id = (select auth.app_user_id())
+    where p.id = (select app_auth.user_id())
       and p.approved = true
       and p.role in ('super_admin', 'assistant_admin')
   );
@@ -536,7 +538,7 @@ AS $function$
 begin
   if not exists (
     select 1 from public.profiles p
-    where p.id = auth.app_user_id() and p.role = 'super_admin' and p.approved = true
+    where p.id = app_auth.user_id() and p.role = 'super_admin' and p.approved = true
   ) then
     raise exception 'Only the active super admin can approve registrations';
   end if;
@@ -557,14 +559,14 @@ AS $function$
 begin
   if not exists (
     select 1 from public.profiles p
-    where p.id = auth.app_user_id() and p.role = 'super_admin' and p.approved = true
+    where p.id = app_auth.user_id() and p.role = 'super_admin' and p.approved = true
   ) then
     raise exception 'Only the active super admin can review registrations';
   end if;
   return query
   select p.id, u.email::text, coalesce(p.full_name, ''), u.created_at
   from public.profiles p
-  join auth.users u on u.id = p.id
+  join app_auth.users u on u.id = p.id
   where p.role = 'pending' and p.approved = false
   order by u.created_at asc;
 end;
@@ -578,17 +580,17 @@ CREATE OR REPLACE FUNCTION public.set_bunyan_user_role(target_user_id uuid, targ
  SET search_path TO ''
 AS $function$
 begin
- if not exists(select 1 from public.profiles p where p.id=(select auth.app_user_id()) and p.approved=true and p.role='super_admin' and p.disabled_at is null) then
+ if not exists(select 1 from public.profiles p where p.id=(select app_auth.user_id()) and p.approved=true and p.role='super_admin' and p.disabled_at is null) then
   raise exception 'Only the primary administrator can change account roles';
  end if;
- if target_user_id=(select auth.app_user_id()) then raise exception 'You cannot change your own primary administrator role'; end if;
+ if target_user_id=(select app_auth.user_id()) then raise exception 'You cannot change your own primary administrator role'; end if;
  if target_role not in ('super_admin','tenant') then raise exception 'Unsupported target role'; end if;
  if target_role='super_admin' then
   update public.profiles set role='super_admin',approved=true,building_id=null,apartment_id=null,disabled_at=null,updated_at=now() where id=target_user_id;
-  update auth.users set banned_until=null where id=target_user_id;
+  update app_auth.users set banned_until=null where id=target_user_id;
  else
   update public.profiles set role='tenant',approved=true,disabled_at=null,updated_at=now() where id=target_user_id;
-  update auth.users set banned_until=null where id=target_user_id;
+  update app_auth.users set banned_until=null where id=target_user_id;
  end if;
  return found;
 end;$function$
@@ -603,7 +605,7 @@ AS $function$
 declare
   request_row public.building_join_requests%rowtype;
 begin
-  if auth.app_user_id() is null then raise exception 'Authentication required' using errcode = '42501'; end if;
+  if app_auth.user_id() is null then raise exception 'Authentication required' using errcode = '42501'; end if;
   select * into request_row from public.building_join_requests
   where id = target_request_id for update;
   if not found or not public.can_manage_bunyan_building(request_row.building_id) then
@@ -612,7 +614,7 @@ begin
   if request_row.status <> 'pending' then raise exception 'تمت مراجعة هذا الطلب بالفعل'; end if;
 
   update public.building_join_requests
-  set status = 'rejected', reviewed_by = auth.app_user_id(), reviewed_at = now()
+  set status = 'rejected', reviewed_by = app_auth.user_id(), reviewed_at = now()
   where id = target_request_id;
   return true;
 end;
@@ -626,13 +628,13 @@ CREATE OR REPLACE FUNCTION public.bootstrap_first_super_admin()
  SET search_path TO ''
 AS $function$
 declare
-  current_user_id uuid := auth.app_user_id();
+  current_user_id uuid := app_auth.user_id();
   confirmed_at timestamptz;
   existing_admin_count integer;
 begin
   if current_user_id is null then raise exception 'Authentication required'; end if;
   perform pg_advisory_xact_lock(741852963);
-  select email_confirmed_at into confirmed_at from auth.users where id = current_user_id;
+  select email_confirmed_at into confirmed_at from app_auth.users where id = current_user_id;
   if confirmed_at is null then return false; end if;
   select count(*) into existing_admin_count from public.profiles where role = 'super_admin';
   if existing_admin_count > 0 then return false; end if;
@@ -652,7 +654,7 @@ AS $function$
 begin
   if not exists (
     select 1 from public.profiles p
-    where p.id = (select auth.app_user_id())
+    where p.id = (select app_auth.user_id())
       and p.approved = true
       and p.role = 'super_admin'
   ) then
@@ -680,13 +682,13 @@ CREATE OR REPLACE FUNCTION public.disable_bunyan_user(target_user_id uuid)
  SET search_path TO ''
 AS $function$
 begin
- if not exists(select 1 from public.profiles p where p.id=(select auth.app_user_id()) and p.approved=true and p.role='super_admin' and p.disabled_at is null) then
+ if not exists(select 1 from public.profiles p where p.id=(select app_auth.user_id()) and p.approved=true and p.role='super_admin' and p.disabled_at is null) then
   raise exception 'Only the primary administrator can disable accounts';
  end if;
- if target_user_id=(select auth.app_user_id()) then raise exception 'You cannot disable your own account'; end if;
+ if target_user_id=(select app_auth.user_id()) then raise exception 'You cannot disable your own account'; end if;
  update public.profiles set role='pending',approved=false,disabled_at=now(),updated_at=now() where id=target_user_id;
  if not found then return false; end if;
- update auth.users set banned_until='infinity'::timestamptz where id=target_user_id;
+ update app_auth.users set banned_until='infinity'::timestamptz where id=target_user_id;
  delete from public.push_devices where user_id=target_user_id;
  return true;
 end;$function$
@@ -705,7 +707,7 @@ begin
   return query
   select p.id, u.email::text, coalesce(p.full_name,''), u.created_at, p.approved
   from public.profiles p
-  join auth.users u on u.id=p.id
+  join app_auth.users u on u.id=p.id
   where p.role in ('pending','tenant')
     and (p.approved = false or p.building_id is null or p.apartment_id is null)
   order by u.created_at asc;
@@ -740,7 +742,7 @@ declare
   created_code uuid;
   expiry timestamptz;
 begin
-  if auth.app_user_id() is null then
+  if app_auth.user_id() is null then
     raise exception 'Authentication required';
   end if;
   if not public.can_manage_bunyan_building(target_building_id) then
@@ -759,7 +761,7 @@ begin
   insert into public.building_invites (
     building_id, apartment_id, invited_email, invited_by
   )
-  values (target_building_id, target_apartment_id, normalized_email, auth.app_user_id())
+  values (target_building_id, target_apartment_id, normalized_email, app_auth.user_id())
   returning building_invites.invite_code, building_invites.expires_at
   into created_code, expiry;
 
@@ -777,7 +779,7 @@ AS $function$
 begin
   if not exists (
     select 1 from public.profiles p
-    where p.id = (select auth.app_user_id()) and p.approved = true
+    where p.id = (select app_auth.user_id()) and p.approved = true
       and p.role = 'super_admin' and p.disabled_at is null
   ) then
     raise exception 'Only the primary administrator can manage registered accounts';
@@ -787,7 +789,7 @@ begin
   select p.id, u.email::text, p.phone, coalesce(p.full_name, ''), p.role,
          p.approved, p.building_id, p.apartment_id, u.created_at, p.disabled_at
   from public.profiles p
-  join auth.users u on u.id = p.id
+  join app_auth.users u on u.id = p.id
   order by u.created_at desc;
 end;
 $function$
@@ -805,7 +807,7 @@ declare
   created_code uuid;
   expiry timestamptz;
 begin
-  if auth.app_user_id() is null then raise exception 'Authentication required'; end if;
+  if app_auth.user_id() is null then raise exception 'Authentication required'; end if;
   if not public.can_manage_bunyan_building(target_building_id) then
     raise exception 'Not authorized to manage this building';
   end if;
@@ -818,7 +820,7 @@ begin
   insert into public.building_invites (
     building_id, apartment_id, invited_email, invited_phone, invited_name, invited_by, expires_at
   ) values (
-    target_building_id, target_apartment_id, null, normalized_phone, normalized_name, auth.app_user_id(), now() + interval '48 hours'
+    target_building_id, target_apartment_id, null, normalized_phone, normalized_name, app_auth.user_id(), now() + interval '48 hours'
   ) returning building_invites.invite_code, building_invites.expires_at into created_code, expiry;
   return query select 'PH-' || created_code::text, expiry;
 end;
@@ -832,7 +834,7 @@ CREATE OR REPLACE FUNCTION public.create_building_for_current_user(building_name
  SET search_path TO ''
 AS $function$
 declare
-  current_id uuid := auth.app_user_id();
+  current_id uuid := app_auth.user_id();
   new_building_id uuid;
   profile_row public.profiles%rowtype;
   identity_confirmed boolean;
@@ -840,7 +842,7 @@ begin
   if current_id is null then raise exception 'Authentication required'; end if;
 
   select (u.email_confirmed_at is not null or u.phone_confirmed_at is not null)
-    into identity_confirmed from auth.users u where u.id = current_id;
+    into identity_confirmed from app_auth.users u where u.id = current_id;
   if coalesce(identity_confirmed, false) is not true then
     raise exception 'Confirm your email or mobile number before creating a building';
   end if;
@@ -885,7 +887,7 @@ CREATE OR REPLACE FUNCTION public.accept_building_phone_invite(target_invite_cod
  SET search_path TO ''
 AS $function$
 declare
-  current_id uuid := auth.app_user_id();
+  current_id uuid := app_auth.user_id();
   current_phone text;
   phone_confirmed_at timestamptz;
   invite_uuid uuid;
@@ -900,7 +902,7 @@ begin
   invite_uuid := substring(target_invite_code from 4)::uuid;
   select public.normalize_egyptian_phone(u.phone), u.phone_confirmed_at
     into current_phone, phone_confirmed_at
-  from auth.users u where u.id = current_id;
+  from app_auth.users u where u.id = current_id;
   if current_phone is null or phone_confirmed_at is null then
     raise exception 'يجب تأكيد رقم الموبايل برسالة SMS أولاً.';
   end if;
@@ -945,11 +947,11 @@ begin
   select p.building_id, p.role
     into manager_building_id, manager_role
   from public.profiles p
-  where p.id = (select auth.app_user_id())
+  where p.id = (select app_auth.user_id())
     and p.approved = true
     and p.disabled_at is null;
 
-  if (select auth.app_user_id()) is null
+  if (select app_auth.user_id()) is null
      or manager_role <> 'building_admin'
      or manager_building_id is null
      or not public.can_manage_bunyan_building(manager_building_id) then
@@ -960,7 +962,7 @@ begin
   select p.id, u.email::text, p.phone, coalesce(p.full_name, ''), p.role,
          p.approved, p.building_id, p.apartment_id, u.created_at, p.disabled_at
   from public.profiles p
-  join auth.users u on u.id = p.id
+  join app_auth.users u on u.id = p.id
   where p.building_id = manager_building_id
   order by u.created_at desc;
 end;
@@ -976,13 +978,13 @@ AS $function$
 declare
   new_code text;
 begin
-  if auth.app_user_id() is null or not public.can_manage_bunyan_building(target_building_id) then
+  if app_auth.user_id() is null or not public.can_manage_bunyan_building(target_building_id) then
     raise exception 'غير مصرح بإدارة كود هذه العمارة' using errcode = '42501';
   end if;
 
   new_code := upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 10));
   insert into public.building_access_codes(building_id, code, created_by, created_at, revoked_at)
-  values (target_building_id, new_code, auth.app_user_id(), now(), null)
+  values (target_building_id, new_code, app_auth.user_id(), now(), null)
   on conflict (building_id) do update
     set code = excluded.code, created_by = excluded.created_by,
         created_at = excluded.created_at, revoked_at = null;
@@ -1016,7 +1018,7 @@ begin
   end if;
 
   select u.email_confirmed_at into target_email_confirmed_at
-  from auth.users u where u.id = target_user_id;
+  from app_auth.users u where u.id = target_user_id;
   if target_email_confirmed_at is null then
     raise exception 'The resident must confirm their email before approval';
   end if;
@@ -1046,7 +1048,7 @@ CREATE OR REPLACE FUNCTION public.accept_building_invite(target_invite_code uuid
  SET search_path TO ''
 AS $function$
 declare
-  current_id uuid := auth.app_user_id();
+  current_id uuid := app_auth.user_id();
   current_email text;
   email_confirmed_at timestamptz;
   invite_row public.building_invites%rowtype;
@@ -1058,7 +1060,7 @@ begin
   end if;
 
   select lower(u.email), u.email_confirmed_at into current_email, email_confirmed_at
-  from auth.users u where u.id = current_id;
+  from app_auth.users u where u.id = current_id;
   if email_confirmed_at is null then
     raise exception 'Confirm your email before accepting an invitation';
   end if;
@@ -1123,14 +1125,14 @@ declare
   v_poll record;
   v_inserted_poll_id uuid;
 begin
-  if auth.app_user_id() is null then
+  if app_auth.user_id() is null then
     raise exception 'Authentication required' using errcode = '42501';
   end if;
 
   select role, approved, building_id, apartment_id, disabled_at
     into v_profile
     from public.profiles
-   where id = auth.app_user_id();
+   where id = app_auth.user_id();
 
   if not found or v_profile.approved is distinct from true
      or v_profile.disabled_at is not null
@@ -1160,7 +1162,7 @@ begin
   -- The unique participation row enforces one vote per account. It is inserted
   -- in the same transaction as the anonymous ballot, so failures roll back both.
   insert into public.building_poll_participation (poll_id, user_id)
-  values (p_poll_id, auth.app_user_id())
+  values (p_poll_id, app_auth.user_id())
   on conflict do nothing
   returning poll_id into v_inserted_poll_id;
 
@@ -1183,7 +1185,7 @@ CREATE OR REPLACE FUNCTION public.get_building_financial_summary(p_building_id u
  SET search_path TO ''
 AS $function$
 declare
-  v_uid uuid := auth.app_user_id();
+  v_uid uuid := app_auth.user_id();
   v_profile record;
   v_building record;
   v_collected numeric := 0;
@@ -1319,7 +1321,7 @@ declare
   v_option text;
   v_order integer := 0;
 begin
-  if auth.app_user_id() is null or not public.can_manage_bunyan_building(p_building_id) then
+  if app_auth.user_id() is null or not public.can_manage_bunyan_building(p_building_id) then
     raise exception 'Building manager access required' using errcode = '42501';
   end if;
 
@@ -1351,7 +1353,7 @@ begin
   insert into public.building_polls (
     building_id, created_by, question, description, ends_at, show_results_before_close
   ) values (
-    p_building_id, auth.app_user_id(), btrim(p_question), coalesce(btrim(p_description), ''),
+    p_building_id, app_auth.user_id(), btrim(p_question), coalesce(btrim(p_description), ''),
     p_ends_at, coalesce(p_show_results_before_close, false)
   ) returning id into v_poll_id;
 
@@ -1377,7 +1379,7 @@ CREATE OR REPLACE FUNCTION public.close_building_poll(p_poll_id uuid)
  SET search_path TO ''
 AS $function$
 begin
-  if auth.app_user_id() is null then
+  if app_auth.user_id() is null then
     raise exception 'Authentication required' using errcode = '42501';
   end if;
 
@@ -1411,7 +1413,7 @@ declare
   v_targeted integer := 0;
   v_options jsonb := '[]'::jsonb;
 begin
-  if auth.app_user_id() is null then
+  if app_auth.user_id() is null then
     raise exception 'Authentication required' using errcode = '42501';
   end if;
 
@@ -1426,7 +1428,7 @@ begin
   select role, approved, building_id, apartment_id, disabled_at
     into v_profile
     from public.profiles
-   where id = auth.app_user_id();
+   where id = app_auth.user_id();
 
   if not found or v_profile.approved is distinct from true
      or v_profile.disabled_at is not null then
@@ -1452,7 +1454,7 @@ begin
 
   select exists (
     select 1 from public.building_poll_participation
-    where poll_id = p_poll_id and user_id = auth.app_user_id()
+    where poll_id = p_poll_id and user_id = app_auth.user_id()
   ) into v_has_voted;
 
   v_is_closed := v_poll.status = 'closed' or v_poll.ends_at <= now();
@@ -1525,7 +1527,7 @@ CREATE OR REPLACE FUNCTION public.create_exceptional_collection(p_building_id uu
  SET search_path TO ''
 AS $function$
 declare
-  actor uuid := auth.app_user_id();
+  actor uuid := app_auth.user_id();
   target_count integer;
   expected_total numeric(12,2);
   amount_each numeric(12,2);
@@ -1629,7 +1631,7 @@ CREATE OR REPLACE FUNCTION public.create_building_with_opening_balance(building_
 AS $function$
 declare new_building_id uuid;
 begin
-  if auth.app_user_id() is null then raise exception 'Authentication required' using errcode = '42501'; end if;
+  if app_auth.user_id() is null then raise exception 'Authentication required' using errcode = '42501'; end if;
   if opening_balance is null or not (opening_balance between 0 and 9999999999.99)
      or opening_balance <> round(opening_balance, 2) then
     raise exception 'الرصيد الافتتاحي غير صحيح؛ أدخل مبلغًا من صفر إلى 9,999,999,999.99 بمنزلتين عشريتين كحد أقصى'
@@ -1656,7 +1658,7 @@ declare
   cash_delta numeric;
 begin
   -- Trust the stored active manager profile, never client-supplied role claims.
-  perform 1 from public.profiles p where p.id = auth.app_user_id() and p.approved
+  perform 1 from public.profiles p where p.id = app_auth.user_id() and p.approved
     and p.disabled_at is null and p.role = 'building_admin'
     and p.building_id = target_building_id for update;
   if not found then raise exception 'غير مصرح بتعديل إعدادات هذه العمارة' using errcode = '42501'; end if;
@@ -1693,7 +1695,7 @@ begin
       previous_balance, balance, opening_already_included, changed_by)
     values(target_building_id, existing.opening_balance, new_opening_balance,
       existing.reserve_fund, new_reserve_fund, existing.balance, next_balance,
-      coalesce(opening_already_included, true), auth.app_user_id());
+      coalesce(opening_already_included, true), app_auth.user_id());
   end if;
   return jsonb_build_object('balance', next_balance, 'opening_balance', new_opening_balance, 'reserve_fund', new_reserve_fund);
 end;
@@ -1787,7 +1789,7 @@ CREATE OR REPLACE FUNCTION public.submit_building_join_request(target_code text,
  SET search_path TO ''
 AS $function$
 declare
-  actor uuid:=auth.app_user_id(); bld uuid; request_id uuid; p public.profiles%rowtype;
+  actor uuid:=app_auth.user_id(); bld uuid; request_id uuid; p public.profiles%rowtype;
   label text:=case applicant_resident_type when 'owner' then 'مالك' when 'tenant' then 'مستأجر' else btrim(applicant_resident_type) end;
   resident_role text;
 begin
@@ -1834,10 +1836,10 @@ declare
   request_row public.building_join_requests%rowtype; apt public.apartments%rowtype; applicant public.profiles%rowtype;
   label text:=btrim(member_label);
 begin
-  if auth.app_user_id() is null then raise exception 'Authentication required' using errcode='42501'; end if;
+  if app_auth.user_id() is null then raise exception 'Authentication required' using errcode='42501'; end if;
   select * into request_row from public.building_join_requests where id=target_request_id;
   if not found or not public.can_manage_bunyan_building(request_row.building_id) then raise exception 'طلب الانضمام غير موجود أو غير مصرح به' using errcode='42501'; end if;
-  perform 1 from public.profiles where id=auth.app_user_id() and role='building_admin' and approved and disabled_at is null and building_id=request_row.building_id for update;
+  perform 1 from public.profiles where id=app_auth.user_id() and role='building_admin' and approved and disabled_at is null and building_id=request_row.building_id for update;
   if not found then raise exception 'غير مصرح بإدارة هذه العمارة' using errcode='42501'; end if;
   select * into request_row from public.building_join_requests where id=target_request_id for update;
   if request_row.status<>'pending' then raise exception 'تمت مراجعة هذا الطلب بالفعل'; end if;
@@ -1855,7 +1857,7 @@ begin
   ) then
     update public.apartments set resident_name=request_row.full_name,is_owner=(label='مالك'),updated_at=now() where id=apt.id;
   end if;
-  update public.building_join_requests set status='approved',reviewed_by=auth.app_user_id(),reviewed_at=now() where id=target_request_id;
+  update public.building_join_requests set status='approved',reviewed_by=app_auth.user_id(),reviewed_at=now() where id=target_request_id;
   return true;
 end;
 $function$
@@ -1869,7 +1871,7 @@ CREATE OR REPLACE FUNCTION public.remove_building_member(target_building_id uuid
 AS $function$
 declare member public.profiles%rowtype;
 begin
-  perform 1 from public.profiles where id=auth.app_user_id() and role='building_admin' and approved and disabled_at is null and building_id=target_building_id for update;
+  perform 1 from public.profiles where id=app_auth.user_id() and role='building_admin' and approved and disabled_at is null and building_id=target_building_id for update;
   if not found then raise exception 'غير مصرح بحذف أعضاء هذه العمارة' using errcode='42501'; end if;
   select * into member from public.profiles where id=target_user_id and building_id=target_building_id and approved and role in ('owner','tenant') for update;
   if not found then raise exception 'العضو غير موجود أو سبق حذفه'; end if;
@@ -1889,7 +1891,7 @@ CREATE OR REPLACE FUNCTION public.set_building_member_label(target_building_id u
  SET search_path TO ''
 AS $function$
 begin
-  perform 1 from public.profiles where id=auth.app_user_id() and role='building_admin' and approved and disabled_at is null and building_id=target_building_id for update;
+  perform 1 from public.profiles where id=app_auth.user_id() and role='building_admin' and approved and disabled_at is null and building_id=target_building_id for update;
   if not found then raise exception 'غير مصرح بإدارة أعضاء هذه العمارة' using errcode='42501'; end if;
   if member_label is null or length(btrim(member_label))<1 or length(btrim(member_label))>60 then raise exception 'اكتب الصفة في حدود 60 حرفًا'; end if;
   update public.profiles set resident_label=btrim(member_label),updated_at=now() where id=target_user_id and building_id=target_building_id and approved and disabled_at is null and role in ('owner','tenant');
@@ -1953,7 +1955,7 @@ CREATE OR REPLACE FUNCTION public.add_successor_manager(member_id uuid)
 AS $function$
 declare mine public.profiles;
 begin
- select * into mine from public.profiles where id=auth.app_user_id();
+ select * into mine from public.profiles where id=app_auth.user_id();
  if mine.id is null or mine.role<>'building_admin' or not mine.approved or mine.disabled_at is not null or mine.building_id is null then raise exception 'Forbidden'; end if;
  perform 1 from public.buildings where id=mine.building_id for update;
  update public.profiles set role='building_admin' where id=member_id and id<>mine.id and building_id=mine.building_id and approved and disabled_at is null and role in ('owner','tenant');
@@ -1970,7 +1972,7 @@ AS $function$
 declare poll public.building_polls;
 begin
   select * into poll from public.building_polls where id=p_poll_id for update;
-  if auth.app_user_id() is null or poll.id is null or not public.can_manage_bunyan_building(poll.building_id) then raise exception 'Forbidden'; end if;
+  if app_auth.user_id() is null or poll.id is null or not public.can_manage_bunyan_building(poll.building_id) then raise exception 'Forbidden'; end if;
   if p_remove then
     delete from public.building_polls where id=p_poll_id;
   else
@@ -2012,10 +2014,10 @@ CREATE OR REPLACE FUNCTION public.delete_my_account(confirmation text)
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-declare me uuid:=auth.app_user_id(); mine public.profiles;
+declare me uuid:=app_auth.user_id(); mine public.profiles;
 begin
  if me is null or confirmation is distinct from 'حذف حسابي نهائيًا' then raise exception 'Confirmation required'; end if;
- if not exists(select 1 from auth.users where id=me) then raise exception 'Account not found'; end if;
+ if not exists(select 1 from app_auth.users where id=me) then raise exception 'Account not found'; end if;
  select * into mine from public.profiles where id=me;
  if mine.role='building_admin' and mine.building_id is not null then
    perform 1 from public.buildings where id=mine.building_id for update;
@@ -2024,7 +2026,7 @@ begin
  -- Personal requests and device/inbox data cascade; shared accounting remains.
  delete from public.building_invites where invited_by=me;
  delete from public.building_access_codes where created_by=me;
- delete from auth.users where id=me;
+ delete from app_auth.users where id=me;
 end $function$
 ;
 
@@ -2035,9 +2037,9 @@ CREATE OR REPLACE FUNCTION public.set_building_location(target_building_id uuid,
  SET search_path TO ''
 AS $function$
 begin
- if auth.app_user_id() is null then raise exception 'Authentication required'; end if;
+ if app_auth.user_id() is null then raise exception 'Authentication required'; end if;
  if new_latitude is null or new_longitude is null or new_latitude not between -90 and 90 or new_longitude not between -180 and 180 then raise exception 'Invalid coordinates'; end if;
- if not exists(select 1 from public.profiles where id=auth.app_user_id() and building_id=target_building_id and role='manager') then raise exception 'Access denied'; end if;
+ if not exists(select 1 from public.profiles where id=app_auth.user_id() and building_id=target_building_id and role='manager') then raise exception 'Access denied'; end if;
  update public.buildings set latitude=new_latitude,longitude=new_longitude where id=target_building_id;
 end; $function$
 ;
@@ -2052,7 +2054,7 @@ declare receipt public.payments; result numeric;
 begin
  select * into receipt from public.payments where id=payment_id for update;
  if receipt.id is null then raise exception 'Payment not found'; end if;
- if auth.app_user_id() is null or not public.can_manage_bunyan_building(receipt.building_id) then raise exception 'Forbidden'; end if;
+ if app_auth.user_id() is null or not public.can_manage_bunyan_building(receipt.building_id) then raise exception 'Forbidden'; end if;
  update public.buildings set balance=balance-receipt.amount where id=receipt.building_id returning balance into result;
  delete from public.payments where id=receipt.id;
  return result;
@@ -2108,7 +2110,7 @@ ALTER TABLE public."building_access_codes" ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public."building_access_codes" FROM PUBLIC, authenticated, anon;
 ALTER TABLE public."building_join_requests" ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public."building_join_requests" FROM PUBLIC, authenticated, anon;
-CREATE POLICY "Users can read their own profile" ON public."profiles" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((id = ( SELECT auth.app_user_id() AS uid)));
+CREATE POLICY "Users can read their own profile" ON public."profiles" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((id = ( SELECT app_auth.user_id() AS uid)));
 CREATE POLICY "buildings_admin_select" ON public."buildings" AS PERMISSIVE FOR SELECT TO "authenticated" USING (can_manage_bunyan_building(id));
 CREATE POLICY "buildings_admin_update" ON public."buildings" AS PERMISSIVE FOR UPDATE TO "authenticated" USING (can_manage_bunyan_building(id)) WITH CHECK (can_manage_bunyan_building(id));
 CREATE POLICY "apartments_admin_select" ON public."apartments" AS PERMISSIVE FOR SELECT TO "authenticated" USING (can_manage_bunyan_building(building_id));
@@ -2143,66 +2145,66 @@ CREATE POLICY "app_settings_admin_select" ON public."app_settings" AS PERMISSIVE
 CREATE POLICY "app_settings_admin_insert" ON public."app_settings" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK (can_manage_bunyan_building(building_id));
 CREATE POLICY "app_settings_admin_update" ON public."app_settings" AS PERMISSIVE FOR UPDATE TO "authenticated" USING (can_manage_bunyan_building(building_id)) WITH CHECK (can_manage_bunyan_building(building_id));
 CREATE POLICY "app_settings_admin_delete" ON public."app_settings" AS PERMISSIVE FOR DELETE TO "authenticated" USING (can_manage_bunyan_building(building_id));
-CREATE POLICY "exceptional_collections_admin_insert" ON public."exceptional_collections" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ((can_manage_bunyan_building(building_id) AND (created_by = auth.app_user_id())));
-CREATE POLICY "Users can view their own push devices" ON public."push_devices" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((auth.app_user_id() = user_id));
-CREATE POLICY "Users can register their own push devices" ON public."push_devices" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ((auth.app_user_id() = user_id));
-CREATE POLICY "Users can update their own push devices" ON public."push_devices" AS PERMISSIVE FOR UPDATE TO "authenticated" USING ((auth.app_user_id() = user_id)) WITH CHECK ((auth.app_user_id() = user_id));
-CREATE POLICY "Users can remove their own push devices" ON public."push_devices" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((auth.app_user_id() = user_id));
+CREATE POLICY "exceptional_collections_admin_insert" ON public."exceptional_collections" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ((can_manage_bunyan_building(building_id) AND (created_by = app_auth.user_id())));
+CREATE POLICY "Users can view their own push devices" ON public."push_devices" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((app_auth.user_id() = user_id));
+CREATE POLICY "Users can register their own push devices" ON public."push_devices" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ((app_auth.user_id() = user_id));
+CREATE POLICY "Users can update their own push devices" ON public."push_devices" AS PERMISSIVE FOR UPDATE TO "authenticated" USING ((app_auth.user_id() = user_id)) WITH CHECK ((app_auth.user_id() = user_id));
+CREATE POLICY "Users can remove their own push devices" ON public."push_devices" AS PERMISSIVE FOR DELETE TO "authenticated" USING ((app_auth.user_id() = user_id));
 CREATE POLICY "exceptional_collections_admin_select" ON public."exceptional_collections" AS PERMISSIVE FOR SELECT TO "authenticated" USING (can_manage_bunyan_building(building_id));
 CREATE POLICY "exceptional_collections_admin_update" ON public."exceptional_collections" AS PERMISSIVE FOR UPDATE TO "authenticated" USING (can_manage_bunyan_building(building_id)) WITH CHECK (can_manage_bunyan_building(building_id));
 CREATE POLICY "exceptional_collections_admin_delete" ON public."exceptional_collections" AS PERMISSIVE FOR DELETE TO "authenticated" USING (can_manage_bunyan_building(building_id));
-CREATE POLICY "profiles_admin_read" ON public."profiles" AS PERMISSIVE FOR SELECT TO "authenticated" USING (((id = ( SELECT auth.app_user_id() AS uid)) OR can_manage_bunyan_building(building_id)));
+CREATE POLICY "profiles_admin_read" ON public."profiles" AS PERMISSIVE FOR SELECT TO "authenticated" USING (((id = ( SELECT app_auth.user_id() AS uid)) OR can_manage_bunyan_building(building_id)));
 CREATE POLICY "building_access_codes_manager_read" ON public."building_access_codes" AS PERMISSIVE FOR SELECT TO "authenticated" USING (can_manage_bunyan_building(building_id));
 CREATE POLICY "building_join_requests_manager_read" ON public."building_join_requests" AS PERMISSIVE FOR SELECT TO "authenticated" USING (can_manage_bunyan_building(building_id));
-CREATE POLICY "building_join_requests_own_read" ON public."building_join_requests" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = ( SELECT auth.app_user_id() AS uid)));
+CREATE POLICY "building_join_requests_own_read" ON public."building_join_requests" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((user_id = ( SELECT app_auth.user_id() AS uid)));
 CREATE POLICY "announcements_resident_select" ON public."announcements" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((building_id = ( SELECT p.building_id
    FROM profiles p
-  WHERE ((p.id = ( SELECT auth.app_user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text]))))));
+  WHERE ((p.id = ( SELECT app_auth.user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text]))))));
 CREATE POLICY "apartments_resident_select" ON public."apartments" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((id = ( SELECT p.apartment_id
    FROM profiles p
-  WHERE ((p.id = ( SELECT auth.app_user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text]))))));
+  WHERE ((p.id = ( SELECT app_auth.user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text]))))));
 CREATE POLICY "buildings_resident_select" ON public."buildings" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((id = ( SELECT p.building_id
    FROM profiles p
-  WHERE ((p.id = ( SELECT auth.app_user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text]))))));
+  WHERE ((p.id = ( SELECT app_auth.user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text]))))));
 CREATE POLICY "exceptional_collections_resident_select" ON public."exceptional_collections" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((target_apartment_ids @> ARRAY[( SELECT p.apartment_id
    FROM profiles p
-  WHERE ((p.id = ( SELECT auth.app_user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['owner'::text, 'tenant'::text]))))]));
-CREATE POLICY "facility_bookings_resident_insert" ON public."facility_bookings" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK (((created_by = ( SELECT auth.app_user_id() AS uid)) AND (apartment_id = ( SELECT p.apartment_id
+  WHERE ((p.id = ( SELECT app_auth.user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['owner'::text, 'tenant'::text]))))]));
+CREATE POLICY "facility_bookings_resident_insert" ON public."facility_bookings" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK (((created_by = ( SELECT app_auth.user_id() AS uid)) AND (apartment_id = ( SELECT p.apartment_id
    FROM profiles p
-  WHERE ((p.id = ( SELECT auth.app_user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text]))))) AND (building_id = ( SELECT p.building_id
+  WHERE ((p.id = ( SELECT app_auth.user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text]))))) AND (building_id = ( SELECT p.building_id
    FROM profiles p
-  WHERE ((p.id = ( SELECT auth.app_user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text])))))));
+  WHERE ((p.id = ( SELECT app_auth.user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text])))))));
 CREATE POLICY "facility_bookings_resident_select" ON public."facility_bookings" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((apartment_id = ( SELECT p.apartment_id
    FROM profiles p
-  WHERE ((p.id = ( SELECT auth.app_user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text]))))));
-CREATE POLICY "maintenance_tickets_resident_insert" ON public."maintenance_tickets" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK (((created_by = ( SELECT auth.app_user_id() AS uid)) AND (apartment_id = ( SELECT p.apartment_id
+  WHERE ((p.id = ( SELECT app_auth.user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text]))))));
+CREATE POLICY "maintenance_tickets_resident_insert" ON public."maintenance_tickets" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK (((created_by = ( SELECT app_auth.user_id() AS uid)) AND (apartment_id = ( SELECT p.apartment_id
    FROM profiles p
-  WHERE ((p.id = ( SELECT auth.app_user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text]))))) AND (building_id = ( SELECT p.building_id
+  WHERE ((p.id = ( SELECT app_auth.user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text]))))) AND (building_id = ( SELECT p.building_id
    FROM profiles p
-  WHERE ((p.id = ( SELECT auth.app_user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text])))))));
+  WHERE ((p.id = ( SELECT app_auth.user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text])))))));
 CREATE POLICY "maintenance_tickets_resident_select" ON public."maintenance_tickets" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((apartment_id = ( SELECT p.apartment_id
    FROM profiles p
-  WHERE ((p.id = ( SELECT auth.app_user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text]))))));
+  WHERE ((p.id = ( SELECT app_auth.user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text]))))));
 CREATE POLICY "payments_resident_select" ON public."payments" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((apartment_id = ( SELECT p.apartment_id
    FROM profiles p
-  WHERE ((p.id = ( SELECT auth.app_user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text]))))));
+  WHERE ((p.id = ( SELECT app_auth.user_id() AS uid)) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['tenant'::text, 'owner'::text]))))));
 CREATE POLICY "building_polls_select_same_building" ON public."building_polls" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((can_manage_bunyan_building(building_id) OR (EXISTS ( SELECT 1
    FROM profiles p
-  WHERE ((p.id = ( SELECT auth.app_user_id() AS uid)) AND (p.building_id = building_polls.building_id) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['owner'::text, 'tenant'::text])) AND (p.apartment_id IS NOT NULL))))));
+  WHERE ((p.id = ( SELECT app_auth.user_id() AS uid)) AND (p.building_id = building_polls.building_id) AND (p.approved = true) AND (p.disabled_at IS NULL) AND (p.role = ANY (ARRAY['owner'::text, 'tenant'::text])) AND (p.apartment_id IS NOT NULL))))));
 CREATE POLICY "building_poll_options_select_same_building" ON public."building_poll_options" AS PERMISSIVE FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
    FROM building_polls p
   WHERE ((p.id = building_poll_options.poll_id) AND (can_manage_bunyan_building(p.building_id) OR (EXISTS ( SELECT 1
            FROM profiles resident
-          WHERE ((resident.id = ( SELECT auth.app_user_id() AS uid)) AND (resident.building_id = p.building_id) AND (resident.approved = true) AND (resident.disabled_at IS NULL) AND (resident.role = ANY (ARRAY['owner'::text, 'tenant'::text])) AND (resident.apartment_id IS NOT NULL)))))))));
+          WHERE ((resident.id = ( SELECT app_auth.user_id() AS uid)) AND (resident.building_id = p.building_id) AND (resident.approved = true) AND (resident.disabled_at IS NULL) AND (resident.role = ANY (ARRAY['owner'::text, 'tenant'::text])) AND (resident.apartment_id IS NOT NULL)))))))));
 CREATE POLICY "treasury_settings_audit_manager_read" ON public."building_treasury_settings_audit" AS PERMISSIVE FOR SELECT TO "authenticated" USING (can_manage_bunyan_building(building_id));
-CREATE POLICY "app_notifications_own_read" ON public."app_notifications" AS PERMISSIVE FOR SELECT TO "authenticated" USING (((recipient_id = ( SELECT auth.app_user_id() AS uid)) AND (EXISTS ( SELECT 1
+CREATE POLICY "app_notifications_own_read" ON public."app_notifications" AS PERMISSIVE FOR SELECT TO "authenticated" USING (((recipient_id = ( SELECT app_auth.user_id() AS uid)) AND (EXISTS ( SELECT 1
    FROM profiles p
-  WHERE ((p.id = ( SELECT auth.app_user_id() AS uid)) AND p.approved AND (p.disabled_at IS NULL) AND (p.building_id = app_notifications.building_id))))));
-CREATE POLICY "app_notifications_own_mark_read" ON public."app_notifications" AS PERMISSIVE FOR UPDATE TO "authenticated" USING (((recipient_id = ( SELECT auth.app_user_id() AS uid)) AND (EXISTS ( SELECT 1
+  WHERE ((p.id = ( SELECT app_auth.user_id() AS uid)) AND p.approved AND (p.disabled_at IS NULL) AND (p.building_id = app_notifications.building_id))))));
+CREATE POLICY "app_notifications_own_mark_read" ON public."app_notifications" AS PERMISSIVE FOR UPDATE TO "authenticated" USING (((recipient_id = ( SELECT app_auth.user_id() AS uid)) AND (EXISTS ( SELECT 1
    FROM profiles p
-  WHERE ((p.id = ( SELECT auth.app_user_id() AS uid)) AND p.approved AND (p.disabled_at IS NULL) AND (p.building_id = app_notifications.building_id)))))) WITH CHECK (((recipient_id = ( SELECT auth.app_user_id() AS uid)) AND (EXISTS ( SELECT 1
+  WHERE ((p.id = ( SELECT app_auth.user_id() AS uid)) AND p.approved AND (p.disabled_at IS NULL) AND (p.building_id = app_notifications.building_id)))))) WITH CHECK (((recipient_id = ( SELECT app_auth.user_id() AS uid)) AND (EXISTS ( SELECT 1
    FROM profiles p
-  WHERE ((p.id = ( SELECT auth.app_user_id() AS uid)) AND p.approved AND (p.disabled_at IS NULL) AND (p.building_id = app_notifications.building_id))))));
+  WHERE ((p.id = ( SELECT app_auth.user_id() AS uid)) AND p.approved AND (p.disabled_at IS NULL) AND (p.building_id = app_notifications.building_id))))));
 GRANT INSERT ON public."building_poll_participation" TO "service_role";
 GRANT SELECT ON public."building_poll_participation" TO "service_role";
 GRANT UPDATE ON public."building_poll_participation" TO "service_role";
