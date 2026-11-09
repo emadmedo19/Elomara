@@ -2722,4 +2722,3 @@ GRANT EXECUTE ON FUNCTION public."delete_payment_with_treasury"(payment_id uuid)
 GRANT EXECUTE ON FUNCTION public."delete_payment_with_treasury"(payment_id uuid) TO "service_role";
 
 -- Triggers are installed after snapshot import.
-

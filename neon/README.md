@@ -48,14 +48,18 @@ and refuses to treat a moving source as a stable cutover snapshot.
 All six existing identities were exercised with the `authenticated` database
 role and synthetic test subjects mapped to their application UUIDs. The two
 administrators and two approved owners saw one building each and no foreign
-apartments. The two pending users saw no buildings. No real user session or
-password was used to perform these database-role checks.
+apartments. The two pending users saw no buildings. Financial-summary RPCs
+executed successfully for both administrators and both owners. A rollback-only
+suspension fixture denied the administrator all building access. No real user
+session or password was used to perform these database-role checks.
 
 Unit tests cover financial-value corruption, missing/duplicate rows, column drift,
 SQL identifiers and the production approval gate. App TypeScript/build checks
 remain required. The GitHub preflight verifies the stored Neon, Supabase, Firebase
 and Gemini credentials without sending notifications or generating AI content.
 It does not prove Google sign-in, Firebase delivery permission, or Android flows.
+The GitHub credential preflight passed for all four services:
+https://github.com/emadmedo19/Elomara/actions/runs/42683445618 .
 
 ## Local tooling
 

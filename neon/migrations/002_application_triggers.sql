@@ -10,4 +10,3 @@ CREATE TRIGGER treasury_settings_inbox AFTER INSERT ON public.building_treasury_
 CREATE TRIGGER app_settings_inbox AFTER INSERT OR UPDATE ON public.app_settings FOR EACH ROW EXECUTE FUNCTION capture_app_notification();
 CREATE TRIGGER queue_mobile_notification AFTER INSERT ON public.app_notifications FOR EACH ROW EXECUTE FUNCTION queue_mobile_notification();
 CREATE TRIGGER on_auth_user_created_profile AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_auth_user();
-
