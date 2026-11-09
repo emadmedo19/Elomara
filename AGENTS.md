@@ -28,6 +28,7 @@ Owner decision (2026-11-06): the app currently visible to the owner is the desir
 
 - Work directly on `main`. Do not create feature, fix, recovery, migration, or temporary branches or branch-based worktrees unless the owner explicitly changes this policy.
 - Do not require or open pull requests for routine changes. Commit and push scoped, verified changes directly to `main`.
+- Standing owner authorization (2026-11-09): after implementing and verifying an owner-requested change, commit and push it to `main` immediately and let the normal APK/OTA workflows publish it. The owner explicitly approved publishing the payment fixes and said to upload future requested changes directly without asking again. This authorization covers the requested scope and its normal deployment; it does not authorize unrelated changes, purchases, destructive data operations, or restoring canceled work. If a mandatory external approval gate blocks publication, report its stated reason and request only the approval that gate requires.
 - Before editing, inspect `git status` and preserve any existing uncommitted work. Never reset, discard, or overwrite another session's changes.
 - With a clean working tree, synchronize before starting:
 
