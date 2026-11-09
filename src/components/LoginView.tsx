@@ -2,7 +2,7 @@ import { PasswordInput } from './PasswordInput';
 import React, { useEffect, useState } from 'react';
 import { AlertCircle, Building2, CheckCircle2, Chrome, LogOut, ShieldCheck, Users, Mail, Lock, User, Wallet } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { isNeonBackend, isNeonCandidate } from '../lib/neon';
+import { isNeonBackend } from '../lib/neon';
 import { useAuth } from '../context/AuthContext';
 
 type JoinRequestStatus = 'pending' | 'approved' | 'rejected' | null;
@@ -84,7 +84,7 @@ export const LoginView: React.FC = () => {
             <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-white shadow-xl ring-2 ring-white/30">
               <img src="/icon.png" alt="العمارة" className="h-full w-full object-cover" />
             </div>
-              <div><h1>العمارة</h1><p>إدارة العقارات السكنية</p>{isNeonCandidate && <p data-testid="neon-candidate">نسخة اختبار Neon — للقراءة فقط</p>}</div>
+              <div><h1>العمارة</h1><p>إدارة العقارات السكنية</p></div>
           </div>
           <div className="fotouh-login-intro">
             <h2>إدارة العمارة بسهولة وأمان</h2>
