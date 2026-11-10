@@ -102,25 +102,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ]) : await request;
       if (error) throw error;
       if (loadVersion !== profileLoadVersion.current) return false;
-      if (expectedBuildingId && (!data || data.id !== currentUser.id || data.role !== 'building_admin'
-        || data.approved !== true || data.disabled_at || data.building_id !== expectedBuildingId)) return false;
-      const profile: UserProfile | null = data ? {
-        uid: data.id, email: currentUser.email ?? null,
-        displayName: data.full_name || currentUser.user_metadata?.full_name || currentUser.email || null,
-        role: data.role as UserProfile['role'],
-        buildingId: data.building_id || undefined, apartmentId: data.apartment_id || undefined,
-        phone: data.phone || undefined, residentLabel: data.resident_label || undefined,
-        status: data.disabled_at ? 'suspended' : data.approved ? 'active' : 'pending',
+      // A resume-time empty response must be confirmed before replacing a
+      // previously verified membership with the first-time onboarding screen.
+      // A real removal still clears the profile after the confirmation read.
+      let confirmedData = data;
+      if (!confirmedData && !expectedBuildingId && currentProfileId.current === currentUser.id) {
+        const retry = await supabase.from('profiles')
+          .select('id, full_name, phone, role, building_id, apartment_id, approved, disabled_at, resident_label')
+          .eq('id', currentUser.id).maybeSingle();
+        if (loadVersion !== profileLoadVersion.current) return false;
+        if (retry.error) throw retry.error;
+        confirmedData = retry.data;
+      }
+      if (expectedBuildingId && (!confirmedData || confirmedData.id !== currentUser.id || confirmedData.role !== 'building_admin'
+        || confirmedData.approved !== true || confirmedData.disabled_at || confirmedData.building_id !== expectedBuildingId)) return false;
+      const profile: UserProfile | null = confirmedData ? {
+        uid: confirmedData.id, email: currentUser.email ?? null,
+        displayName: confirmedData.full_name || currentUser.user_metadata?.full_name || currentUser.email || null,
+        role: confirmedData.role as UserProfile['role'],
+        buildingId: confirmedData.building_id || undefined, apartmentId: confirmedData.apartment_id || undefined,
+        phone: confirmedData.phone || undefined, residentLabel: confirmedData.resident_label || undefined,
+        status: confirmedData.disabled_at ? 'suspended' : confirmedData.approved ? 'active' : 'pending',
       } : null;
       setUserProfile(profile); setRole(profile?.role ?? null);
       const admin = profile?.role === 'building_admin';
       setIsAdmin(Boolean(admin && profile?.status === 'active'));
       return true;
     } catch (error) {
-      if (loadVersion === profileLoadVersion.current && !quiet) {
+      if (loadVersion === profileLoadVersion.current) {
         console.error('Account profile loading failed:', error);
-        setUserProfile(null); setRole(null); setIsAdmin(false);
-        setAuthError('تم تسجيل الدخول لكن تعذر تحميل بيانات الحساب. حاول مرة أخرى.');
+        // Network/token refresh failures must not erase a verified membership.
+        // Only a successful profile read may change the user's role.
+        if (!quiet) setAuthError('تعذر تحديث بيانات الحساب مؤقتًا. حاول مرة أخرى.');
       }
       return false;
     } finally {
