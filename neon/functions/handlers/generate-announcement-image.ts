@@ -14,7 +14,7 @@ export default async function handle(request: Request): Promise<Response> {
   if (profileError) return Response.json({ error: "تعذر التحقق من الصلاحيات." }, { status: 503, headers: cors });
   if (!profile?.approved || profile.disabled_at || !profile.building_id || profile.role !== "building_admin")
     return Response.json({ error: "توليد لوحات الإعلانات متاح لمدير العمارة فقط." }, { status: 403, headers: cors });
-  const key = process.env["GEMINI_API_KEY"];
+  const key = process.env["GEMINI_API_KEY"]?.trim();
   if (!key) return Response.json({ error: "خدمة توليد الصور غير مهيأة بعد." }, { status: 503, headers: cors });
   const now = Date.now();
   const recent = (limits.get(user.id) || []).filter(time => now - time < 3600000);
@@ -35,13 +35,22 @@ export default async function handle(request: Request): Promise<Response> {
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const status = response.status === 429 ? 429 : 502;
-      return Response.json({ error: response.status === 429 ? "خدمة الصور مشغولة أو وصلت للحد المتاح." : "تعذر توليد الصورة حاليًا. تحقق من تفعيل نموذج الصور في Gemini." }, { status, headers: cors });
+      const providerCode = String(result?.error?.status || '');
+      const providerMessage = String(result?.error?.message || '').slice(0, 180);
+      console.error('[AI poster] Gemini request failed', { httpStatus: response.status, providerCode, providerMessage });
+      const error = response.status === 429 ? 'تم الوصول لحد استخدام Gemini. حاول لاحقًا.'
+        : response.status === 403 || response.status === 401 ? 'مفتاح Gemini غير مصرح له بتوليد الصور. راجع صلاحيات المفتاح.'
+        : response.status === 404 ? 'نموذج توليد الصور غير متاح للمشروع الحالي.'
+        : response.status === 400 ? 'خدمة Gemini رفضت إعدادات طلب الصورة.'
+        : response.status >= 500 ? 'خدمة Gemini غير متاحة مؤقتًا.'
+        : 'تعذر توليد الصورة حاليًا.';
+      return Response.json({ error, code: providerCode || `HTTP_${response.status}` }, { status: response.status === 429 ? 429 : 502, headers: cors });
     }
     const part = result?.candidates?.[0]?.content?.parts?.find((item: { inlineData?: { data?: string; mimeType?: string } }) => item.inlineData?.data && item.inlineData?.mimeType?.startsWith("image/"));
-    if (!part?.inlineData?.data) return Response.json({ error: "خدمة الصور لم تُرجع صورة. حاول مجددًا." }, { status: 502, headers: cors });
+    if (!part?.inlineData?.data) { console.error("[AI poster] Gemini returned no image", { finishReason: result?.candidates?.[0]?.finishReason || "unknown" }); return Response.json({ error: "خدمة Gemini لم تُرجع صورة. جرّب وصفًا مختلفًا." }, { status: 502, headers: cors }); }
     return Response.json({ image: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}` }, { headers: cors });
-  } catch {
+  } catch (error) {
+    console.error("[AI poster] Request failed", { type: error instanceof Error ? error.name : "unknown" });
     return Response.json({ error: "تعذر الاتصال بخدمة توليد الصور. حاول مجددًا." }, { status: 503, headers: cors });
   }
 }
