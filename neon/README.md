@@ -242,3 +242,22 @@ retry opens the new dashboard, refreshes membership and never attempts a direct
 building insert. A membership update arriving before the creation response is also
 accepted for that same manager/new building. Existing-building update failure/retry
 keeps its draft and closes only after confirmed persistence.
+
+
+After confirmed building creation, AuthProvider owns a bounded membership handoff:
+reads that started before creation are invalidated; concurrent background reads cannot
+restore a pending profile; only a server-confirmed active manager profile matching
+the saved building ends the handoff. A failed/slow check shows a saved-building retry
+screen rather than another creation form. Signing out or changing identity cancels
+the transition; later role revocation still applies normally. Native Data API requests
+bypass HTTP caches. Both initial onboarding and manager recreation use this handoff,
+without reloading the WebView or sending another create request.
+
+Regression: with Python Playwright and Chromium installed, run `npm run build`, then
+`node tests/browser/build-membership-fixture.mjs /tmp/elomara-membership-ui`.
+Serve **only that synthetic output directory** on loopback:
+`python -m http.server 5188 --bind 127.0.0.1 --directory /tmp/elomara-membership-ui`.
+Run `python tests/browser/test-membership-handoff.py`. It exercises the actual
+AuthProvider and App with synthetic API responses: stale/late pending profiles,
+initial onboarding, terminal failures/retry, unresponsive reads, identity changes and
+role revocation. The fixture makes no live account, building or notification writes.

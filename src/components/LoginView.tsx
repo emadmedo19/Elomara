@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 type JoinRequestStatus = 'pending' | 'approved' | 'rejected' | null;
 
 export const LoginView: React.FC = () => {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, updatePassword, isPasswordRecovery, clearPasswordRecovery, needsEmailVerification, verifyEmail, cancelEmailVerification, authError, isLoading, clearError, user, userProfile, isAdmin, signOut } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, updatePassword, isPasswordRecovery, clearPasswordRecovery, needsEmailVerification, verifyEmail, cancelEmailVerification, authError, isLoading, clearError, user, userProfile, isAdmin, signOut, refreshProfile, holdMembership } = useAuth();
   const [buildingName, setBuildingName] = useState('');
   const [buildingAddress, setBuildingAddress] = useState('');
   const [unitsCount, setUnitsCount] = useState('0');
@@ -46,16 +46,20 @@ export const LoginView: React.FC = () => {
       setError('اكتب رصيدًا افتتاحيًا من صفر إلى 9,999,999,999.99 ج.م، بحد أقصى رقمين بعد العلامة العشرية.'); return;
     }
     setBusy(true);
-    const { error: actionError } = await supabase.rpc('create_building_with_opening_balance', {
-      building_name: buildingName.trim(),
-      building_address: buildingAddress.trim(),
-      units_count: Math.max(0, Number(unitsCount) || 0),
-      floors_count: floorsCount.trim() ? Math.max(0, Number(floorsCount) || 0) : null,
-      opening_balance: Number(balanceText || '0'),
-    });
-    setBusy(false);
-    if (actionError) setError(actionError.message);
-    else window.location.reload();
+    const release = holdMembership();
+    try {
+      const { data: buildingId, error: actionError } = await supabase.rpc('create_building_with_opening_balance', {
+        building_name: buildingName.trim(),
+        building_address: buildingAddress.trim(),
+        units_count: Math.max(0, Number(unitsCount) || 0),
+        floors_count: floorsCount.trim() ? Math.max(0, Number(floorsCount) || 0) : null,
+        opening_balance: Number(balanceText || '0'),
+      });
+      if (actionError) setError(actionError.message);
+      else if (typeof buildingId === 'string') await refreshProfile(buildingId);
+      else setError('تم الحفظ لكن تعذر تأكيد العمارة. أعد تحديث بيانات الحساب.');
+    } catch (failure) { setError(failure instanceof Error ? failure.message : 'تعذر حفظ العمارة. حاول مرة أخرى.'); }
+    finally { release(); setBusy(false); }
   };
 
   const submitJoinRequest = async (event: React.FormEvent) => {

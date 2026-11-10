@@ -36,7 +36,9 @@ interface AuthContextType {
   clearPasswordRecovery: () => void;
   signOut: () => Promise<void>;
   clearError: () => void;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: (expectedBuildingId?: string) => Promise<void>;
+  holdMembership: () => () => void;
+  membershipSyncError: { buildingId: string; message: string } | null;
 }
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const getAuthRedirectUrl = (path: 'login-callback' | 'reset-password' = 'login-callback') => Capacitor.isNativePlatform()
@@ -63,23 +65,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const profileLoadVersion = useRef(0);
   const profileReadUser = useRef<string | undefined>(undefined);
   const oauthCallbackInProgress = useRef(false);
+  const membershipSync = useRef<{ userId: string; buildingId: string } | null>(null);
+  const membershipSyncVersion = useRef(0);
+  const [isSyncingMembership, setIsSyncingMembership] = useState(false);
+  const [membershipSyncError, setMembershipSyncError] = useState<{ buildingId: string; message: string } | null>(null);
 
-  const loadProfile = async (currentUser: User | null, quiet = false) => {
+  const loadProfile = async (currentUser: User | null, quiet = false, expectedBuildingId?: string): Promise<boolean> => {
+    // A confirmed creation owns the profile transition. Background reads cannot
+    // restore an older pending profile while its new membership is being verified.
+    if (membershipSync.current && currentUser?.id === membershipSync.current.userId && !expectedBuildingId) return false;
+    if (membershipSync.current && currentUser?.id !== membershipSync.current.userId) {
+      membershipSync.current = null; membershipSyncVersion.current++;
+      setIsSyncingMembership(false); setMembershipSyncError(null);
+    }
     const loadVersion = ++profileLoadVersion.current;
+    currentUserId.current = currentUser?.id;
     setUser(currentUser);
     if (!currentUser) {
       profileReadUser.current = undefined;
       setUserProfile(null); setRole(null); setIsAdmin(false); setIsLoading(false);
-      return;
+      return false;
     }
     profileReadUser.current = currentUser.id;
     if (!quiet) setIsLoading(true);
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const controller = new AbortController();
     try {
-      const { data, error } = await supabase.from('profiles')
+      const request = supabase.from('profiles')
         .select('id, full_name, phone, role, building_id, apartment_id, approved, disabled_at, resident_label')
-        .eq('id', currentUser.id).maybeSingle();
+        .eq('id', currentUser.id).abortSignal(controller.signal).maybeSingle();
+      const { data, error } = expectedBuildingId ? await Promise.race([
+        Promise.resolve(request),
+        new Promise<never>((_, reject) => { timeout = setTimeout(() => {
+          controller.abort(); reject(new Error('تعذر تحديث الحساب في الوقت المحدد'));
+        }, 7000); }),
+      ]) : await request;
       if (error) throw error;
-      if (loadVersion !== profileLoadVersion.current) return;
+      if (loadVersion !== profileLoadVersion.current) return false;
+      if (expectedBuildingId && (!data || data.id !== currentUser.id || data.role !== 'building_admin'
+        || data.approved !== true || data.disabled_at || data.building_id !== expectedBuildingId)) return false;
       const profile: UserProfile | null = data ? {
         uid: data.id, email: currentUser.email ?? null,
         displayName: data.full_name || currentUser.user_metadata?.full_name || currentUser.email || null,
@@ -91,14 +115,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserProfile(profile); setRole(profile?.role ?? null);
       const admin = profile?.role === 'building_admin';
       setIsAdmin(Boolean(admin && profile?.status === 'active'));
+      return true;
     } catch (error) {
       if (loadVersion === profileLoadVersion.current && !quiet) {
         console.error('Account profile loading failed:', error);
         setUserProfile(null); setRole(null); setIsAdmin(false);
         setAuthError('تم تسجيل الدخول لكن تعذر تحميل بيانات الحساب. حاول مرة أخرى.');
       }
+      return false;
     } finally {
+      clearTimeout(timeout);
       if (loadVersion === profileLoadVersion.current) { profileReadUser.current = undefined; setIsLoading(false); }
+    }
+  };
+
+  const holdMembership = () => {
+    if (!user || currentUserId.current !== user.id) return () => {};
+    const version = ++membershipSyncVersion.current;
+    membershipSync.current = { userId: user.id, buildingId: '' };
+    ++profileLoadVersion.current;
+    // Never freeze background membership checks indefinitely if a write stalls.
+    const timer = setTimeout(() => {
+      if (version === membershipSyncVersion.current) {
+        membershipSync.current = null; membershipSyncVersion.current++;
+      }
+    }, 15000);
+    return () => {
+      clearTimeout(timer);
+      if (version === membershipSyncVersion.current) {
+        membershipSync.current = null; membershipSyncVersion.current++;
+      }
+    };
+  };
+
+  const refreshProfile = async (expectedBuildingId?: string) => {
+    if (!user || currentUserId.current !== user.id) return;
+    if (!expectedBuildingId) { await loadProfile(user, true); return; }
+    const version = ++membershipSyncVersion.current;
+    membershipSync.current = { userId: user.id, buildingId: expectedBuildingId };
+    ++profileLoadVersion.current; // Invalidate reads started before the creation committed.
+    setMembershipSyncError(null); setIsSyncingMembership(true);
+    for (let attempt = 0; attempt < 4; attempt++) {
+      if (version !== membershipSyncVersion.current || currentUserId.current !== user.id) return;
+      if (await loadProfile(user, true, expectedBuildingId)) {
+        if (version === membershipSyncVersion.current) {
+          membershipSync.current = null; setIsSyncingMembership(false);
+        }
+        return;
+      }
+      if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 350 * (attempt + 1)));
+    }
+    if (version === membershipSyncVersion.current && currentUserId.current === user.id) {
+      setIsSyncingMembership(false);
+      setMembershipSyncError({ buildingId: expectedBuildingId,
+        message: 'تم حفظ العمارة، لكن تعذر تحديث بيانات حسابك. اضغط إعادة المحاولة للدخول إليها.' });
     }
   };
 
@@ -232,7 +302,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const refreshMembership = () => {
       if (document.visibilityState === 'hidden') return;
       void supabase.auth.getSession().then(({ data: { session } }) => {
-        if (active && session?.user.id === user.id) void loadProfile(session.user, true);
+        if (active && currentUserId.current === user.id && session?.user.id === user.id) void loadProfile(session.user, true);
       }).catch(() => {});
     };
     const channel = supabase.channel(`own-membership-${user.id}`).on('postgres_changes', {
@@ -347,17 +417,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     setAuthError(null);
+    membershipSync.current = null; membershipSyncVersion.current++;
+    ++profileLoadVersion.current; currentUserId.current = undefined;
+    setIsSyncingMembership(false); setMembershipSyncError(null);
     const { error } = await supabase.auth.signOut();
     if (error) setAuthError(friendlyError(error));
     setUser(null); setUserProfile(null); setRole(null); setIsAdmin(false);
   };
-  return <AuthContext.Provider value={{ user, userProfile, role, isAdmin, isLoading, authError,
+  return <AuthContext.Provider value={{ user, userProfile, role, isAdmin, isLoading: isLoading || isSyncingMembership, authError,
     signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, updatePassword,
     isPasswordRecovery, clearPasswordRecovery: () => setIsPasswordRecovery(false),
     needsEmailVerification, verifyEmail,
     cancelEmailVerification: () => { setNeedsEmailVerification(false); setAuthError(null); },
     signOut, clearError: () => setAuthError(null),
-    refreshProfile: async () => { if (user && currentUserId.current === user.id) await loadProfile(user, true); } }}>
+    refreshProfile, holdMembership, membershipSyncError }}>
     {children}
   </AuthContext.Provider>;
 };

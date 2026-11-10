@@ -67,6 +67,7 @@ test('native session keeps the old application UUID and queries with the refresh
   rotate();
   const profile = await api.neonClient.from('profiles').select('id').eq('id', appId);
   assert.equal(profile.data[0].id, appId);
+  assert.equal(requests.at(-1).options.cache, 'no-store');
   assert.equal(new Headers(requests.at(-1).options.headers).get('authorization'), 'Bearer jwt-two');
   const reply = await api.neonClient.functions.invoke('gemini-chat', { body: { messages: [] } });
   assert.equal(reply.data.text, 'fixture reply');

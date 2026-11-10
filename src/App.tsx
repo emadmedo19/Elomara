@@ -66,7 +66,8 @@ export default function App() {
   const [showIntroSplash, setShowIntroSplash] = useState(true);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [currentBuildingId, setCurrentBuildingIdState] = useState<string>('');
-  const { user, userProfile, isAdmin, isPasswordRecovery, isLoading: isAuthLoading, signOut, refreshProfile } = useAuth();
+  const { user, userProfile, isAdmin, isPasswordRecovery, isLoading: isAuthLoading, signOut, refreshProfile, holdMembership, membershipSyncError } = useAuth();
+  const activeUserId = useRef(user?.id); activeUserId.current = user?.id;
   // Only a successful load for this identity can unlock the empty-account flow.
   const managerScope = user && isAdmin ? `${user.id}:${userProfile?.buildingId || ''}` : '';
   const managerScopeRef = useRef(managerScope); managerScopeRef.current = managerScope;
@@ -464,23 +465,22 @@ export default function App() {
   const handleAddBuilding = async (newBldData: Omit<Building, 'id'>) => {
     if (!user || !isAdmin) throw new Error('لا توجد صلاحية لإضافة عمارة.');
     const actorId = user.id;
-    const { data, error } = await supabase.rpc('create_manager_building', { p_details: newBldData });
-    if (error || !data?.id) throw new Error('فشل حفظ العمارة: ' + (error?.message || 'لم يتم تأكيد الحفظ'));
-    // Creation may refresh this manager's membership before the RPC returns.
-    // Accept that new link, while rejecting another identity or building.
-    if (managerScopeRef.current !== actorId + ':' && managerScopeRef.current !== actorId + ':' + data.id) {
-      throw new Error('تم تغيير الحساب أو العمارة أثناء الحفظ؛ حدّث بيانات التطبيق.');
-    }
-    const newBld: Building = {
-      id: data.id, name: data.name, address: data.address || '', totalUnits: Number(data.total_units || 0),
-      totalFloors: data.total_floors ?? undefined, balance: Number(data.balance || 0),
-      monthlyTarget: Number(data.monthly_target || 0), reserveFund: Number(data.reserve_fund || 0),
-      managerName: data.manager_name || '', managerPhone: data.manager_phone || '', manager2Name: data.manager2_name || '', manager2Phone: data.manager2_phone || '', manager3Name: data.manager3_name || '', manager3Phone: data.manager3_phone || '',
-    };
-    setBuildings(rows => [...rows, newBld]);
-    setCurrentBuildingIdState(newBld.id);
-    await refreshProfile();
-    showToast('تم حفظ العمارة على قاعدة البيانات بنجاح!');
+    const release = holdMembership();
+    try {
+      const { data, error } = await supabase.rpc('create_manager_building', { p_details: newBldData });
+      if (error || !data?.id) throw new Error('فشل حفظ العمارة: ' + (error?.message || 'لم يتم تأكيد الحفظ'));
+      if (activeUserId.current !== actorId) throw new Error('تم تغيير الحساب أثناء الحفظ.');
+      const newBld: Building = {
+        id: data.id, name: data.name, address: data.address || '', totalUnits: Number(data.total_units || 0),
+        totalFloors: data.total_floors ?? undefined, balance: Number(data.balance || 0),
+        monthlyTarget: Number(data.monthly_target || 0), reserveFund: Number(data.reserve_fund || 0),
+        managerName: data.manager_name || '', managerPhone: data.manager_phone || '', manager2Name: data.manager2_name || '', manager2Phone: data.manager2_phone || '', manager3Name: data.manager3_name || '', manager3Phone: data.manager3_phone || '',
+      };
+      setBuildings(rows => [...rows, newBld]);
+      setCurrentBuildingIdState(newBld.id);
+      await refreshProfile(newBld.id);
+      showToast('تم حفظ العمارة على قاعدة البيانات بنجاح!');
+    } finally { release(); }
   };
 
   const handleUpdateBuilding = async (id: string, updatedData: Partial<Building>) => {
@@ -1160,6 +1160,17 @@ export default function App() {
         </div>
       </div>
     );
+  }
+
+  if (user && membershipSyncError) {
+    return <div dir="rtl" className="flex min-h-screen items-center justify-center bg-slate-50 p-5">
+      <div role="alert" className="w-full max-w-lg space-y-4 rounded-3xl border border-slate-200 bg-white p-6 text-center">
+        <h1 className="text-xl font-bold text-slate-900">العمارة محفوظة</h1>
+        <p className="text-sm leading-7 text-slate-600">{membershipSyncError.message}</p>
+        <button type="button" onClick={() => void refreshProfile(membershipSyncError.buildingId)} className="w-full rounded-xl bg-teal-700 p-3 font-bold text-white">إعادة المحاولة</button>
+        <button type="button" onClick={() => void signOut()} className="text-sm text-slate-600">تسجيل الخروج</button>
+      </div>
+    </div>;
   }
 
   if (isPasswordRecovery) return <LoginView />;
