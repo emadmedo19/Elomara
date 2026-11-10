@@ -31,17 +31,18 @@ export function NotificationBell({ onNavigate }: { onNavigate: (page: string) =>
     setLoading(true);
     try {
       let listQuery = supabase.from('app_notifications').select('id,title,body,category,created_at,read_at,manager_target,member_target').eq('recipient_id',userId).eq('building_id',buildingId).order('created_at',{ascending:false}).order('id',{ascending:false}).limit(80);
+      if (!isAdmin) listQuery = listQuery.neq('category','building_join_requests');
       if (filter === 'unread') listQuery = listQuery.is('read_at',null);
       const [list, count] = await Promise.all([
         listQuery,
-        supabase.from('app_notifications').select('id',{count:'exact',head:true}).eq('recipient_id',userId).eq('building_id',buildingId).is('read_at',null),
+        (isAdmin ? supabase.from('app_notifications').select('id',{count:'exact',head:true}).eq('recipient_id',userId).eq('building_id',buildingId).is('read_at',null) : supabase.from('app_notifications').select('id',{count:'exact',head:true}).eq('recipient_id',userId).eq('building_id',buildingId).neq('category','building_join_requests').is('read_at',null)),
       ]);
       if (scopeRef.current !== scope || version !== request.current) return;
       if (list.error || count.error) { setError('تعذر تحديث الإشعارات. حاول مرة أخرى.'); return; }
       setInbox({scope,rows:(list.data || []) as Notice[],count:count.count || 0}); setError('');
     } catch { if (scopeRef.current===scope && version===request.current) setError('تعذر الاتصال. الإشعارات المحفوظة ستظهر عند عودة الاتصال.'); }
     finally { if (scopeRef.current===scope && version===request.current) setLoading(false); }
-  },[userId,buildingId,scope,filter]);
+  },[userId,buildingId,scope,filter,isAdmin]);
   useEffect(() => { setOpen(false); setError(''); setFilter('all'); setSaving(false); },[scope]);
   useEffect(() => {
     void refresh();
