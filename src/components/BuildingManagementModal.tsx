@@ -109,7 +109,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900">{isNewBuilding ? 'إضافة أول عمارة' : 'بيانات العمارة'}</h2>
-              <p className="text-xs text-slate-500">{isNewBuilding ? 'ابدأ بإدخال بيانات العمارة؛ لن يتم إنشاء شقق تلقائيًا' : 'تعديل بيانات العمارة الحالية'}</p>
+              <p className="text-xs text-slate-500">{isNewBuilding ? 'أدخل البيانات وسيتم إنشاء الشقق تلقائيًا حسب العدد والأدوار' : 'تعديل بيانات العمارة الحالية'}</p>
             </div>
           </div>
           <button type="button" disabled={saving} onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100"><X className="w-5 h-5" /></button>
@@ -131,11 +131,11 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
               <input type="number" min="1" max="100" required value={totalFloors} onChange={e => setTotalFloors(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} />
             </div>
             <div>
-              <label className={label}>إجمالي الوحدات (للتعريف فقط)</label>
+              <label className={label}>{isNewBuilding ? 'عدد الشقق التي ستُنشأ' : 'إجمالي الوحدات'}</label>
               <input type="number" min="0" required value={totalUnits} onChange={e => setTotalUnits(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} />
             </div>
           </div>
-          <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-3">تحديد إجمالي الوحدات لا ينشئ شققًا. الأدمن سيضيف كل شقة وبياناتها لاحقًا من شاشة الشقق.</p>
+          <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-3">{isNewBuilding ? 'سيتم إنشاء الشقق بأرقام متسلسلة وتوزيعها على الأدوار. يمكنك تعديل أسماء السكان والاشتراكات لاحقًا من شاشة الشقق.' : 'تعديل هذا العدد لا يضيف أو يحذف شققًا مسجلة. يمكنك إدارة الشقق من شاشة الشقق والتحصيل.'}</p>
           <div className="grid grid-cols-2 gap-3">
             <div><label className={label}>المستهدف الشهري للتحصيل</label><input type="number" min="0" value={monthlyTarget} onChange={e => setMonthlyTarget(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
             <div><label className={label}>صندوق الطوارئ</label><input type="number" min="0" value={reserveFund} onChange={e => setReserveFund(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>

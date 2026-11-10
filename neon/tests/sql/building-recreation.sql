@@ -29,7 +29,7 @@ BEGIN
   OR (result->>'balance')::numeric<>0 THEN RAISE EXCEPTION 'Returned fields are incomplete %',result; END IF;
  IF (SELECT building_id FROM public.profiles WHERE id=actor) IS DISTINCT FROM recreated THEN RAISE EXCEPTION 'Manager was not linked atomically'; END IF;
  IF NOT EXISTS(SELECT 1 FROM public.buildings WHERE id=recreated) THEN RAISE EXCEPTION 'Manager cannot read new building'; END IF;
- IF EXISTS(SELECT 1 FROM public.apartments WHERE building_id=recreated) THEN RAISE EXCEPTION 'Unit count generated unwanted apartments'; END IF;
+ IF (SELECT count(*) FROM public.apartments WHERE building_id=recreated)<>14 THEN RAISE EXCEPTION 'Expected generated apartments are missing'; END IF;
  rejected:=false;
  BEGIN PERFORM public.create_manager_building(details); EXCEPTION WHEN others THEN rejected:=true; END;
  IF NOT rejected THEN RAISE EXCEPTION 'Repeated creation produced another building'; END IF;

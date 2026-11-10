@@ -225,7 +225,7 @@ Recreating a manager building after deletion uses `create_manager_building` from
 `migrations/008_create_manager_building.sql`. It accepts the current form's details,
 locks the verified profile, requires an approved active unassigned manager, inserts
 the complete building and attaches that manager in one transaction. The new treasury
-starts at zero; unit count is descriptive and never generates apartments. A second
+starts at zero; migration 009 creates the requested apartment records in the same transaction. A second
 concurrent/subsequent create for that profile is rejected. RLS still denies direct
 building inserts, and existing pending-user onboarding is unchanged. The form awaits
 confirmed creation/update, retains fields on errors and displays the error locally.
@@ -233,7 +233,7 @@ Successful creation refreshes the manager's verified profile and building data.
 
 Run `TARGET_DATABASE_URL=... node neon/scripts/verify-building-recreation.mjs`
 against the rehearsal database only. It tests delete/recreate, field persistence,
-read access and manager linkage, zero cash, no implicit apartments, duplicate and
+read access and manager linkage, zero cash, generated apartment counts and blank defaults, duplicate and
 invalid saves, and resident/pending/suspended-role rejection. Everything rolls back.
 The production migration installs the action only; no test or real building is created.
 Browser tests use the actual App and modal with synthetic API responses in light
@@ -261,3 +261,19 @@ Run `python tests/browser/test-membership-handoff.py`. It exercises the actual
 AuthProvider and App with synthetic API responses: stale/late pending profiles,
 initial onboarding, terminal failures/retry, unresponsive reads, identity changes and
 role revocation. The fixture makes no live account, building or notification writes.
+
+
+Owner-requested automatic apartments (2026-11-10) supersede the earlier descriptive
+unit-count behavior. `migrations/009_generate_building_apartments.sql` calls an
+owner-only private initializer from both authorized creation actions. It numbers
+units 1..N, distributes them evenly over floors (the lower floors receive any extra
+units), and leaves resident/contact/fee/paid fields blank or zero. Building creation,
+profile linkage and apartment generation commit atomically. Repeated initialization
+is a no-op once any apartment exists, preserving custom unit data and manual deletions;
+editing a building's descriptive count does not generate or delete existing units.
+The current empty 14-unit building was initialized once as explicitly requested.
+
+The recreation runner also checks 14/4, 14/14, 2/5, 0/3 and 1/1 distributions,
+sequential numbering, repeat safety, existing custom records, blank financial defaults
+and unchanged opening balance. The browser fixture's `autounits` scenario verifies
+that generated records render immediately in the existing Collections screen.

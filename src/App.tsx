@@ -1217,7 +1217,7 @@ export default function App() {
           <h1 className="text-2xl font-bold mb-3">أهلاً بيك في العمارة</h1>
           <p className="text-slate-300 text-sm leading-7 mb-6">
             حسابك جاهز، لكن لسه مفيش أي عمارات أو شقق أو سكان مسجلين.
-            ابدأ بإضافة بيانات أول عمارة، وبعدها تقدر تضيف الشقق والسكان بنفسك.
+            ابدأ بإضافة بيانات أول عمارة وعدد الشقق والأدوار، وسيتم تجهيز الشقق تلقائيًا.
           </p>
           <button
             onClick={() => setIsBuildingModalOpen(true)}
@@ -1225,7 +1225,7 @@ export default function App() {
           >
             + إضافة أول عمارة
           </button>
-          <p className="text-[11px] text-slate-400 mt-4">لن يتم إنشاء شقق أو سكان تلقائيًا.</p>
+          <p className="text-[11px] text-slate-400 mt-4">تُنشأ أرقام الشقق تلقائيًا؛ أضف بيانات السكان والاشتراكات لاحقًا.</p>
         </div>
         <BuildingManagementModal
           isOpen={isBuildingModalOpen}
