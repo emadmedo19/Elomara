@@ -57,7 +57,6 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [floorFilter, setFloorFilter] = useState<string>('all');
   const [monthFilter, setMonthFilter] = useState<string>('all');
 
   // Modals state
@@ -105,9 +104,8 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
       apt.residentPhone.includes(searchTerm);
 
     const matchesStatus = statusFilter === 'all' || fin.status === statusFilter;
-    const matchesFloor = floorFilter === 'all' || apt.floor.toString() === floorFilter;
 
-    return matchesSearch && matchesStatus && matchesFloor;
+    return matchesSearch && matchesStatus;
   });
 
   // Filter payments for payments table
@@ -337,7 +335,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none"
+                className="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none"
               >
                 <option value="all">كل الحالات ({buildingApartments.length})</option>
                 <option value="paid">خالص السداد ({buildingFin.paidCount})</option>
@@ -345,20 +343,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
                 <option value="overdue">متأخرات ({buildingFin.overdueCount})</option>
               </select>
 
-              {/* Floor Filter */}
-              <select
-                value={floorFilter}
-                onChange={(e) => setFloorFilter(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none"
-              >
-                <option value="all">جميع الأدوار</option>
-                <option value="1">الدور الأول</option>
-                <option value="2">الدور الثاني</option>
-                <option value="3">الدور الثالث</option>
-                <option value="4">الدور الرابع</option>
-                <option value="5">الدور الخامس</option>
-                <option value="6">الروف / الدور السادس</option>
-              </select>
+
             </>
           ) : activeSubTab === 'payments' ? (
             <select
