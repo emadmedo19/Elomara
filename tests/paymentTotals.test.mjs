@@ -31,3 +31,36 @@ test('empty periods and exceptional receipts do not restore old paid amounts', (
   assert.equal(apartmentTotals(apartment, [receipt], '2026-12').totalPaid, 0);
   assert.equal(apartmentTotals(apartment, [{ ...receipt, paymentType: 'exceptional' }]).totalPaid, 0);
 });
+
+const charge = { ...receipt, id: 'charge', amount: 2000, paymentType: 'exceptional', isAssessment: true };
+const partial = { ...receipt, id: 'partial', amount: 500, paymentType: 'exceptional', exceptionalChargeId: 'charge' };
+test('exceptional assessment creates a receivable, never collected cash or an advance credit', () => {
+  const fin = buildingTotals('b', [apartment], [charge]);
+  assert.equal(fin.totalExpectedDues, 2100);
+  assert.equal(fin.totalCollected, 0);
+  assert.equal(fin.totalRemaining, 2100);
+  assert.equal(fin.totalCreditBalance, 0);
+  assert.equal(apartmentTotals(apartment, [charge]).allPayments.length, 0);
+});
+test('partial exceptional payment settles only its assessment and appears in collected cash', () => {
+  const fin = apartmentTotals(apartment, [charge, partial]);
+  assert.equal(fin.totalPaid, 500);
+  assert.equal(fin.remaining, 1600);
+  assert.equal(fin.creditBalance, 0);
+  assert.equal(fin.allPayments.length, 1);
+  assert.equal(buildingTotals('b', [apartment], [charge, partial]).totalCollected, 500);
+});
+test('monthly advance credit never masks an unpaid exceptional assessment', () => {
+  const fin = apartmentTotals(apartment, [charge, receipt, partial]);
+  assert.equal(fin.remaining, 1500);
+  assert.equal(fin.creditBalance, 1900);
+});
+test('editing and deleting exceptional receipts recomputes its unpaid balance', () => {
+  assert.equal(apartmentTotals(apartment, [charge, { ...partial, amount: 1000 }]).remaining, 1100);
+  assert.equal(apartmentTotals(apartment, [charge]).remaining, 2100);
+});
+test('exceptional payments cannot settle a different assessment or apartment', () => {
+  const otherCharge = { ...charge, id: 'other-charge', amount: 700 };
+  const otherReceipt = { ...partial, apartmentId: 'another' };
+  assert.equal(apartmentTotals(apartment, [charge, otherCharge, partial, otherReceipt]).remaining, 2300);
+});

@@ -167,7 +167,7 @@ export default function App() {
             // never from this device's localStorage cache.
             const { data: paymentRows, error: paymentError } = await supabase
               .from('payments')
-              .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at,payment_type')
+              .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at,payment_type,is_assessment,exceptional_charge_id')
               .in('building_id', rows.map(b => b.id))
               .order('payment_date', { ascending: false }).abortSignal(requestController.signal);
             if (cancelled || timedOut) return;
@@ -177,7 +177,7 @@ export default function App() {
               unitNumber:r.unit_number, residentName:r.resident_name || '',
               amount:Number(r.amount || 0), date:r.payment_date, month:r.month,
               method:r.method, notes:r.notes || undefined,
-              receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined, paymentType:r.payment_type || 'monthly',
+              receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined, paymentType:r.payment_type || 'monthly', isAssessment:r.is_assessment, exceptionalChargeId:r.exceptional_charge_id || undefined,
             })));
 
             const [ticketResult, announcementResult, expenseResult, settingsResult] = await Promise.all([
@@ -367,7 +367,7 @@ export default function App() {
         }));
         const { data: paymentRows, error: paymentError } = await supabase
           .from('payments')
-          .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at,payment_type')
+          .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at,payment_type,is_assessment,exceptional_charge_id')
           .in('building_id', refreshedBuildings.map(b => b.id))
           .order('payment_date', { ascending: false });
         if (paymentError) throw paymentError;
@@ -377,7 +377,7 @@ export default function App() {
           amount:Number(r.amount || 0), date:r.payment_date, month:r.month,
           method:r.method, notes:r.notes || undefined,
           receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined,
-          paymentType:r.payment_type || 'monthly',
+          paymentType:r.payment_type || 'monthly', isAssessment:r.is_assessment, exceptionalChargeId:r.exceptional_charge_id || undefined,
         }));
       }
       if (managerScopeRef.current !== refreshScope) return;
@@ -635,6 +635,7 @@ export default function App() {
   // 9. PAYMENTS CRUD (Manager Only with Comprehensive Financial Recalculation)
   const handleSavePayment = async (paymentData: {
     apartmentId: string;
+    exceptionalChargeId?: string;
     amount: number;
     date: string;
     month: string;
@@ -651,6 +652,17 @@ export default function App() {
     if (!apt) { showToast('لم يتم العثور على الشقة المطلوبة.', 'error'); return false; }
 
     const buildingId = apt.buildingId || currentBuilding.id;
+    if (paymentData.exceptionalChargeId) {
+      const { error } = await supabase.rpc('record_exceptional_payment', {
+        p_charge_id: paymentData.exceptionalChargeId, p_amount: paymentData.amount,
+        p_date: paymentData.date, p_method: paymentData.method,
+        p_receipt_number: paymentData.receiptNumber || '', p_notes: paymentData.notes || '',
+      });
+      if (error) { showToast('تعذر تسجيل السداد الاستثنائي: ' + error.message, 'error'); return false; }
+      await refreshAppData();
+      showToast('تم تسجيل المبلغ المسدد وإضافته للخزينة.');
+      return true;
+    }
     const { data: savedRow, error: saveError } = await supabase.from('payments').insert({
       apartment_id: apt.id,
       building_id: buildingId,
@@ -685,7 +697,7 @@ export default function App() {
     saveStoredPayments(updatedPayments);
 
     // Unified Financial Recalculation
-    const fin = calculateApartmentFinancials(apt, updatedPayments);
+    const fin = calculateApartmentFinancials(apt, updatedPayments.filter(p => p.paymentType !== 'exceptional'));
     const updatedApartments = apartments.map((a) => {
       if (a.id === apt.id) {
         return {
@@ -753,7 +765,7 @@ export default function App() {
     const apt = apartments.find((a) => a.id === updatedPayment.apartmentId);
     let finSummary = '';
     if (apt) {
-      const fin = calculateApartmentFinancials(apt, updatedPayments);
+      const fin = calculateApartmentFinancials(apt, updatedPayments.filter(p => p.paymentType !== 'exceptional'));
       const updatedApartments = apartments.map((a) => {
         if (a.id === apt.id) {
           return {
@@ -815,7 +827,7 @@ export default function App() {
     const apt = apartments.find((a) => a.id === pToDelete.apartmentId);
     let finSummary = '';
     if (apt) {
-      const fin = calculateApartmentFinancials(apt, updatedPayments);
+      const fin = calculateApartmentFinancials(apt, updatedPayments.filter(p => p.paymentType !== 'exceptional'));
       const updatedApartments = apartments.map((a) => {
         if (a.id === apt.id) {
           return {
@@ -1271,7 +1283,7 @@ export default function App() {
           {currentTab === 'treasury-settings' && isAdmin && <TreasurySettingsView key={currentBuilding.id} buildingId={currentBuilding.id} onBack={() => goBack('more')} onSaved={({ balance, reserveFund }) => setBuildings(rows => rows.map(building => building.id === currentBuilding.id ? { ...building, balance, reserveFund } : building))}/>}
 
           {currentTab === 'polls' && <PollsView buildingId={currentBuilding.id} canManage />}
-          {currentTab === 'exceptional-collections' && isAdmin && <ExceptionalCollectionsView buildingId={currentBuilding.id} apartments={apartments.filter(a => a.buildingId === currentBuilding.id)} />}
+          {currentTab === 'exceptional-collections' && isAdmin && <ExceptionalCollectionsView onCreated={() => void refreshAppData()} buildingId={currentBuilding.id} apartments={apartments.filter(a => a.buildingId === currentBuilding.id)} />}
 
           {currentTab === 'approvals' && (
             <RegistrationApprovalsView apartments={apartments.filter(a => a.buildingId === currentBuilding.id)} />

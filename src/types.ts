@@ -63,6 +63,8 @@ export interface Payment {
   receiptNumber?: string;
   recordedAt: string;
   paymentType?: 'monthly' | 'exceptional';
+  isAssessment?: boolean;
+  exceptionalChargeId?: string;
 }
 
 export interface Expense {

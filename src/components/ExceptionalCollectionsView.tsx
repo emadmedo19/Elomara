@@ -9,9 +9,9 @@ type CollectionRow = {
   target_apartment_ids: string[]; status: 'active' | 'closed'; created_at: string;
 };
 
-interface Props { buildingId: string; apartments: Apartment[]; }
+interface Props { buildingId: string; apartments: Apartment[]; onCreated: () => void; }
 
-export const ExceptionalCollectionsView: React.FC<Props> = ({ buildingId, apartments }) => {
+export const ExceptionalCollectionsView: React.FC<Props> = ({ buildingId, apartments, onCreated }) => {
   const [items, setItems] = useState<CollectionRow[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [title, setTitle] = useState('');
@@ -70,6 +70,7 @@ export const ExceptionalCollectionsView: React.FC<Props> = ({ buildingId, apartm
     const successMessage = 'تم تسجيل التحصيل وتوزيع ' + Number(result.total_amount || numericAmount).toLocaleString('ar-EG') + ' ج.م على ' + Number(result.target_count || selected.length) + ' شقة.';
     setTitle(''); setDescription(''); setAmount(''); setSelected([]); setBusy(false);
     setNotice(successMessage);
+    onCreated();
     if (notify && result.collection_id) await sendNotifications(result.collection_id, successMessage);
     else setNotificationRetryId(null);
     await load();
@@ -77,7 +78,7 @@ export const ExceptionalCollectionsView: React.FC<Props> = ({ buildingId, apartm
 
   return <section dir="rtl" className="space-y-4">
     <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <div className="mb-4 flex items-center gap-3"><span className="rounded-2xl bg-amber-50 p-3 text-amber-700"><Wallet className="h-6 w-6"/></span><div><h1 className="text-lg font-black text-slate-900">التحصيلات الاستثنائية</h1><p className="text-xs text-slate-500">إنشاء تحصيل إضافي وتوزيعه على الشقق المستهدفة.</p></div></div>
+      <div className="mb-4 flex items-center gap-3"><span className="rounded-2xl bg-amber-50 p-3 text-amber-700"><Wallet className="h-6 w-6"/></span><div><h1 className="text-lg font-black text-slate-900">التحصيلات الاستثنائية</h1><p className="text-xs text-slate-500">المبلغ يظهر في المستحقات؛ يُضاف للخزينة عند تسجيل السداد فقط.</p></div></div>
       {error && <p className="mb-3 flex items-center gap-2 rounded-xl bg-rose-50 p-3 text-xs text-rose-700"><AlertCircle className="h-4 w-4"/>{error}</p>}
       {notice && <div className="mb-3 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800"><p className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 shrink-0"/>{notice}</p>{notificationRetryId && <button type="button" disabled={notificationBusy} onClick={() => void sendNotifications(notificationRetryId, 'تم تسجيل التحصيل بنجاح.')} className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 font-bold text-amber-900 disabled:opacity-50">{notificationBusy ? 'جارٍ إعادة الإرسال...' : 'إعادة إرسال الإشعارات'}</button>}</div>}
       <form onSubmit={submit} className="space-y-3">

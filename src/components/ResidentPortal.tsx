@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { NotificationBell } from './NotificationBell';
 import { MoreView } from './MoreView';
 import { AppPreferencesView } from './AppPreferencesView';
+import { calculateApartmentFinancials } from '../services/financialAccounting';
 import { supabase } from '../lib/supabase';
 import { PollsView } from './PollsView';
 import { useAuth } from '../context/AuthContext';
@@ -98,7 +99,7 @@ export const ResidentPortal: React.FC = () => {
     const [apt, bld, pay, news, maintenance, facility, report] = await Promise.all([
       supabase.from('apartments').select('id,unit_number,floor,resident_name,resident_phone,is_owner,monthly_fee,payment_status,overdue_months,paid_amount,credit_balance,last_payment_date').eq('id', userProfile.apartmentId).single(),
       supabase.from('buildings').select('id,name,address,manager_name,manager_phone,balance,monthly_target,reserve_fund,total_units,total_floors').eq('id', userProfile.buildingId).single(),
-      supabase.from('payments').select('id,amount,payment_date,month,method,receipt_number,notes,payment_type').eq('apartment_id', userProfile.apartmentId).order('payment_date',{ascending:false}),
+      supabase.from('payments').select('id,amount,payment_date,month,method,receipt_number,notes,payment_type,is_assessment,exceptional_charge_id').eq('apartment_id', userProfile.apartmentId).order('payment_date',{ascending:false}),
       supabase.from('announcements').select('id,title,content,announcement_type,created_at,pinned,image_url').eq('building_id', userProfile.buildingId).order('pinned',{ascending:false}).order('created_at',{ascending:false}),
       supabase.from('maintenance_tickets').select('id,category,title,description,urgency,status,created_at,updated_at').eq('apartment_id', userProfile.apartmentId).order('created_at',{ascending:false}),
       supabase.from('facility_bookings').select('id,facility,booking_date,time_slot,status,created_at').eq('apartment_id', userProfile.apartmentId).order('booking_date',{ascending:false}),
@@ -106,15 +107,17 @@ export const ResidentPortal: React.FC = () => {
     ]);
     const firstError = apt.error || bld.error;
     if (firstError) setError('تعذر تحميل بيانات الحساب: ' + firstError.message);
-    const monthlyPayments = (pay.data || []).filter((row: any) => row.payment_type !== 'exceptional');
-    const ledgerTotalPaid = monthlyPayments.reduce((sum: number, row: any) => sum + (Number(row.amount) || 0), 0);
-    // The payment ledger is the source of truth. apartments.paid_amount can be stale
-    // when older payment writes did not update the cached apartment summary.
-    setApartment(apt.data ? {
-      ...apt.data,
-      paid_amount: monthlyPayments.length > 0 ? ledgerTotalPaid : Number(apt.data.paid_amount || 0),
-    } : null);
-    setBuilding(bld.data); setPayments(pay.data || []);
+    const rows = pay.data || [];
+    const totals = apt.data ? calculateApartmentFinancials({
+      ...apt.data, buildingId: userProfile.buildingId, unitNumber: apt.data.unit_number,
+      residentName: apt.data.resident_name, residentPhone: apt.data.resident_phone, isOwner: apt.data.is_owner,
+      status: apt.data.payment_status, monthlyFee: Number(apt.data.monthly_fee || 0), overdueMonths: apt.data.overdue_months,
+    }, rows.map((p: any) => ({ ...p, apartmentId: apt.data.id, paymentType: p.payment_type,
+      isAssessment: p.is_assessment, exceptionalChargeId: p.exceptional_charge_id,
+      date: p.payment_date, amount: Number(p.amount || 0) }))) : null;
+    setApartment(apt.data ? { ...apt.data, paid_amount: totals?.totalPaid || 0,
+      remaining: totals?.remaining || 0, payment_status: totals?.status } : null);
+    setBuilding(bld.data); setPayments(rows.filter((p: any) => !p.is_assessment));
     setAnnouncements(news.data || []); setTickets(maintenance.data || []); setBookings(facility.data || []);
     if (report.error) console.error('[Bunyan financial summary]', report.error);
     setFinancialReport(report.data || null);
@@ -269,7 +272,7 @@ export const ResidentPortal: React.FC = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
           <div className="rounded-xl bg-slate-50 border p-3"><div className="text-xs text-slate-500">الاشتراك الشهري</div><b>{money(apartment?.monthly_fee)} جنيه</b></div>
           <div className="rounded-xl bg-slate-50 border p-3"><div className="text-xs text-slate-500">إجمالي المسدد</div><b>{money(apartment?.paid_amount)} جنيه</b></div>
-          <div className="rounded-xl bg-slate-50 border p-3 col-span-2 sm:col-span-1"><div className="text-xs text-slate-500">المتأخرات بالشهور</div><b>{Number(apartment?.overdue_months || 0)} شهر</b></div>
+          <div className="rounded-xl bg-slate-50 border p-3 col-span-2 sm:col-span-1"><div className="text-xs text-slate-500">المتبقي شامل التحصيل الاستثنائي</div><b>{money(apartment?.remaining)} جنيه</b></div>
         </div>
         {payments.length ? payments.map(p=><div key={p.id} className="flex justify-between gap-3 border-t py-3 text-sm"><div><b>{p.month || dateLabel(p.payment_date)}</b><p className="text-xs text-slate-500">{p.method || 'نقدي'} {p.receipt_number ? '• إيصال '+p.receipt_number : ''}</p>{p.notes && <p className="text-xs text-slate-500 mt-1">{p.notes}</p>}</div><div className="text-left"><b className="whitespace-nowrap">{money(p.amount)} جنيه</b><p className="text-[11px] text-slate-400">{dateLabel(p.payment_date)}</p></div></div>) : <p className="text-sm text-slate-500">لا توجد مدفوعات مسجلة لهذه الشقة حتى الآن.</p>}
       </section>}

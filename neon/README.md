@@ -174,3 +174,26 @@ Installing the migration adds the nullable role-history column and functions/tri
 it does not promote or demote existing members. Test with
 `TARGET_DATABASE_URL=... node neon/scripts/verify-member-roles.mjs` in the rehearsal
 DB only; all fixtures and schema changes roll back.
+
+
+Exceptional receivables are defined in `migrations/006_exceptional_receivables.sql`.
+`payments.is_assessment` marks an amount due, not a receipt. Such rows are excluded
+from cash income, receipts and monthly-payment reminders. Actual exceptional receipts
+reference that row through `exceptional_charge_id`; `record_exceptional_payment`
+locks the assessment, checks active building-manager permission and the remaining
+amount, and inserts the receipt and treasury increase in one transaction. Monthly
+advance credits remain separate from unpaid exceptional assessments.
+
+The one-time correction preserves the original automatic ledger rows and reclassifies
+only rows whose original collection transaction, author, title and automatic method
+match. It reverses their previous treasury increase once and leaves genuine receipts
+unchanged. Repeat application does not debit the balance again. The legacy Supabase
+adapter received the equivalent schema/functions; it had no exceptional rows to repair.
+
+Run `TARGET_DATABASE_URL=... node neon/scripts/verify-exceptional-receivables.mjs`
+against the rehearsal database only. It checks historical correction, repeat safety,
+partial/edit/delete receipt flows, rounding, resident visibility and foreign-manager
+rejection, then rolls back all fixtures and schema changes. Production correction was
+verified separately: 14 preserved assessments totaling 28,000, no actual receipts and
+zero cash balance. Browser verification used synthetic data on a 390×844 viewport;
+no test payments or notifications were published to actual users.

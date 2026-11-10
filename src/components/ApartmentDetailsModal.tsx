@@ -323,6 +323,17 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
           )}
         </div>
 
+        {payments.some(p => p.apartmentId === apartment.id && p.isAssessment) && <section className="my-4 space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+          <h4 className="text-xs font-bold text-amber-900">مستحقات التحصيل الاستثنائي</h4>
+          {payments.filter(p => p.apartmentId === apartment.id && p.isAssessment).map(charge => {
+            const paid = aptPayments.filter(p => p.exceptionalChargeId === charge.id).reduce((sum,p) => sum + p.amount,0);
+            return <div key={charge.id} className="text-xs leading-6 text-slate-700">
+              <strong>{charge.notes || 'تحصيل استثنائي'}</strong>
+              <p>المطلوب: {charge.amount.toLocaleString()} ج.م • المسدد: {paid.toLocaleString()} ج.م • المتبقي: {Math.max(0,charge.amount-paid).toLocaleString()} ج.م</p>
+            </div>;
+          })}
+        </section>}
+
         {/* Payments History Ledger Table */}
         <div className="my-4 space-y-2.5 flex-1">
           <div className="flex items-center justify-between">

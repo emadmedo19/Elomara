@@ -126,6 +126,8 @@ Deno.serve(async (request: Request) => {
   const [paymentResult, profileResult] = await Promise.all([
     admin.from("payments")
       .select("apartment_id,amount")
+      .eq("is_assessment", false)
+      .eq("payment_type", "monthly")
       .in("building_id", buildingIds)
       .gte("payment_date", monthStart)
       .lte("payment_date", today),

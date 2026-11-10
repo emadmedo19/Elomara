@@ -15,6 +15,7 @@ interface PaymentModalProps {
   editingPayment?: Payment | null;
   onSavePayment: (paymentData: {
     apartmentId: string;
+    exceptionalChargeId?: string;
     amount: number;
     date: string;
     month: string;
@@ -44,10 +45,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [notes, setNotes] = useState<string>('سداد اشتراك الصيانة الشهري');
   const [receiptNumber, setReceiptNumber] = useState<string>(`REC-${Date.now().toString().slice(-5)}`);
 
+  const [chargeId, setChargeId] = useState('');
+  const [saving, setSaving] = useState(false);
+
   // Duplicate warning state
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
   useEffect(() => {
+    setChargeId(editingPayment?.exceptionalChargeId || '');
     if (editingPayment) {
       setApartmentId(editingPayment.apartmentId);
       setAmount(editingPayment.amount);
@@ -80,15 +85,20 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const currentApt = apartments.find((a) => a.id === apartmentId);
 
+  const charges = existingPayments.filter(p => p.isAssessment && p.apartmentId === apartmentId);
+  const chargeRemaining = (id: string) => Math.max(0, Number(charges.find(c => c.id === id)?.amount || 0) - existingPayments
+    .filter(p => !p.isAssessment && p.exceptionalChargeId === id && p.id !== editingPayment?.id)
+    .reduce((sum,p) => sum + Number(p.amount || 0),0));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!apartmentId || amount <= 0) return;
+    if (saving || !apartmentId || amount <= 0 || (chargeId && amount > chargeRemaining(chargeId))) return;
 
     // Check for duplicate payment when adding new payment
     if (!editingPayment && !duplicateWarning) {
       const isDuplicate = existingPayments.some(
         (p) =>
-          p.apartmentId === apartmentId &&
+          !p.isAssessment && (p.exceptionalChargeId || '') === chargeId && p.apartmentId === apartmentId &&
           (p.date === date || p.month === month) &&
           Math.abs(p.amount - amount) < 1
       );
@@ -101,17 +111,21 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       }
     }
 
-    const saved = await onSavePayment({
-      apartmentId,
-      amount: Number(amount),
-      date,
-      month,
-      method,
-      notes: notes.trim(),
-      receiptNumber: receiptNumber.trim(),
-    });
+    setSaving(true);
+    try {
+      const saved = await onSavePayment({
+        apartmentId,
+        exceptionalChargeId: chargeId || undefined,
+        amount: Number(amount),
+        date,
+        month,
+        method,
+        notes: notes.trim(),
+        receiptNumber: receiptNumber.trim(),
+      });
 
-    if (saved) onClose();
+      if (saved) onClose();
+    } finally { setSaving(false); }
   };
 
   return createPortal(
@@ -179,8 +193,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <label className="text-xs font-bold text-slate-700">الشقة المستهدفة *</label>
               <select
                 value={apartmentId}
+                disabled={Boolean(editingPayment)}
                 onChange={(e) => {
                   setApartmentId(e.target.value);
+                  setChargeId('');
                   const apt = apartments.find((a) => a.id === e.target.value);
                   if (apt && !editingPayment) {
                     setAmount(apt.monthlyFee);
@@ -197,13 +213,27 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               </select>
             </div>
 
+            {(charges.length > 0 || chargeId) && <label className="block space-y-1 text-xs font-bold text-slate-700">
+              <span>السداد عن</span>
+              <select aria-label="السداد عن" disabled={Boolean(editingPayment)} value={chargeId} onChange={e => {
+                const id = e.target.value; setChargeId(id); setDuplicateWarning(null);
+                setAmount(id ? chargeRemaining(id) : (currentApt?.monthlyFee || 0));
+                setNotes(id ? (charges.find(c => c.id === id)?.notes || 'سداد تحصيل استثنائي') : 'سداد اشتراك الصيانة الشهري');
+              }} className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5">
+                <option value="">الاشتراك الشهري</option>
+                {charges.map(c => <option key={c.id} value={c.id}>{c.notes || 'تحصيل استثنائي'} — متبقي {chargeRemaining(c.id).toLocaleString()} ج.م</option>)}
+              </select>
+              {chargeId && <p className="text-slate-500">يمكن سداد جزء من المبلغ؛ المدفوع فقط يدخل الخزينة.</p>}
+            </label>}
             <div className="grid grid-cols-2 gap-3">
               {/* Amount */}
               <div className="min-w-0 space-y-1">
                 <label className="text-xs font-bold text-slate-700">المبلغ المدفوع (ج.م) *</label>
                 <input
                   type="number"
-                  min="1"
+                  min="0.01"
+                  step="0.01"
+                  max={chargeId ? chargeRemaining(chargeId) : undefined}
                   required
                   value={amount}
                   onChange={(e) => setAmount(Number(e.target.value))}
@@ -291,6 +321,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </button>
           <button
             type="submit"
+            disabled={saving}
             className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-md transition active:scale-95 flex items-center gap-1.5"
           >
             <Check className="w-4 h-4" />

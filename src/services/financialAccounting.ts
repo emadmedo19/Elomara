@@ -1,4 +1,4 @@
-import { Apartment, Payment, PaymentStatus, Building } from '../types';
+import { Apartment, Payment, PaymentStatus } from '../types';
 
 export interface ApartmentFinancials {
   apartmentId: string;
@@ -35,24 +35,16 @@ export interface BuildingFinancials {
   collectionRate: number;
 }
 
-/**
- * Calculates standard and unified accounting financials for a single apartment.
- * Complies strictly with the fundamental equations:
- * 1. Total Dues = monthly fee * (overdueMonths || 1)
- * 2. Total Paid = sum of payments for apartment
- * 3. Remaining = max(0, Total Dues - Total Paid)
- * 4. Credit Balance = max(0, Total Paid - Total Dues)
- * 5. Status:
- *    - remaining === 0 => 'paid'
- *    - totalPaid > 0 && remaining > 0 => 'pending' (سداد جزئي)
- *    - totalPaid === 0 => (overdueMonths > 0 ? 'overdue' : 'pending')
+/** Monthly dues and exceptional assessments have independent receipt allocations.
+ * Monthly advance credit never hides an unpaid exceptional assessment.
  */
 export function calculateApartmentFinancials(
   apartment: Apartment,
   payments: Payment[],
   periodMonth?: string
 ): ApartmentFinancials {
-  const aptPayments = payments.filter((p) => p.apartmentId === apartment.id && p.paymentType !== 'exceptional');
+  const allRows = payments.filter(p => p.apartmentId === apartment.id);
+  const aptPayments = allRows.filter(p => !p.isAssessment && p.paymentType !== 'exceptional');
   
   // Filter by period month if provided, otherwise consider all/relevant payments
   const relevantPayments = periodMonth
@@ -61,7 +53,7 @@ export function calculateApartmentFinancials(
 
   // The receipt ledger is authoritative, including an empty ledger after deletion.
   // A cached apartment summary must not resurrect a deleted receipt.
-  const totalPaid = relevantPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+  const monthlyPaid = relevantPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
 
   // Calculate total dues:
   // If apartment has overdue months > 0, total dues is monthlyFee * overdueMonths
@@ -69,11 +61,20 @@ export function calculateApartmentFinancials(
   const dueMonthsCount = apartment.overdueMonths && apartment.overdueMonths > 0 
     ? apartment.overdueMonths 
     : 1;
-  const totalDue = apartment.monthlyFee * dueMonthsCount;
+  const monthlyDue = apartment.monthlyFee * dueMonthsCount;
+  // Exceptional receipts settle their own assessment, never monthly subscriptions.
+  // Assessments remain outstanding until their linked receipts are recorded.
+  const charges = allRows.filter(p => p.isAssessment && (!periodMonth || p.month === periodMonth));
+  const exceptionalPaid = charges.reduce((sum, charge) => sum + allRows
+    .filter(p => !p.isAssessment && p.exceptionalChargeId === charge.id)
+    .reduce((paid, p) => paid + Number(p.amount || 0), 0), 0);
+  const exceptionalDue = charges.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const totalDue = monthlyDue + exceptionalDue;
+  const totalPaid = monthlyPaid + exceptionalPaid;
 
   // Strict mathematical formulas
-  const remaining = Math.max(0, totalDue - totalPaid);
-  const creditBalance = Math.max(0, totalPaid - totalDue);
+  const remaining = Math.max(0, monthlyDue - monthlyPaid) + Math.max(0, exceptionalDue - exceptionalPaid);
+  const creditBalance = Math.max(0, monthlyPaid - monthlyDue);
 
   // Status determination
   let status: PaymentStatus = 'pending';
@@ -114,7 +115,7 @@ export function calculateApartmentFinancials(
     creditBalance,
     status,
     periodPayments: relevantPayments,
-    allPayments: aptPayments,
+    allPayments: allRows.filter(p => !p.isAssessment),
     lastPaymentDate,
     advanceCreditOrigin,
   };

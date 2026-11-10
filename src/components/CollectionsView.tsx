@@ -23,6 +23,7 @@ interface CollectionsViewProps {
   onDeleteApartment: (id: string) => void;
   onSavePayment: (paymentData: {
     apartmentId: string;
+    exceptionalChargeId?: string;
     amount: number;
     date: string;
     month: string;
@@ -80,7 +81,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
 
   // Filter payments by current building
   const buildingPayments = payments.filter(
-    (p) => !p.buildingId || p.buildingId === currentBuilding.id
+    (p) => !p.isAssessment && (!p.buildingId || p.buildingId === currentBuilding.id)
   );
 
   // Filter audit logs by current building
