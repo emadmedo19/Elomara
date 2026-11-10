@@ -7,10 +7,12 @@ import exceptional from './handlers/send-exceptional-collection-push';
 import overdue from './handlers/send-overdue-alerts';
 import deliver from './handlers/deliver-mobile-notifications';
 import geminiChat from './handlers/gemini-chat';
+import generateAnnouncementImage from './handlers/generate-announcement-image';
 
 const handlers: Record<string, (request: Request) => Promise<Response>> = {
   'send-announcement-push': announcement, 'send-poll-push': poll,
   'send-exceptional-collection-push': exceptional, 'gemini-chat': geminiChat,
+  'generate-announcement-image': generateAnnouncementImage,
 };
 const schedules: Record<string, { name: string; handler: (request: Request) => Promise<Response> }> = {
   // Side-effect-free probe for verifying that the platform strips forged headers.
