@@ -142,37 +142,87 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
     setErrorMessage(null);
     setIsPinned(false);
     try {
-      const { svg, title } = buildAnnouncementPoster(text, buildingName, aspectRatio);
-      const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-      const objectUrl = URL.createObjectURL(blob);
-      const image = new Image();
-      image.onload = () => {
+      const { data, error } = await supabase.functions.invoke('generate-announcement-image', {
+        body: { prompt: text, buildingName, aspectRatio },
+      });
+      if (error || !data?.image) {
+        let detail = typeof data?.error === 'string' ? data.error : 'تعذر توليد الصورة بالذكاء الاصطناعي.';
         try {
-          const canvas = document.createElement('canvas');
-          canvas.width = image.naturalWidth || 1080;
-          canvas.height = image.naturalHeight || 1080;
-          const context = canvas.getContext('2d');
-          if (!context) throw new Error('تعذر تجهيز الصورة على هذا الجهاز.');
-          context.fillStyle = '#10283d';
-          context.fillRect(0, 0, canvas.width, canvas.height);
-          context.drawImage(image, 0, 0);
-          setGeneratedImageUrl(canvas.toDataURL('image/png'));
-        } catch (error: any) {
-          setErrorMessage(error.message || 'تعذر تصدير الإعلان كصورة.');
-        } finally {
-          URL.revokeObjectURL(objectUrl);
-          setIsGenerating(false);
+          const response = (error as { context?: Response } | null)?.context;
+          if (response && typeof response.json === 'function') {
+            const payload = await response.json();
+            if (typeof payload?.error === 'string') detail = payload.error;
+          }
+        } catch { /* Keep the original error. */ }
+        throw new Error(detail);
+      }
+      const image = new Image();
+      image.src = data.image;
+      await image.decode();
+      const sizes: Record<string, [number, number]> = {'1:1':[1080,1080],'16:9':[1280,720],'3:4':[900,1200],'9:16':[900,1600]};
+      const [width, height] = sizes[aspectRatio] || sizes['1:1'];
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('تعذر تجهيز الصورة على هذا الجهاز.');
+      context.drawImage(image, 0, 0, width, height);
+      const margin = width * 0.065;
+      const panelY = height * 0.20;
+      const panelH = height * 0.63;
+      context.fillStyle = 'rgba(9, 29, 45, 0.86)';
+      context.beginPath();
+      context.roundRect(margin, panelY, width - margin * 2, panelH, 28);
+      context.fill();
+      context.strokeStyle = 'rgba(233, 195, 117, 0.85)';
+      context.lineWidth = 3;
+      context.stroke();
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.direction = 'rtl';
+      const center = width / 2;
+      const fitLines = (value: string, maxWidth: number, maxLines: number) => {
+        const words = value.trim().split(/\\s+/);
+        const lines: string[] = [];
+        let line = '';
+        for (const word of words) {
+          const next = line ? line + ' ' + word : word;
+          if (context.measureText(next).width > maxWidth && line) {
+            lines.push(line);
+            line = word;
+          } else line = next;
         }
+        if (line) lines.push(line);
+        return lines.slice(0, maxLines);
       };
-      image.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        setErrorMessage('تعذر إنشاء معاينة الإعلان على هذا الجهاز.');
-        setIsGenerating(false);
-      };
-      image.src = objectUrl;
+      const title = buildAnnouncementPoster(text, buildingName, aspectRatio).title;
+      context.fillStyle = '#f4d99b';
+      context.font = `bold ${Math.round(width * 0.028)}px Tahoma, Arial, sans-serif`;
+      context.fillText(buildingName || 'إدارة العمارة', center, panelY + height * 0.06, width - margin * 3);
+      context.fillStyle = '#ffffff';
+      const titleSize = Math.round(width * 0.049);
+      context.font = `bold ${titleSize}px Tahoma, Arial, sans-serif`;
+      context.fillText(title, center, panelY + height * 0.145, width - margin * 3);
+      const maxTextWidth = width - margin * 3.6;
+      let fontSize = Math.round(width * 0.032);
+      let lines: string[] = [];
+      const maxTextHeight = panelH * 0.64;
+      for (; fontSize >= 17; fontSize -= 2) {
+        context.font = `${fontSize}px Tahoma, Arial, sans-serif`;
+        lines = fitLines(text, maxTextWidth, 100);
+        if (lines.length * fontSize * 1.55 <= maxTextHeight) break;
+      }
+      if (lines.length * fontSize * 1.55 > maxTextHeight) throw new Error('نص الإعلان طويل جدًا على المقاس المختار. اختصر النص أو اختر مقاسًا أطول.');
+      context.fillStyle = '#edf5fa';
+      context.font = `${fontSize}px Tahoma, Arial, sans-serif`;
+      const lineHeight = fontSize * 1.55;
+      const firstY = panelY + height * 0.22 + lineHeight / 2;
+      lines.forEach((line, index) => context.fillText(line, center, firstY + index * lineHeight, maxTextWidth));
+      setGeneratedImageUrl(canvas.toDataURL('image/png'));
       setPrompt(text);
-    } catch (error: any) {
-      setErrorMessage(error.message || 'حدث خطأ أثناء تصميم الإعلان.');
+    } catch (error: unknown) {
+      setErrorMessage(error instanceof Error ? error.message : 'حدث خطأ أثناء توليد الإعلان.');
+    } finally {
       setIsGenerating(false);
     }
   };
@@ -208,7 +258,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
                 <h1 className="text-lg sm:text-xl font-bold">استوديو إعلانات ولوحات العمارة الذكي</h1>
               </div>
               <p className="text-xs text-slate-200 mt-0.5">
-                تصميم إعلانات احترافية محلياً دون اشتراكات أو خدمات خارجية
+                تصميمات جديدة بالذكاء الاصطناعي مع الحفاظ على دقة النص العربي
               </p>
             </div>
           </div>
@@ -305,7 +355,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
                   {isGenerating ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin text-teal-300" />
-                      <span>جاري تجهيز التصميم...</span>
+                      <span>جارٍ توليد تصميم جديد بالذكاء الاصطناعي...</span>
                     </>
                   ) : (
                     <>
