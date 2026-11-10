@@ -15,7 +15,10 @@ export default async function handle(request: Request): Promise<Response> {
   if (!profile?.approved || profile.disabled_at || !profile.building_id || profile.role !== "building_admin")
     return Response.json({ error: "توليد لوحات الإعلانات متاح لمدير العمارة فقط." }, { status: 403, headers: cors });
   const key = process.env["GEMINI_API_KEY"]?.trim();
-  if (!key) return Response.json({ error: "خدمة توليد الصور غير مهيأة بعد." }, { status: 503, headers: cors });
+  // Pollinations is opt-in: never use a key that might spend paid Pollen without explicit configuration.
+  const pollinationsKey = process.env["POLLINATIONS_API_KEY"]?.trim();
+  const pollinationsFreeOnly = process.env["POLLINATIONS_FREE_ONLY"] === "true";
+  if (!key && !(pollinationsKey && pollinationsFreeOnly)) return Response.json({ error: "خدمة توليد الصور غير مهيأة بعد." }, { status: 503, headers: cors });
   const now = Date.now();
   const recent = (limits.get(user.id) || []).filter(time => now - time < 3600000);
   if (recent.length >= 10) return Response.json({ error: "وصلت للحد المؤقت للتوليد. حاول بعد قليل." }, { status: 429, headers: cors });
@@ -27,7 +30,38 @@ export default async function handle(request: Request): Promise<Response> {
   const aspectRatio = typeof payload.aspectRatio === "string" && ["1:1", "16:9", "3:4", "9:16"].includes(payload.aspectRatio) ? payload.aspectRatio : "1:1";
   if (prompt.length < 10) return Response.json({ error: "اكتب تفاصيل الإعلان أولاً." }, { status: 400, headers: cors });
   const visualPrompt = `Create a PREMIUM professional visual background for a residential building notice poster in Egypt. Subject: ${prompt}. Building context: ${buildingName}. Editorial-quality architectural illustration, polished realistic 3D scene, tasteful modern navy, teal and gold, premium art direction, carefully balanced visual hierarchy. IMPORTANT: absolutely NO text, letters, digits, logos, symbols resembling text, watermarks or typography anywhere. Keep the central 60% relatively calm, dark and uncluttered so precise Arabic text can be overlaid later by the app. Place thematic illustrative objects primarily near the edges. Make a genuinely new composition for this request. Aspect ratio ${aspectRatio}.`;
+  const tryPollinations = async (): Promise<string | null> => {
+    if (!pollinationsKey || !pollinationsFreeOnly) return null;
+    // A restricted key with no paid Pollen must be configured by the owner before enabling.
+    const response = await fetch("https://gen.pollinations.ai/v1/images/generations", {
+      method: "POST", headers: { Authorization: `Bearer ${pollinationsKey}`, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(90000),
+      body: JSON.stringify({ model: "black-forest-labs/flux.1-schnell", prompt: visualPrompt, size: "1024x1024", response_format: "b64_json", n: 1 }),
+    });
+    if (!response.ok) {
+      console.warn("[AI poster] Pollinations unavailable", { status: response.status });
+      return null;
+    }
+    const result = await response.json();
+    const base64 = result?.data?.[0]?.b64_json;
+    if (typeof base64 === "string" && base64.length > 100) return `data:image/png;base64,${base64}`;
+    const url = result?.data?.[0]?.url;
+    if (typeof url === "string" && /^https:\/\//.test(url)) {
+      const imageResponse = await fetch(url, { signal: AbortSignal.timeout(30000) });
+      if (imageResponse.ok && (imageResponse.headers.get("content-type") || "").startsWith("image/")) {
+        const bytes = new Uint8Array(await imageResponse.arrayBuffer());
+        if (bytes.length > 8_000_000) return null;
+        let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte);
+        return `data:${imageResponse.headers.get("content-type")};base64,${btoa(binary)}`;
+      }
+    }
+    return null;
+  };
   try {
+    if (!key) {
+      const image = await tryPollinations();
+      return image ? Response.json({ image, provider: "pollinations" }, { headers: cors }) : Response.json({ error: "محرك الصور البديل غير متاح حاليًا." }, { status: 503, headers: cors });
+    }
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + encodeURIComponent(key), {
       method: "POST", headers: { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(90000),
@@ -44,11 +78,12 @@ export default async function handle(request: Request): Promise<Response> {
         : response.status === 400 ? 'خدمة Gemini رفضت إعدادات طلب الصورة.'
         : response.status >= 500 ? 'خدمة Gemini غير متاحة مؤقتًا.'
         : 'تعذر توليد الصورة حاليًا.';
+      if ([429, 403, 404, 500, 502, 503].includes(response.status)) { const image = await tryPollinations(); if (image) return Response.json({ image, provider: "pollinations" }, { headers: cors }); }
       return Response.json({ error, code: providerCode || `HTTP_${response.status}` }, { status: response.status === 429 ? 429 : 502, headers: cors });
     }
     const part = result?.candidates?.[0]?.content?.parts?.find((item: { inlineData?: { data?: string; mimeType?: string } }) => item.inlineData?.data && item.inlineData?.mimeType?.startsWith("image/"));
     if (!part?.inlineData?.data) { console.error("[AI poster] Gemini returned no image", { finishReason: result?.candidates?.[0]?.finishReason || "unknown" }); return Response.json({ error: "خدمة Gemini لم تُرجع صورة. جرّب وصفًا مختلفًا." }, { status: 502, headers: cors }); }
-    return Response.json({ image: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}` }, { headers: cors });
+    return Response.json({ image: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`, provider: "gemini" }, { headers: cors });
   } catch (error) {
     console.error("[AI poster] Request failed", { type: error instanceof Error ? error.name : "unknown" });
     return Response.json({ error: "تعذر الاتصال بخدمة توليد الصور. حاول مجددًا." }, { status: 503, headers: cors });
