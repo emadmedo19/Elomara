@@ -64,3 +64,27 @@ test('exceptional payments cannot settle a different assessment or apartment', (
   const otherReceipt = { ...partial, apartmentId: 'another' };
   assert.equal(apartmentTotals(apartment, [charge, otherCharge, partial, otherReceipt]).remaining, 2300);
 });
+
+test('deleting an unpaid exceptional assessment clears only its receivable', () => {
+  const fin = buildingTotals('b', [apartment], [{ ...charge, assessmentCancelled: true }]);
+  assert.equal(fin.totalRemaining, 100);
+  assert.equal(fin.totalCollected, 0);
+  assert.equal(fin.totalExpectedDues, 100);
+});
+test('deleting a partially paid assessment preserves its cash and the monthly dues', () => {
+  const cancelled = { ...charge, assessmentCancelled: true };
+  const fin = apartmentTotals(apartment, [cancelled, partial]);
+  assert.equal(fin.remaining, 100);
+  assert.equal(fin.totalPaid, 500);
+  assert.equal(fin.totalDue, 600);
+  assert.equal(fin.creditBalance, 0);
+  assert.equal(fin.allPayments.length, 1);
+  assert.equal(apartmentTotals(apartment, [cancelled]).remaining, 100);
+});
+test('cancelling one assessment leaves other assessments and monthly advance credits intact', () => {
+  const rows = [{ ...charge, assessmentCancelled: true }, partial, { ...charge, id: 'charge-2', amount: 700 }, receipt];
+  const fin = apartmentTotals(apartment, rows);
+  assert.equal(fin.remaining, 700);
+  assert.equal(fin.creditBalance, 1900);
+  assert.equal(fin.totalPaid, 2500);
+});

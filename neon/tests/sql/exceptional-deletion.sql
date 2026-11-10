@@ -1,0 +1,77 @@
+DO $$
+DECLARE b uuid:=current_setting('test.delete_building')::uuid; c uuid:=current_setting('test.delete_collection')::uuid;
+ receipt uuid:=current_setting('test.delete_receipt')::uuid; charge uuid; a uuid; actor uuid;
+ resident uuid:=gen_random_uuid(); foreign_manager uuid:=gen_random_uuid(); suspended uuid:=gen_random_uuid(); other_b uuid:=gen_random_uuid();
+ new_c uuid; new_charge uuid; next_c uuid; next_charge uuid; rejected boolean; result jsonb; summary jsonb; notifications bigint;
+BEGIN
+ IF current_database()<>'elomara_migration_check_v2' THEN RAISE EXCEPTION 'Rehearsal database required'; END IF;
+ SELECT id,apartment_id INTO charge,a FROM public.payments WHERE exceptional_collection_id=c AND is_assessment;
+ IF charge IS NULL OR (SELECT exceptional_collection_id FROM public.payments WHERE id=receipt) IS DISTINCT FROM c THEN RAISE EXCEPTION 'Historical assessments/receipts were not linked'; END IF;
+ SELECT created_by INTO actor FROM public.exceptional_collections WHERE id=c;
+ INSERT INTO public.buildings(id,name) VALUES(other_b,'عمارة أخرى');
+ INSERT INTO app_auth.users(id,email) VALUES(resident,resident||'@example.invalid'),(foreign_manager,foreign_manager||'@example.invalid'),(suspended,suspended||'@example.invalid');
+ UPDATE public.profiles SET building_id=b,apartment_id=a,approved=true,role='tenant' WHERE id=resident;
+ UPDATE public.profiles SET building_id=other_b,approved=true,role='building_admin' WHERE id=foreign_manager;
+ UPDATE public.profiles SET building_id=b,approved=true,role='building_admin',disabled_at=now() WHERE id=suspended;
+ INSERT INTO private.auth_identity_map VALUES(resident::text,resident),(foreign_manager::text,foreign_manager),(suspended::text,suspended);
+ FOR actor IN SELECT id FROM public.profiles WHERE id IN(resident,foreign_manager,suspended) LOOP
+  PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',actor)::text,true);
+  SET LOCAL ROLE authenticated;
+  rejected:=false;
+  BEGIN PERFORM public.delete_exceptional_collection(c,'تحصيل قديم للربط'); EXCEPTION WHEN insufficient_privilege THEN rejected:=true; END;
+  IF NOT rejected THEN RAISE EXCEPTION 'Unauthorized deletion accepted'; END IF;
+  RESET ROLE;
+ END LOOP;
+ SELECT created_by INTO actor FROM public.exceptional_collections WHERE id=c;
+ PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',actor)::text,true);
+ SET LOCAL ROLE authenticated;
+ rejected:=false;
+ BEGIN PERFORM public.delete_exceptional_collection(c,'خطأ'); EXCEPTION WHEN others THEN rejected:=true; END;
+ IF NOT rejected THEN RAISE EXCEPTION 'Missing name confirmation accepted'; END IF;
+ summary:=public.get_building_financial_summary(b);
+ IF (summary->>'outstanding_amount')::numeric<>150 THEN RAISE EXCEPTION 'Pre-deletion remaining wrong'; END IF;
+ RESET ROLE;
+ SELECT count(*) INTO notifications FROM public.app_notifications WHERE building_id=b;
+ SET LOCAL ROLE authenticated;
+ result:=public.delete_exceptional_collection(c,'تحصيل قديم للربط');
+ IF (result->>'waived_amount')::numeric<>150 OR (result->>'preserved_receipts')::numeric<>50 THEN RAISE EXCEPTION 'Deletion totals wrong %',result; END IF;
+ summary:=public.get_building_financial_summary(b);
+ IF (summary->>'outstanding_amount')::numeric<>0 OR (summary->>'total_collected')::numeric<>50 OR (summary->>'treasury_balance')::numeric<>150 THEN RAISE EXCEPTION 'Deletion lost cash or left debt %',summary; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.payments WHERE id=receipt AND amount=50 AND receipt_number='KEEP-ME') THEN RAISE EXCEPTION 'Real receipt changed'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.exceptional_collections WHERE id=c AND deleted_at IS NOT NULL AND deleted_by=actor) THEN RAISE EXCEPTION 'Deletion audit missing'; END IF;
+ result:=public.delete_exceptional_collection(c,'تحصيل قديم للربط');
+ IF result->>'already_deleted'<>'true' THEN RAISE EXCEPTION 'Repeat deletion not idempotent'; END IF;
+ rejected:=false;
+ BEGIN PERFORM public.record_exceptional_payment(charge,1,current_date,'نقدي','',''); EXCEPTION WHEN others THEN rejected:=true; END;
+ IF NOT rejected THEN RAISE EXCEPTION 'Payment accepted after deletion'; END IF;
+ -- New collections with identical labels are linked by ID, never by title/date.
+ new_c:=(public.create_exceptional_collection(b,'عنوان متكرر','','per_apartment',NULL,100,ARRAY[a],false)->>'collection_id')::uuid;
+ next_c:=(public.create_exceptional_collection(b,'عنوان متكرر','','per_apartment',NULL,100,ARRAY[a],false)->>'collection_id')::uuid;
+ SELECT id INTO new_charge FROM public.payments WHERE exceptional_collection_id=new_c AND is_assessment;
+ SELECT id INTO next_charge FROM public.payments WHERE exceptional_collection_id=next_c AND is_assessment;
+ IF new_charge IS NULL OR next_charge IS NULL OR new_charge=next_charge THEN RAISE EXCEPTION 'New assessment linkage wrong'; END IF;
+ PERFORM public.delete_exceptional_collection(new_c,'عنوان متكرر');
+ summary:=public.get_building_financial_summary(b);
+ IF (summary->>'outstanding_amount')::numeric<>100 THEN RAISE EXCEPTION 'Deletion affected unrelated collection'; END IF;
+ PERFORM public.record_exceptional_payment(next_charge,100,current_date,'نقدي','FULL','');
+ PERFORM public.delete_exceptional_collection(next_c,'عنوان متكرر');
+ summary:=public.get_building_financial_summary(b);
+ IF (summary->>'outstanding_amount')::numeric<>0 OR (summary->>'total_collected')::numeric<>150 OR (summary->>'treasury_balance')::numeric<>250 THEN RAISE EXCEPTION 'Fully paid deletion changed cash'; END IF;
+ -- Correcting/deleting a real receipt remains possible after cancelling its debt.
+ UPDATE public.payments SET amount=40 WHERE id=receipt;
+ UPDATE public.buildings SET balance=balance-10 WHERE id=b;
+ summary:=public.get_building_financial_summary(b);
+ IF (summary->>'outstanding_amount')::numeric<>0 THEN RAISE EXCEPTION 'Receipt correction recreated cancelled debt'; END IF;
+ DELETE FROM public.payments WHERE id=receipt;
+ UPDATE public.buildings SET balance=balance-40 WHERE id=b;
+ summary:=public.get_building_financial_summary(b);
+ IF (summary->>'outstanding_amount')::numeric<>0 OR (summary->>'total_collected')::numeric<>100 OR (summary->>'treasury_balance')::numeric<>200 THEN RAISE EXCEPTION 'Receipt deletion recreated cancelled debt'; END IF;
+ RESET ROLE;
+ -- Actual receipts may emit notifications, but cancelling an assessment never emits a fake receipt.
+ IF EXISTS(SELECT 1 FROM public.app_notifications n JOIN public.payments p ON p.id=n.entity_id WHERE p.building_id=b AND p.is_assessment) THEN RAISE EXCEPTION 'Deletion emitted fake receipt notifications'; END IF;
+ PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',resident)::text,true);
+ SET LOCAL ROLE authenticated;
+ summary:=public.get_building_financial_summary(b);
+ IF (summary->>'outstanding_amount')::numeric<>0 THEN RAISE EXCEPTION 'Resident still sees cancelled debt'; END IF;
+ RESET ROLE;
+END $$;

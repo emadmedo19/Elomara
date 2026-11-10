@@ -167,7 +167,7 @@ export default function App() {
             // never from this device's localStorage cache.
             const { data: paymentRows, error: paymentError } = await supabase
               .from('payments')
-              .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at,payment_type,is_assessment,exceptional_charge_id')
+              .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at,payment_type,is_assessment,exceptional_charge_id,assessment_cancelled')
               .in('building_id', rows.map(b => b.id))
               .order('payment_date', { ascending: false }).abortSignal(requestController.signal);
             if (cancelled || timedOut) return;
@@ -177,7 +177,7 @@ export default function App() {
               unitNumber:r.unit_number, residentName:r.resident_name || '',
               amount:Number(r.amount || 0), date:r.payment_date, month:r.month,
               method:r.method, notes:r.notes || undefined,
-              receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined, paymentType:r.payment_type || 'monthly', isAssessment:r.is_assessment, exceptionalChargeId:r.exceptional_charge_id || undefined,
+              receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined, paymentType:r.payment_type || 'monthly', isAssessment:r.is_assessment, assessmentCancelled:r.assessment_cancelled, exceptionalChargeId:r.exceptional_charge_id || undefined,
             })));
 
             const [ticketResult, announcementResult, expenseResult, settingsResult] = await Promise.all([
@@ -367,7 +367,7 @@ export default function App() {
         }));
         const { data: paymentRows, error: paymentError } = await supabase
           .from('payments')
-          .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at,payment_type,is_assessment,exceptional_charge_id')
+          .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at,payment_type,is_assessment,exceptional_charge_id,assessment_cancelled')
           .in('building_id', refreshedBuildings.map(b => b.id))
           .order('payment_date', { ascending: false });
         if (paymentError) throw paymentError;
@@ -377,7 +377,7 @@ export default function App() {
           amount:Number(r.amount || 0), date:r.payment_date, month:r.month,
           method:r.method, notes:r.notes || undefined,
           receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined,
-          paymentType:r.payment_type || 'monthly', isAssessment:r.is_assessment, exceptionalChargeId:r.exceptional_charge_id || undefined,
+          paymentType:r.payment_type || 'monthly', isAssessment:r.is_assessment, assessmentCancelled:r.assessment_cancelled, exceptionalChargeId:r.exceptional_charge_id || undefined,
         }));
       }
       if (managerScopeRef.current !== refreshScope) return;
@@ -436,7 +436,7 @@ export default function App() {
   // 6. Android Hardware Back Button & Browser History Handling
   useEffect(() => {
     const handlePopState = () => {
-      if (document.querySelector('[data-notification-dialog], [data-remove-member-dialog]')) return;
+      if (document.querySelector('[data-notification-dialog], [data-remove-member-dialog], [data-delete-exceptional-dialog]')) return;
       if (currentTab === 'app-settings' && document.querySelector('[data-settings-subpage]')) return;
       // If any modal is open, close modals first
       if (isBuildingModalOpen || isSettingsModalOpen || isAddExpenseModalOpen || isPdfModalOpen) {
@@ -1283,7 +1283,7 @@ export default function App() {
           {currentTab === 'treasury-settings' && isAdmin && <TreasurySettingsView key={currentBuilding.id} buildingId={currentBuilding.id} onBack={() => goBack('more')} onSaved={({ balance, reserveFund }) => setBuildings(rows => rows.map(building => building.id === currentBuilding.id ? { ...building, balance, reserveFund } : building))}/>}
 
           {currentTab === 'polls' && <PollsView buildingId={currentBuilding.id} canManage />}
-          {currentTab === 'exceptional-collections' && isAdmin && <ExceptionalCollectionsView onCreated={() => void refreshAppData()} buildingId={currentBuilding.id} apartments={apartments.filter(a => a.buildingId === currentBuilding.id)} />}
+          {currentTab === 'exceptional-collections' && isAdmin && <ExceptionalCollectionsView key={currentBuilding.id} onCreated={() => void refreshAppData()} buildingId={currentBuilding.id} apartments={apartments.filter(a => a.buildingId === currentBuilding.id)} />}
 
           {currentTab === 'approvals' && (
             <RegistrationApprovalsView apartments={apartments.filter(a => a.buildingId === currentBuilding.id)} />

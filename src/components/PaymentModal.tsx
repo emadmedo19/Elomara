@@ -85,7 +85,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const currentApt = apartments.find((a) => a.id === apartmentId);
 
-  const charges = existingPayments.filter(p => p.isAssessment && p.apartmentId === apartmentId);
+  const charges = existingPayments.filter(p => p.isAssessment && p.apartmentId === apartmentId && (!p.assessmentCancelled || p.id === editingPayment?.exceptionalChargeId));
   const chargeRemaining = (id: string) => Math.max(0, Number(charges.find(c => c.id === id)?.amount || 0) - existingPayments
     .filter(p => !p.isAssessment && p.exceptionalChargeId === id && p.id !== editingPayment?.id)
     .reduce((sum,p) => sum + Number(p.amount || 0),0));

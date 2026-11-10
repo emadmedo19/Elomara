@@ -323,9 +323,9 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
           )}
         </div>
 
-        {payments.some(p => p.apartmentId === apartment.id && p.isAssessment) && <section className="my-4 space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+        {payments.some(p => p.apartmentId === apartment.id && p.isAssessment && !p.assessmentCancelled) && <section className="my-4 space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-3">
           <h4 className="text-xs font-bold text-amber-900">مستحقات التحصيل الاستثنائي</h4>
-          {payments.filter(p => p.apartmentId === apartment.id && p.isAssessment).map(charge => {
+          {payments.filter(p => p.apartmentId === apartment.id && p.isAssessment && !p.assessmentCancelled).map(charge => {
             const paid = aptPayments.filter(p => p.exceptionalChargeId === charge.id).reduce((sum,p) => sum + p.amount,0);
             return <div key={charge.id} className="text-xs leading-6 text-slate-700">
               <strong>{charge.notes || 'تحصيل استثنائي'}</strong>

@@ -64,6 +64,7 @@ export interface Payment {
   recordedAt: string;
   paymentType?: 'monthly' | 'exceptional';
   isAssessment?: boolean;
+  assessmentCancelled?: boolean;
   exceptionalChargeId?: string;
 }
 

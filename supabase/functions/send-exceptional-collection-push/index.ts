@@ -72,7 +72,7 @@ Deno.serve(async (request: Request) => {
 
   const { data: collection, error: collectionError } = await adminClient.from("exceptional_collections")
     .select("id,building_id,title,description,created_by,target_apartment_ids,notify_residents")
-    .eq("id", body.collection_id).maybeSingle();
+    .eq("id", body.collection_id).is("deleted_at", null).maybeSingle();
   if (collectionError || !collection) return json({ error: "Collection not found" }, 404);
   if (collection.created_by !== authData.user.id || collection.building_id !== profile.building_id) {
     return json({ error: "Forbidden" }, 403);

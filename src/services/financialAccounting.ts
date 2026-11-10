@@ -65,10 +65,13 @@ export function calculateApartmentFinancials(
   // Exceptional receipts settle their own assessment, never monthly subscriptions.
   // Assessments remain outstanding until their linked receipts are recorded.
   const charges = allRows.filter(p => p.isAssessment && (!periodMonth || p.month === periodMonth));
-  const exceptionalPaid = charges.reduce((sum, charge) => sum + allRows
-    .filter(p => !p.isAssessment && p.exceptionalChargeId === charge.id)
-    .reduce((paid, p) => paid + Number(p.amount || 0), 0), 0);
-  const exceptionalDue = charges.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const chargeTotals = charges.map(charge => {
+    const paid = allRows.filter(p => !p.isAssessment && p.exceptionalChargeId === charge.id)
+      .reduce((sum,p) => sum + Number(p.amount || 0),0);
+    return { paid, due: charge.assessmentCancelled ? paid : Number(charge.amount || 0) };
+  });
+  const exceptionalPaid = chargeTotals.reduce((sum,c) => sum+c.paid,0);
+  const exceptionalDue = chargeTotals.reduce((sum,c) => sum+c.due,0);
   const totalDue = monthlyDue + exceptionalDue;
   const totalPaid = monthlyPaid + exceptionalPaid;
 

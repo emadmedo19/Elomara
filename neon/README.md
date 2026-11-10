@@ -197,3 +197,25 @@ rejection, then rolls back all fixtures and schema changes. Production correctio
 verified separately: 14 preserved assessments totaling 28,000, no actual receipts and
 zero cash balance. Browser verification used synthetic data on a 390×844 viewport;
 no test payments or notifications were published to actual users.
+
+
+Deletion of an exceptional collection is defined in
+`migrations/007_delete_exceptional_collection.sql`. Each assessment now has an explicit
+`exceptional_collection_id`; existing rows are linked only when their original
+transaction/author/apartment/description identifies one collection unambiguously.
+`delete_exceptional_collection` requires an active authorized building manager and
+an exact title confirmation. It locks the assessments, marks their remaining debt
+cancelled, and removes the collection from the visible log using `deleted_at` and
+`deleted_by`. Receipt rows and treasury balance are never deleted or changed by this
+action. Correcting a historical receipt does not recreate cancelled debt, and no new
+receipt can be recorded against a deleted collection. Paid amounts remain in income.
+Deleted collections cannot be used to resend collection notifications.
+
+Run `TARGET_DATABASE_URL=... node neon/scripts/verify-exceptional-deletion.mjs`
+in the rehearsal database only. The transaction checks migration/backfill, unpaid,
+partial and full cancellation, repeated deletion, wrong confirmation, unrelated
+collections with identical names, manager/resident/suspended/foreign-member access,
+and later receipt correction/deletion. All fixtures roll back. Browser checks use
+synthetic data at 390×844 in light/dark modes and cover cancellation/back navigation,
+confirmation, request failure/retry and refreshed financial data. The production
+migration links existing assessments only; it does not call the deletion action.
