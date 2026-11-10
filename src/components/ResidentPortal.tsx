@@ -1,3 +1,4 @@
+import { BrandLogo } from './BrandLogo';
 import { GuardContact } from './GuardContact';
 import React, { useEffect, useRef, useState } from 'react';
 import { NotificationBell } from './NotificationBell';
@@ -205,7 +206,7 @@ export const ResidentPortal: React.FC = () => {
     <header className="bg-[#0f2537] text-white sticky top-0 z-40 shadow-lg">
       <div className="max-w-7xl mx-auto px-3 sm:px-5 py-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <img id="resident-brand-lockup" src="/brand-lockup.png" alt="العمارة" className="h-20 w-[72px] shrink-0 object-contain" />
+          <BrandLogo id="resident-brand-lockup" className="h-20 w-[72px] shrink-0 object-contain"/>
           <div className="min-w-0"><p id="resident-building-subtitle" className="text-[11px] truncate" style={{ color: "#35565a", opacity: 1, fontWeight: 700 }}>{building?.name || 'بوابة السكان'} • شقة {apartment?.unit_number}</p></div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -222,7 +223,7 @@ export const ResidentPortal: React.FC = () => {
 
     <nav aria-label="التنقل الرئيسي" className="resident-bottom-nav fixed bottom-0 inset-x-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur-md shadow-[0_-5px_20px_rgba(15,40,50,.08)]" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 8px)" }}>
       <div className="mx-auto grid max-w-xl grid-cols-4 gap-1 px-2 pt-2">
-        {primaryNav.map(item => <button key={item.id} onClick={() => { setActiveTab(item.id); setNotice(''); setError(''); }} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold transition ${activeTab === item.id ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><span className={`settings-icon settings-icon-${item.id==='maintenance'?'violet':item.id==='payments'?'teal':'blue'} nav-color-icon`}>{item.icon}{item.id==='maintenance' && unreadTicketCount>0 && <span className="absolute -right-3 -top-3 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[10px] font-black leading-none text-white">{unreadTicketCount}</span>}</span><span className="truncate max-w-full">{item.label}</span></button>)}
+        {primaryNav.map(item => <button key={item.id} aria-current={activeTab===item.id ? 'page' : undefined} onClick={() => { setActiveTab(item.id); setNotice(''); setError(''); }} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold transition ${activeTab === item.id ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><span className={`settings-icon settings-icon-${item.id==='maintenance'?'violet':item.id==='payments'?'teal':'blue'} nav-color-icon`}>{item.icon}{item.id==='maintenance' && unreadTicketCount>0 && <span className="absolute -right-3 -top-3 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[10px] font-black leading-none text-white">{unreadTicketCount}</span>}</span><span className="truncate max-w-full">{item.label}</span></button>)}
         <button onClick={() => navigateSettings('more')} aria-current={['more', 'app-settings', ...moreNav.map(item => item.id)].includes(activeTab) ? 'page' : undefined} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold ${['more', 'app-settings', ...moreNav.map(item => item.id)].includes(activeTab) ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><span className="settings-icon settings-icon-blue nav-color-icon"><MoreHorizontal className="w-5 h-5"/></span><span>المزيد</span></button>
       </div>
     </nav>

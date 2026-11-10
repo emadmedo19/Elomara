@@ -18,6 +18,7 @@ export function applyDevicePreferences(value: DevicePreferences) {
   document.documentElement.dataset.fontSize = value.fontSize;
   document.documentElement.style.fontSize = ({ normal: '16px', large: '18px', 'extra-large': '20px' })[value.fontSize];
   document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#000000' : '#0f2537');
 }
 export function saveDevicePreferences(value: DevicePreferences): boolean {
   try { localStorage.setItem(key, JSON.stringify(value)); }

@@ -1,3 +1,4 @@
+import { BrandLogo } from './BrandLogo';
 import React from 'react';
 import { Building } from '../types';
 import {
@@ -46,7 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
       <header className="elomara-header sticky top-0 z-40 border-b border-slate-200/70 bg-white/90 text-slate-900 shadow-[0_5px_24px_rgba(15,40,55,.06)] backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex shrink-0 items-center">
-            <img src="/brand-lockup.png" alt="العمارة" className="brand-lockup h-20 w-[72px] object-contain" />
+            <BrandLogo className="brand-lockup h-20 w-[72px] object-contain"/>
           </div>
           <div className="flex min-w-0 items-center gap-2">
             <label className="flex max-w-[54vw] items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 transition focus-within:border-teal-400 focus-within:bg-white">

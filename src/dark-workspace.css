@@ -1,0 +1,141 @@
+/* Black theme for the existing workspace, including dialogs mounted in body.
+   Keep document previews, images and SVG artwork in their original colours. */
+html:root[data-appearance=dark] {
+  color-scheme: dark;
+  --dark-page: #000;
+  --dark-card: #101010;
+  --dark-raised: #1a1a1a;
+  --dark-line: #303030;
+  --dark-text: #f5f5f5;
+  --dark-muted: #b0b0b0;
+  --dark-accent: #75dfcb;
+  --fotouh-ink: var(--dark-text);
+  --fotouh-deep: #202020;
+  --fotouh-page: var(--dark-page);
+  --fotouh-mint: #14231f;
+  --fotouh-muted: var(--dark-muted);
+  --fotouh-border: var(--dark-line);
+  background: var(--dark-page);
+  color: var(--dark-text);
+}
+html:root[data-appearance=dark] :is(body,#root,#root>.min-h-screen,.bunyan-manager-shell.elomara-light-shell,.bunyan-resident,.fotouh-portal,.fotouh-login) {
+  background: var(--dark-page) !important;
+  color: var(--dark-text) !important;
+}
+html:root[data-appearance=dark] :is(.settings-page,.notification-panel) {
+  --settings-ink: var(--dark-text);
+  --settings-muted: var(--dark-muted);
+  --settings-card: var(--dark-card);
+  --settings-line: var(--dark-line);
+}
+html:root[data-appearance=dark] :is(.elomara-header,.elomara-bottom-nav,.resident-bottom-nav,.fotouh-portal>header) {
+  background: #080808 !important;
+  background-image: none !important;
+  color: var(--dark-text) !important;
+  border-color: var(--dark-line) !important;
+  box-shadow: none !important;
+}
+html:root[data-appearance=dark] :is(.elomara-header label,.elomara-header button,.notification-bell,.notification-heading>button) {
+  background: var(--dark-raised) !important;
+  color: var(--dark-muted) !important;
+  border-color: var(--dark-line) !important;
+  box-shadow: none !important;
+}
+/* Flat surfaces replace the light gradients, rather than inverting the screen. */
+html:root[data-appearance=dark] :is(.bg-white,[class~="bg-white/5"],[class~="bg-white/10"],[class~="bg-white/15"],[class~="bg-white/20"],[class~="bg-white/95"],[class~="bg-white/90"],.bg-slate-50,.bg-slate-100,.bg-slate-200,[class~="bg-slate-50/80"],.bg-gray-50,.bg-gray-100,.settings-row,.settings-panel,.settings-back,.fotouh-login-card,.fotouh-login-help,.fotouh-google-button):where(:not(#printable-statement,#printable-statement *)) {
+  background: var(--dark-card) !important;
+  color: var(--dark-text);
+  border-color: var(--dark-line) !important;
+  box-shadow: none !important;
+}
+html:root[data-appearance=dark] :is(.light-stat,.light-collection-rate,.elomara-light-dashboard>section:not(.light-welcome):not(.light-stat-grid),.elomara-light-dashboard>div.grid>section,.fotouh-collections>div,.fotouh-expenses>div,.fotouh-reports>div,.fotouh-collections>div:nth-child(2)>div,.fotouh-reports>div:nth-child(2)>div,.fotouh-reports>div:nth-child(3)>div,.fotouh-collections>div.space-y-3>div,.fotouh-expenses>div.space-y-3>div,.fotouh-portal main section) {
+  background: var(--dark-card) !important;
+  border-color: var(--dark-line) !important;
+  color: var(--dark-text) !important;
+  box-shadow: none !important;
+}
+html:root[data-appearance=dark] :is(.light-welcome,.light-stat-grid) { background: transparent !important; }
+html:root[data-appearance=dark] :is(.text-slate-900,.text-slate-800,.text-slate-700,.text-gray-900,.text-gray-800,.text-gray-700,.text-indigo-900,.text-teal-900,.text-emerald-900,.elomara-light-dashboard h1,.elomara-light-dashboard h2,.elomara-light-dashboard strong,.light-stat>div,.light-welcome h1,.fotouh-login-card-heading h2):where(:not(#printable-statement,#printable-statement *)) { color: var(--dark-text) !important; }
+html:root[data-appearance=dark] :is(.text-slate-600,.text-slate-500,.text-slate-400,.text-gray-600,.text-gray-500,.text-gray-400,.light-month,.light-stat p,.light-collection-rate p,.light-welcome p,.elomara-light-dashboard p,.light-collection-rate>div:first-child>span,.fotouh-login-card-heading p,.fotouh-login-help ul):where(:not(#printable-statement,#printable-statement *)) { color: var(--dark-muted) !important; }
+html:root[data-appearance=dark] :is(.border-slate-100,.border-slate-200,.border-slate-300,.border-gray-100,.border-gray-200,.border-gray-300,[class~="border-slate-200/80"],[class~="border-slate-200/70"]):where(:not(#printable-statement,#printable-statement *)) { border-color: var(--dark-line) !important; }
+html:root[data-appearance=dark] :is(input,select,textarea):where(:not([type=checkbox],[type=radio],#printable-statement *)) {
+  background-color: var(--dark-raised) !important;
+  color: var(--dark-text) !important;
+  border-color: #414141 !important;
+  color-scheme: dark;
+}
+html:root[data-appearance=dark] input::placeholder,
+html:root[data-appearance=dark] textarea::placeholder { color: #929292; opacity: 1; }
+html:root[data-appearance=dark] :is(input[type=checkbox],input[type=radio]) { accent-color: var(--dark-accent); }
+html:root[data-appearance=dark] :is(button,a,input,select,textarea):focus-visible { outline-color: var(--dark-accent); }
+html:root[data-appearance=dark] :is(.elomara-light-dashboard>section:nth-child(3) button,.light-welcome-actions button,.elomara-light-dashboard>div:last-child,.settings-options button,.fotouh-feature-grid article) {
+  background: var(--dark-raised) !important;
+  border-color: var(--dark-line) !important;
+  color: var(--dark-text) !important;
+  box-shadow: none !important;
+}
+/* Preserve semantic meaning and contrast for money, warnings and delete actions. */
+html:root[data-appearance=dark] :is(.bg-teal-50,.bg-teal-100,.bg-emerald-50,.bg-emerald-100,.bg-green-50,.bg-green-100,.settings-notice):where(:not(#printable-statement,#printable-statement *)) { background: #142820 !important; border-color: #295442 !important; }
+html:root[data-appearance=dark] :is(.text-teal-600,.text-teal-700,.text-teal-800,.text-emerald-600,.text-emerald-700,.text-emerald-800,.text-green-600,.text-green-700,.text-green-800,.settings-notice):where(:not(#printable-statement,#printable-statement *)) { color: #8ae5be !important; }
+html:root[data-appearance=dark] :is(.bg-red-50,.bg-red-100,.bg-rose-50,.bg-rose-100,.settings-error):where(:not(#printable-statement,#printable-statement *)) { background: #2b1519 !important; border-color: #71333d !important; }
+html:root[data-appearance=dark] :is(.text-red-600,.text-red-700,.text-red-800,.text-rose-600,.text-rose-700,.text-rose-800,.text-rose-900,.settings-error):where(:not(#printable-statement,#printable-statement *)) { color: #ffa4b0 !important; }
+html:root[data-appearance=dark] :is(.bg-amber-50,.bg-amber-100,.bg-yellow-50,.bg-yellow-100):where(:not(#printable-statement,#printable-statement *)) { background: #2a2112 !important; border-color: #6d5426 !important; }
+html:root[data-appearance=dark] :is(.text-amber-600,.text-amber-700,.text-amber-800,.text-yellow-600,.text-yellow-700,.text-yellow-800):where(:not(#printable-statement,#printable-statement *)) { color: #f3cf85 !important; }
+html:root[data-appearance=dark] :is(.bg-blue-50,.bg-blue-100,.bg-indigo-50,.bg-indigo-100):where(:not(#printable-statement,#printable-statement *)) { background: #172130 !important; border-color: #354d70 !important; }
+html:root[data-appearance=dark] :is(.text-blue-600,.text-blue-700,.text-blue-800,.text-indigo-600,.text-indigo-700,.text-indigo-800):where(:not(#printable-statement,#printable-statement *)) { color: #a4c6ff !important; }
+html:root[data-appearance=dark] :is(.bg-violet-50,.bg-violet-100,.bg-purple-50,.bg-purple-100):where(:not(#printable-statement,#printable-statement *)) { background: #251c30 !important; border-color: #59416f !important; }
+html:root[data-appearance=dark] :is(.text-violet-600,.text-violet-700,.text-violet-800,.text-purple-600,.text-purple-700):where(:not(#printable-statement,#printable-statement *)) { color: #cfb2ff !important; }
+html:root[data-appearance=dark] :is(.bg-teal-600,.bg-teal-700,.fotouh-primary-button,.settings-save) { background: #11695f !important; color: #fff !important; box-shadow: none !important; }
+html:root[data-appearance=dark] :is([class~="bg-[#0f2537]"],[class~="bg-[#07131e]"],[class~="bg-[#10283a]"],[class*="bg-gradient-to-"]):where(:not(#printable-statement,#printable-statement *)) { background: #181818 !important; }
+html:root[data-appearance=dark] :is([class~="bg-[#0f2537]/70"],[class~="bg-[#0f2537]/75"],[class~="bg-slate-950/70"],.notification-overlay) { background: rgb(0 0 0 / .78) !important; }
+/* Remove the glossy icon tiles and their white SVG shadows. */
+html:root[data-appearance=dark] :is(.settings-icon,.light-stat-icon,.quick-action-icon) { background: #202020 !important; border: 1px solid #373737 !important; box-shadow: none !important; }
+html:root[data-appearance=dark] .settings-icon svg { filter: none !important; stroke-width: 1.9; }
+html:root[data-appearance=dark] .settings-icon-blue { color: #a4c6ff !important; }
+html:root[data-appearance=dark] .settings-icon-teal { color: #8ae5be !important; }
+html:root[data-appearance=dark] .settings-icon-gold { color: #f3cf85 !important; }
+html:root[data-appearance=dark] .settings-icon-violet { color: #cfb2ff !important; }
+html:root[data-appearance=dark] .settings-icon-rose { color: #ffa4b0 !important; }
+html:root[data-appearance=dark] :is(.elomara-bottom-nav,.resident-bottom-nav) button { color: var(--dark-muted) !important; background: transparent !important; box-shadow: none !important; }
+html:root[data-appearance=dark] .nav-color-icon.settings-icon { background: transparent !important; border-color: transparent !important; color: #a3a3a3 !important; }
+html:root[data-appearance=dark] :is(.elomara-bottom-nav,.resident-bottom-nav) button[aria-current=page] { color: var(--dark-accent) !important; background: #14231f !important; box-shadow: none !important; }
+html:root[data-appearance=dark] :is(.elomara-bottom-nav,.resident-bottom-nav) button[aria-current=page] :is(svg,.nav-color-icon) { color: var(--dark-accent) !important; }
+html:root[data-appearance=dark] :is(.settings-options,.notification-toolbar) button[aria-pressed=true] { background: #18302a !important; color: var(--dark-accent) !important; border-color: #398775 !important; }
+html:root[data-appearance=dark] .light-rate-track { background: #303030; }
+html:root[data-appearance=dark] .light-rate-track>span { background: var(--dark-accent); }
+html:root[data-appearance=dark] :is(.settings-count,.notification-badge) { border-color: #101010; }
+html:root[data-appearance=dark] .notification-unread { background: #18231f; }
+html:root[data-appearance=dark] .notification-dot { background: var(--dark-accent); }
+html:root[data-appearance=dark] .notification-footer button { color: var(--dark-accent); }
+html:root[data-appearance=dark] #resident-building-title { color: var(--dark-text) !important; -webkit-text-fill-color: var(--dark-text) !important; }
+html:root[data-appearance=dark] #resident-building-subtitle { color: var(--dark-muted) !important; -webkit-text-fill-color: var(--dark-muted) !important; }
+html:root[data-appearance=dark] :is(#resident-building-icon,#resident-refresh-button) { background: #202020 !important; color: var(--dark-accent) !important; border-color: #373737 !important; box-shadow: none !important; }
+html:root[data-appearance=dark] :is(#resident-building-icon,#resident-refresh-button) svg { color: var(--dark-accent) !important; stroke: currentColor !important; }
+html:root[data-appearance=dark] :is(.fotouh-login-hero,.fotouh-login-lower) { background: #000 !important; }
+html:root[data-appearance=dark] .fotouh-login-hero:after { display: none; }
+html:root[data-appearance=dark] .fotouh-login-card-icon { background: #202020; color: var(--dark-accent); }
+/* The exported document is paper, not a themed application surface. */
+html:root[data-appearance=dark] #printable-statement { background: #fff; color: #10283a; color-scheme: light; }
+@media print {
+  html:root[data-appearance=dark], html:root[data-appearance=dark] body { background: #fff !important; }
+}
+html:root[data-appearance=dark] .bunyan-manager-shell>main>* { animation: none !important; will-change: auto; }
+html:root[data-appearance=dark] .ota-update-notice { background: #141414 !important; color: var(--dark-text) !important; border-color: var(--dark-line) !important; box-shadow: 0 12px 40px #0009 !important; }
+html:root[data-appearance=dark] .ota-notice-copy { color: var(--dark-muted) !important; }
+html:root[data-appearance=dark] :is(.ota-notice-icon,.ota-notice-later) { background: #242424 !important; color: var(--dark-text) !important; border-color: #414141 !important; }
+html:root[data-appearance=dark] .ota-notice-now { background: #11695f !important; border-color: #258775 !important; }
+html:root[data-appearance=dark] :is([class~="hover:bg-slate-50"],[class~="hover:bg-slate-100"],[class~="hover:bg-white"]):hover:where(:not(#printable-statement,#printable-statement *)) { background-color: var(--dark-raised) !important; }
+html:root[data-appearance=dark] :is(.fotouh-collections>div:first-child button:first-child,.fotouh-expenses>div:first-child button,.fotouh-portal main button.bg-teal-600) { background: #11695f !important; color: #fff !important; box-shadow: none !important; }
+html:root[data-appearance=dark] .fotouh-field>div { background: var(--dark-raised); border-color: #414141; }
+html:root[data-appearance=dark] .fotouh-field>span { color: var(--dark-muted); }
+html:root[data-appearance=dark] .fotouh-message.error { background: #2b1519; color: #ffa4b0; }
+html:root[data-appearance=dark] .fotouh-message.success { background: #142820; color: #8ae5be; }
+
+.brand-logo { display: inline-block; flex-shrink: 0; }
+.brand-logo img { width: 100%; height: 100%; object-fit: contain; }
+.brand-logo .brand-logo-dark { display: none; }
+html:root[data-appearance=dark] .brand-logo .brand-logo-light { display: none; }
+html:root[data-appearance=dark] .brand-logo .brand-logo-dark { display: block; }
+html:root[data-appearance=dark] .brand-logo { background: transparent !important; padding: 0; }
+html:root[data-appearance=dark] .fotouh-expenses>div:nth-child(1)>div:first-child>div:first-child span { background: #142820 !important; color: #8ae5be !important; }
+html:root[data-appearance=dark] .fotouh-portal main section.bg-gradient-to-l [class~="bg-white/10"] { background: var(--dark-raised) !important; color: var(--dark-text) !important; }

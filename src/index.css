@@ -2,6 +2,7 @@
 @import "./light-workspace.css";
 @import "./settings-pages.css";
 @import "./notifications.css";
+@import "./dark-workspace.css";
 
 @layer base {
   body {

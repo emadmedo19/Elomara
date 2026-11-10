@@ -43,18 +43,4 @@
 html[data-font-size=large] #root :is(p,span,label,input,select,textarea,button,td,th),html[data-font-size=extra-large] #root :is(p,span,label,input,select,textarea,button,td,th) { font-size:max(1em,.87rem); }
 html[data-font-size=large] #root :is(.elomara-bottom-nav,.resident-bottom-nav) button,html[data-font-size=extra-large] #root :is(.elomara-bottom-nav,.resident-bottom-nav) button { font-size:11px!important; }
 html[data-font-size=large] #root :is(.elomara-bottom-nav,.resident-bottom-nav) button span,html[data-font-size=extra-large] #root :is(.elomara-bottom-nav,.resident-bottom-nav) button span { font-size:inherit!important;overflow-wrap:normal!important;word-break:normal; }
-html[data-appearance=dark] { background:#111e2d;color:#e6eef6; }
-html[data-appearance=dark] body,html[data-appearance=dark] .bunyan-manager-shell.elomara-light-shell,html[data-appearance=dark] .bunyan-resident { background:#111e2d!important;color:#e6eef6!important; }
-html[data-appearance=dark] .settings-page { --settings-ink:#e3edf8;--settings-muted:#a8b9cc;--settings-card:#1b2b3e;--settings-line:#354960; }
-html[data-appearance=dark] :is(.elomara-header,.elomara-bottom-nav,.resident-bottom-nav,.bunyan-resident header) { background:#192b3e!important;border-color:#354960!important;color:#e6eef6!important; }
-html[data-appearance=dark] #root :is(.bg-white,.bg-white\/95,.bg-white\/90,.bg-slate-50,.bg-slate-100,.bg-slate-50\/80) { background-color:#1b2b3e!important;border-color:#354960!important; }
-html[data-appearance=dark] #root :is(.text-slate-900,.text-slate-800,.text-slate-700,.text-indigo-900) { color:#e3edf8!important; }
-html[data-appearance=dark] #root :is(.text-slate-600,.text-slate-500,.text-slate-400) { color:#a8b9cc!important; }
-html[data-appearance=dark] .elomara-light-shell :is(.light-stat,.light-collection-rate,.elomara-light-dashboard>section:not(.light-welcome),.elomara-light-dashboard>div.grid>section),html[data-appearance=dark] .elomara-header label { background:#1b2b3e!important;border-color:#354960!important; }
-html[data-appearance=dark] .elomara-light-dashboard :is(h1,h2,strong,.light-stat>div),html[data-appearance=dark] .light-welcome h1 { color:#e3edf8!important; }
-html[data-appearance=dark] .elomara-light-dashboard :is(p,.light-welcome p) { color:#a8b9cc!important; }
-html[data-appearance=dark] .elomara-light-dashboard > section:nth-child(3) button { background:#223c53!important;border-color:#354960!important; }
-html[data-appearance=dark] .settings-options button[aria-pressed=true] { background:#1e4b70;color:#d3edff;border-color:#68a6d4; }
 @media(prefers-reduced-motion:reduce) { .settings-row { transition:none; } }
-
-html[data-appearance=dark] :is(.elomara-header,.fotouh-portal-header) .brand-lockup { background:#f8fcff;border-radius:12px!important;padding:4px; }
