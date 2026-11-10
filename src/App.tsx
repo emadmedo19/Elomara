@@ -1,5 +1,6 @@
 import { IntroWindowLights } from './components/IntroWindowLights';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import { 
   Building, UserRole, Apartment, Payment, Expense, MaintenanceTicket, 
   FacilityBooking, Announcement, AppSettings, PaymentStatus, PaymentAuditLog 
@@ -66,7 +67,12 @@ export default function App() {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [currentBuildingId, setCurrentBuildingIdState] = useState<string>('');
   const { user, userProfile, isAdmin, isPasswordRecovery, isLoading: isAuthLoading, signOut } = useAuth();
-  const [isDataLoading, setIsDataLoading] = useState(false);
+  // Only a successful load for this identity can unlock the empty-account flow.
+  const managerScope = user && isAdmin ? `${user.id}:${userProfile?.buildingId || ''}` : '';
+  const managerScopeRef = useRef(managerScope); managerScopeRef.current = managerScope;
+  const [managerLoad, setManagerLoad] = useState<{ scope: string; status: 'loading' | 'ready' | 'error' }>({ scope: '', status: 'loading' });
+  const [managerLoadRevision, setManagerLoadRevision] = useState(0);
+  const isDataLoading = managerLoad.scope !== managerScope || managerLoad.status === 'loading';
   const [role, setRole] = useState<UserRole>('manager');
   
   const [apartments, setApartments] = useState<Apartment[]>([]);
@@ -94,77 +100,144 @@ export default function App() {
   }, [buildings, currentBuildingId]);
 
   useEffect(() => {
-    if (!user || !isAdmin) { setBuildings([]); return; }
-    let cancelled = false;
-    const load = async () => {
-      setIsDataLoading(true);
-      const { data, error } = await supabase.from('buildings').select('id,name,address,total_units,total_floors,balance,monthly_target,reserve_fund,manager_name,manager_phone,manager2_name,manager2_phone,manager3_name,manager3_phone').order('created_at');
-      if (cancelled) return;
-      if (error) showToast('تعذر تحميل العمارات: ' + error.message, 'error');
-      else {
-        const rows: Building[] = (data || []).map((r: any) => ({ id:r.id,name:r.name,address:r.address || '',totalUnits:Number(r.total_units || 0),totalFloors:r.total_floors ?? undefined,balance:Number(r.balance || 0),monthlyTarget:Number(r.monthly_target || 0),reserveFund:Number(r.reserve_fund || 0),managerName:r.manager_name || '',managerPhone:r.manager_phone || '',manager2Name:r.manager2_name || '',manager2Phone:r.manager2_phone || '',manager3Name:r.manager3_name || '',manager3Phone:r.manager3_phone || '' }));
-        setBuildings(rows); setCurrentBuildingIdState(rows[0]?.id || '');
-        if (rows.length) {
-          const { data: apartmentRows, error: apartmentError } = await supabase.from('apartments')
-            .select('id,building_id,unit_number,floor,resident_name,resident_phone,is_owner,monthly_fee,payment_status,overdue_months,last_payment_date,paid_amount,credit_balance')
-            .in('building_id', rows.map(b => b.id));
-          if (apartmentError) showToast('تعذر تحميل الشقق: ' + apartmentError.message, 'error');
-          else setApartments((apartmentRows || []).map((r: any) => ({
-            id:r.id, buildingId:r.building_id, unitNumber:r.unit_number, floor:r.floor,
-            residentName:r.resident_name, residentPhone:r.resident_phone, isOwner:r.is_owner,
-            monthlyFee:Number(r.monthly_fee || 0), status:r.payment_status, overdueMonths:r.overdue_months,
-            lastPaymentDate:r.last_payment_date || undefined, paidAmount:Number(r.paid_amount || 0),
-            creditBalance:Number(r.credit_balance || 0),
-          })));
-
-          // Payments are a shared ledger: always hydrate manager views from Supabase,
-          // never from this device's localStorage cache.
-          const { data: paymentRows, error: paymentError } = await supabase
-            .from('payments')
-            .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at,payment_type')
-            .in('building_id', rows.map(b => b.id))
-            .order('payment_date', { ascending: false });
-          if (paymentError) showToast('تعذر تحميل سجل المدفوعات: ' + paymentError.message, 'error');
-          else setPayments((paymentRows || []).map((r: any) => ({
-            id:r.id, apartmentId:r.apartment_id, buildingId:r.building_id,
-            unitNumber:r.unit_number, residentName:r.resident_name || '',
-            amount:Number(r.amount || 0), date:r.payment_date, month:r.month,
-            method:r.method, notes:r.notes || undefined,
-            receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined, paymentType:r.payment_type || 'monthly',
-          })));
-
-          const [ticketResult, announcementResult, expenseResult, settingsResult] = await Promise.all([
-            supabase.from('maintenance_tickets').select('id,building_id,apartment_id,unit_number,resident_name,category,title,description,urgency,status,created_at').in('building_id', rows.map(b => b.id)).order('created_at', { ascending: false }),
-            supabase.from('announcements').select('id,building_id,title,content,announcement_type,image_url,pinned,created_at').in('building_id', rows.map(b => b.id)).order('created_at', { ascending: false }),
-            supabase.from('expenses').select('id,building_id,title,category,amount,expense_date,vendor,notes,receipt_url,approved_by').in('building_id', rows.map(b => b.id)).order('expense_date', { ascending: false }),
-            supabase.from('app_settings').select('setting_value').eq('building_id', rows[0].id).eq('setting_key', 'general').maybeSingle(),
-          ]);
-          if (ticketResult.error) showToast('تعذر تحميل بلاغات الصيانة: ' + ticketResult.error.message, 'error');
-          else setTickets((ticketResult.data || []).map((r: any) => ({
-            id:r.id, buildingId:r.building_id, unitNumber:r.unit_number, residentName:r.resident_name,
-            category:r.category, title:r.title, description:r.description, urgency:r.urgency,
-            status:r.status, date:r.created_at,
-          })));
-          if (announcementResult.error) showToast('تعذر تحميل الإعلانات: ' + announcementResult.error.message, 'error');
-          else setAnnouncements((announcementResult.data || []).map((r: any) => ({
-            id:r.id, buildingId:r.building_id, title:r.title, content:r.content,
-            type:r.announcement_type, imageUrl:r.image_url || undefined, pinned:r.pinned,
-            date:r.created_at,
-          })));
-          if (expenseResult.error) showToast('تعذر تحميل المصروفات: ' + expenseResult.error.message, 'error');
-          else setExpenses((expenseResult.data || []).map((r: any) => ({
-            id:r.id, buildingId:r.building_id, title:r.title, category:r.category,
-            amount:Number(r.amount || 0), date:r.expense_date, vendor:r.vendor || '',
-            notes:r.notes || undefined, receiptUrl:r.receipt_url || undefined, approvedBy:r.approved_by || '',
-          })));
-          if (settingsResult.error) showToast('تعذر تحميل إعدادات العمارة: ' + settingsResult.error.message, 'error');
-          else { const mergedSettings = { customGeminiApiKey: getStoredSettings().customGeminiApiKey || '', backendUrl: getStoredSettings().backendUrl || '', ...(settingsResult.data?.setting_value || {}) }; setSettings(mergedSettings); saveStoredSettings(mergedSettings); }
-        }
-      }
-      setIsDataLoading(false);
+    const clearData = () => {
+      setBuildings([]); setApartments([]); setPayments([]); setTickets([]);
+      setAnnouncements([]); setExpenses([]); setBookings([]); setAuditLogs([]);
+      setCurrentBuildingIdState('');
+      setSettings({ customGeminiApiKey: '', backendUrl: '' });
     };
-    void load(); return () => { cancelled = true; };
-  }, [user?.id, isAdmin]);
+    if (!user || !isAdmin) {
+      clearData(); setManagerLoad({ scope: '', status: 'loading' }); return;
+    }
+    if (managerLoad.scope !== managerScope) clearData();
+    let cancelled = false;
+    let hadBuilding = Boolean(userProfile?.buildingId) || (managerLoad.scope === managerScope && buildings.length > 0);
+    let retryTimer: number | undefined;
+    let controller: AbortController | undefined;
+    let loadTimeout: number | undefined;
+    setManagerLoad({ scope: managerScope, status: 'loading' });
+    const load = async (attempt = 0) => {
+      controller = new AbortController();
+      const requestController = controller;
+      let timedOut = false;
+      const fail = () => {
+        if (cancelled) return;
+        if (attempt === 0) retryTimer = window.setTimeout(() => { if (!cancelled) void load(1); }, 800);
+        else setManagerLoad({ scope: managerScope, status: 'error' });
+      };
+      const timeout = window.setTimeout(() => {
+        // Native session restoration may hang before fetch sees the abort signal.
+        timedOut = true; requestController.abort(); fail();
+      }, 15000);
+      loadTimeout = timeout;
+      try {
+        if (attempt > 0) {
+          const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+          if (cancelled || timedOut) return;
+          if (refreshError) throw refreshError;
+          if (refreshed.session?.user.id !== user.id) throw new Error('Account changed during restore');
+        }
+        const { data, error } = await supabase.from('buildings').select('id,name,address,total_units,total_floors,balance,monthly_target,reserve_fund,manager_name,manager_phone,manager2_name,manager2_phone,manager3_name,manager3_phone').order('created_at').abortSignal(requestController.signal);
+        if (cancelled || timedOut) return;
+        if (error) throw error;
+        if (!Array.isArray(data)) throw new Error('Incomplete building response');
+        if (hadBuilding && data.length === 0) throw new Error('Expected building is not available yet');
+        if (data.length > 0) hadBuilding = true;
+        if (userProfile?.buildingId && !(data || []).some(row => row.id === userProfile.buildingId)) {
+          throw new Error('Expected building is not available yet');
+        }
+        {
+          const rows: Building[] = (data || []).map((r: any) => ({ id:r.id,name:r.name,address:r.address || '',totalUnits:Number(r.total_units || 0),totalFloors:r.total_floors ?? undefined,balance:Number(r.balance || 0),monthlyTarget:Number(r.monthly_target || 0),reserveFund:Number(r.reserve_fund || 0),managerName:r.manager_name || '',managerPhone:r.manager_phone || '',manager2Name:r.manager2_name || '',manager2Phone:r.manager2_phone || '',manager3Name:r.manager3_name || '',manager3Phone:r.manager3_phone || '' }));
+          setBuildings(rows); setCurrentBuildingIdState(rows[0]?.id || '');
+          if (rows.length) {
+            const { data: apartmentRows, error: apartmentError } = await supabase.from('apartments')
+              .select('id,building_id,unit_number,floor,resident_name,resident_phone,is_owner,monthly_fee,payment_status,overdue_months,last_payment_date,paid_amount,credit_balance')
+              .in('building_id', rows.map(b => b.id)).abortSignal(requestController.signal);
+            if (cancelled || timedOut) return;
+            if (apartmentError) throw apartmentError;
+            setApartments((apartmentRows || []).map((r: any) => ({
+              id:r.id, buildingId:r.building_id, unitNumber:r.unit_number, floor:r.floor,
+              residentName:r.resident_name, residentPhone:r.resident_phone, isOwner:r.is_owner,
+              monthlyFee:Number(r.monthly_fee || 0), status:r.payment_status, overdueMonths:r.overdue_months,
+              lastPaymentDate:r.last_payment_date || undefined, paidAmount:Number(r.paid_amount || 0),
+              creditBalance:Number(r.credit_balance || 0),
+            })));
+
+            // Payments are a shared ledger: always hydrate manager views from Supabase,
+            // never from this device's localStorage cache.
+            const { data: paymentRows, error: paymentError } = await supabase
+              .from('payments')
+              .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at,payment_type')
+              .in('building_id', rows.map(b => b.id))
+              .order('payment_date', { ascending: false }).abortSignal(requestController.signal);
+            if (cancelled || timedOut) return;
+            if (paymentError) throw paymentError;
+            setPayments((paymentRows || []).map((r: any) => ({
+              id:r.id, apartmentId:r.apartment_id, buildingId:r.building_id,
+              unitNumber:r.unit_number, residentName:r.resident_name || '',
+              amount:Number(r.amount || 0), date:r.payment_date, month:r.month,
+              method:r.method, notes:r.notes || undefined,
+              receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined, paymentType:r.payment_type || 'monthly',
+            })));
+
+            const [ticketResult, announcementResult, expenseResult, settingsResult] = await Promise.all([
+              supabase.from('maintenance_tickets').select('id,building_id,apartment_id,unit_number,resident_name,category,title,description,urgency,status,created_at').in('building_id', rows.map(b => b.id)).order('created_at', { ascending: false }).abortSignal(requestController.signal),
+              supabase.from('announcements').select('id,building_id,title,content,announcement_type,image_url,pinned,created_at').in('building_id', rows.map(b => b.id)).order('created_at', { ascending: false }).abortSignal(requestController.signal),
+              supabase.from('expenses').select('id,building_id,title,category,amount,expense_date,vendor,notes,receipt_url,approved_by').in('building_id', rows.map(b => b.id)).order('expense_date', { ascending: false }).abortSignal(requestController.signal),
+              supabase.from('app_settings').select('setting_value').eq('building_id', rows[0].id).eq('setting_key', 'general').abortSignal(requestController.signal).maybeSingle(),
+            ]);
+            if (cancelled || timedOut) return;
+            if (ticketResult.error) throw ticketResult.error;
+            setTickets((ticketResult.data || []).map((r: any) => ({
+              id:r.id, buildingId:r.building_id, unitNumber:r.unit_number, residentName:r.resident_name,
+              category:r.category, title:r.title, description:r.description, urgency:r.urgency,
+              status:r.status, date:r.created_at,
+            })));
+            if (cancelled || timedOut) return;
+            if (announcementResult.error) throw announcementResult.error;
+            setAnnouncements((announcementResult.data || []).map((r: any) => ({
+              id:r.id, buildingId:r.building_id, title:r.title, content:r.content,
+              type:r.announcement_type, imageUrl:r.image_url || undefined, pinned:r.pinned,
+              date:r.created_at,
+            })));
+            if (cancelled || timedOut) return;
+            if (expenseResult.error) throw expenseResult.error;
+            setExpenses((expenseResult.data || []).map((r: any) => ({
+              id:r.id, buildingId:r.building_id, title:r.title, category:r.category,
+              amount:Number(r.amount || 0), date:r.expense_date, vendor:r.vendor || '',
+              notes:r.notes || undefined, receiptUrl:r.receipt_url || undefined, approvedBy:r.approved_by || '',
+            })));
+            if (settingsResult.error) throw settingsResult.error;
+            { const mergedSettings = { customGeminiApiKey: getStoredSettings().customGeminiApiKey || '', backendUrl: getStoredSettings().backendUrl || '', ...(settingsResult.data?.setting_value || {}) }; setSettings(mergedSettings); saveStoredSettings(mergedSettings); }
+          }
+        }
+        if (!cancelled && !timedOut) setManagerLoad({ scope: managerScope, status: 'ready' });
+      } catch {
+        if (!timedOut) fail();
+      } finally { window.clearTimeout(timeout); requestController.abort(); }
+    };
+    void load();
+    return () => { cancelled = true; window.clearTimeout(retryTimer); window.clearTimeout(loadTimeout); controller?.abort(); };
+  }, [user?.id, isAdmin, userProfile?.buildingId, managerScope, managerLoadRevision]);
+
+  useEffect(() => {
+    if (!managerScope || managerLoad.scope !== managerScope || managerLoad.status !== 'error') return;
+    const retry = () => {
+      if (managerScopeRef.current === managerScope && document.visibilityState !== 'hidden') setManagerLoadRevision(value => value + 1);
+    };
+    window.addEventListener('online', retry);
+    window.addEventListener('focus', retry);
+    document.addEventListener('visibilitychange', retry);
+    const nativeListener = CapacitorApp.addListener('appStateChange', state => {
+      // Android can announce resume before WebView visibility has caught up.
+      if (state.isActive && managerScopeRef.current === managerScope) setManagerLoadRevision(value => value + 1);
+    }).catch(() => null);
+    return () => {
+      window.removeEventListener('online', retry); window.removeEventListener('focus', retry);
+      document.removeEventListener('visibilitychange', retry);
+      void nativeListener.then(listener => listener?.remove());
+    };
+  }, [managerScope, managerLoad]);
 
   // 3. Navigation State (Defaults directly to 'dashboard')
   const [currentTab, setCurrentTabState] = useState<string>(() => typeof window === 'undefined' ? 'dashboard' : tabFromLocation());
@@ -256,13 +329,20 @@ export default function App() {
   const refreshAppData = async () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
+    const refreshScope = managerScope;
     try {
       // Refresh the entities currently connected to Supabase.
       const { data: buildingRows, error: buildingError } = await supabase
         .from('buildings')
         .select('id,name,address,total_units,total_floors,balance,monthly_target,reserve_fund,manager_name,manager_phone,manager2_name,manager2_phone,manager3_name,manager3_phone')
         .order('created_at');
+      if (managerScopeRef.current !== refreshScope) return;
       if (buildingError) throw buildingError;
+      if (!Array.isArray(buildingRows)) throw new Error('Incomplete building response');
+      if (buildings.length > 0 && buildingRows.length === 0) throw new Error('Expected building is not available yet');
+      if (userProfile?.buildingId && !(buildingRows || []).some(row => row.id === userProfile.buildingId)) {
+        throw new Error('Expected building is not available yet');
+      }
 
       const refreshedBuildings: Building[] = (buildingRows || []).map((r: any) => ({
         id:r.id, name:r.name, address:r.address || '', totalUnits:Number(r.total_units || 0),
@@ -300,6 +380,7 @@ export default function App() {
           paymentType:r.payment_type || 'monthly',
         }));
       }
+      if (managerScopeRef.current !== refreshScope) return;
       setBuildings(refreshedBuildings);
       setApartments(refreshedApartments);
       setPayments(refreshedPayments);
@@ -317,6 +398,7 @@ export default function App() {
         supabase.from('expenses').select('id,building_id,title,category,amount,expense_date,vendor,notes,receipt_url,approved_by').in('building_id', refreshedBuildings.map(b => b.id)).order('expense_date', { ascending: false }),
         supabase.from('app_settings').select('setting_value').eq('building_id', refreshedBuildings[0]?.id || '').eq('setting_key', 'general').maybeSingle(),
       ]);
+      if (managerScopeRef.current !== refreshScope) return;
       if (ticketResult.error) throw ticketResult.error;
       if (announcementResult.error) throw announcementResult.error;
       setTickets((ticketResult.data || []).map((r: any) => ({
@@ -1078,11 +1160,22 @@ export default function App() {
           </div>
           <div>
             <h2 className="text-xl font-black text-white">العمارة</h2>
-            <p className="text-xs text-teal-300 mt-1">جارٍ تحميل بيانات العمارة من قاعدة البيانات...</p>
+            <p role="status" className="text-xs text-teal-300 mt-1">جارٍ تحميل بيانات العمارة...</p>
           </div>
         </div>
       </div>
     );
+  }
+
+  if (managerLoad.status === 'error') {
+    return <div dir="rtl" className="min-h-screen w-full bg-slate-50 flex items-center justify-center p-5">
+      <div role="alert" className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 text-center space-y-4">
+        <AlertCircle className="mx-auto h-10 w-10 text-amber-600"/>
+        <h1 className="text-xl font-bold text-slate-900">تعذر تحميل بيانات العمارة</h1>
+        <p className="text-sm leading-7 text-slate-600">تأكد من اتصال الإنترنت وحاول مرة أخرى.</p>
+        <button type="button" onClick={() => setManagerLoadRevision(value => value + 1)} className="w-full rounded-xl bg-teal-700 p-3 font-bold text-white">إعادة المحاولة</button>
+      </div>
+    </div>;
   }
 
   if (buildings.length === 0) {

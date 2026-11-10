@@ -17,12 +17,13 @@ function setup() {
   const requests = [];
   let session = { user: { id: nativeId, email: 'fixture@example.invalid', name: 'Fixture', emailVerified: true },
     accessToken: 'jwt-one', refreshToken: 'native-session-secret', tokenType: 'bearer', expiresIn: 900 };
-  const mock = { initializeCount: 0, removals: 0, initializationFails: false,
+  const mock = { initializeCount: 0, removals: 0, initializationFails: false, refreshCount: 0, unauthorizedReads: 0, unauthorizedWrites: false,
     Capacitor: { isNativePlatform: () => true, isPluginAvailable: () => true },
     Native: {
       async initialize() { mock.initializeCount++; if (mock.initializationFails) throw Error('initialization unavailable'); },
       async addListener(_name, callback) { mock.listener = callback; return { remove: async () => { mock.removals++; } }; },
-      async getSession() { return { session }; },
+      async getSession() { return { session: session && structuredClone(session) }; },
+      async refreshSession() { mock.refreshCount++; session.accessToken = 'jwt-refreshed'; return { session: structuredClone(session) }; },
       async signOut() { session = null; mock.listener?.({ event: 'SIGNED_OUT', session: null }); },
       async signInWithOAuth(options) { mock.oauthOptions = options; },
     },
@@ -34,6 +35,10 @@ function setup() {
       const url = String(input);
       requests.push({ url, options });
       if (url.endsWith('/rpc/resolve_app_identity')) return Response.json(appId);
+      if ((options?.method || 'GET') === 'GET' && mock.unauthorizedReads > 0) {
+        mock.unauthorizedReads--; return Response.json({ message: 'JWT expired', code: 'PGRST301' }, { status: 401 });
+      }
+      if (options?.method === 'POST' && mock.unauthorizedWrites) return Response.json({ message: 'JWT expired' }, { status: 401 });
       if (url.includes('/functions/v1/gemini-chat')) return Response.json({ text: 'fixture reply' });
       return Response.json([{ id: appId }]);
     },
@@ -80,4 +85,54 @@ test('Google opens the deployed HTTPS callback and failed initialization removes
   assert.equal(mock.oauthOptions.provider, 'google');
   assert.equal(mock.oauthOptions.redirectTo, 'https://backend.invalid/auth/callback');
   assert.equal(mock.initializeCount, 2);
+});
+
+test('a rejected read refreshes the native session once and replays only that read', async () => {
+  const {api,mock,requests}=setup();
+  mock.unauthorizedReads=1;
+  const result=await api.neonClient.from('buildings').select('id');
+  assert.equal(result.error,null);
+  assert.equal(mock.refreshCount,1);
+  const reads=requests.filter(r=>r.url.includes('/buildings'));
+  assert.equal(reads.length,2);
+  assert.equal(new Headers(reads[0].options.headers).get('authorization'),'Bearer jwt-one');
+  assert.equal(new Headers(reads[1].options.headers).get('authorization'),'Bearer jwt-refreshed');
+});
+test('a persistent read rejection is bounded and no write is replayed', async () => {
+  const {api,mock,requests}=setup();
+  mock.unauthorizedReads=2;
+  const rejected=await api.neonClient.from('buildings').select('id');
+  assert.ok(rejected.error);
+  assert.equal(mock.refreshCount,1);
+  assert.equal(requests.filter(r=>r.url.includes('/buildings')).length,2);
+  mock.unauthorizedWrites=true;
+  const write=await api.neonClient.from('payments').insert({amount:100});
+  assert.ok(write.error);
+  assert.equal(requests.filter(r=>r.url.includes('/payments')).length,1);
+  assert.equal(mock.refreshCount,1);
+});
+
+test('a read is not replayed under a different identity after refresh', async () => {
+  const {api,mock,requests}=setup();
+  mock.unauthorizedReads=1;
+  mock.Native.refreshSession=async()=>({session:{user:{id:'another-native-user'},accessToken:'another-jwt'}});
+  const result=await api.neonClient.from('buildings').select('id');
+  assert.ok(result.error);
+  assert.equal(requests.filter(r=>r.url.includes('/buildings')).length,1);
+});
+test('a failed native refresh returns the original rejection without replaying the read', async () => {
+  const {api,mock,requests}=setup();
+  mock.unauthorizedReads=1;
+  mock.Native.refreshSession=async()=>{throw Error('Temporary auth outage')};
+  const result=await api.neonClient.from('buildings').select('id');
+  assert.ok(result.error);
+  assert.equal(requests.filter(r=>r.url.includes('/buildings')).length,1);
+});
+test('explicit startup refresh restores the native session and original application identity', async () => {
+  const {api,mock}=setup();
+  const result=await api.neonClient.auth.refreshSession();
+  assert.equal(result.error,null);
+  assert.equal(result.data.session.user.id,appId);
+  assert.equal(result.data.session.access_token,'jwt-refreshed');
+  assert.equal(mock.refreshCount,1);
 });

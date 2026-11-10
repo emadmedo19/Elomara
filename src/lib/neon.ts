@@ -9,6 +9,7 @@ export const neonAuthUrl = 'https://ep-divine-water-bealxblt.neonauth.c-9.us-eas
 const dataUrl = 'https://ep-divine-water-bealxblt.apirest.c-9.us-east-2.aws.neon.tech/neondb/rest/v1';
 const functionsUrl = (import.meta.env.VITE_NEON_FUNCTIONS_URL || '').replace(/\/+$/, '');
 let ready: Promise<void> | undefined;
+let readSessionRefresh: Promise<NativeSession | null> | undefined;
 const listeners = new Set<(event: AuthChangeEvent, session: Session | null) => void>();
 const mappedIds = new Map<string, string>();
 
@@ -55,7 +56,21 @@ const data = new PostgrestClient(dataUrl, { fetch: async (input, init) => {
   if (!session) throw new Error('سجّل الدخول أولًا.');
   const headers = new Headers(init?.headers);
   headers.set('Authorization', `Bearer ${session.accessToken}`);
-  return fetch(input, { ...init, headers });
+  const response = await fetch(input, { ...init, headers });
+  // A cached native JWT can be rejected after resume. Retry one read with a
+  // refreshed session; never replay mutations or RPCs, which may have side effects.
+  if (response.status !== 401 || (init?.method || 'GET').toUpperCase() !== 'GET' || init?.signal?.aborted) return response;
+  try {
+    let refreshed = (await CapacitorNeon.getSession()).session;
+    if (!refreshed || refreshed.accessToken === session.accessToken) {
+      const refresh = readSessionRefresh ??= CapacitorNeon.refreshSession().then(result => result.session).finally(() => { readSessionRefresh = undefined; });
+      refreshed = await refresh;
+    }
+    if (!refreshed || refreshed.user.id !== session.user.id) return response;
+    const refreshedHeaders = new Headers(headers);
+    refreshedHeaders.set('Authorization', `Bearer ${refreshed.accessToken}`);
+    return fetch(input, { ...init, headers: refreshedHeaders });
+  } catch { return response; }
 } });
 function message(error: unknown): Error { return error instanceof Error ? error : new Error(String(error)); }
 async function authOperation(operation: () => Promise<unknown>) {
@@ -118,6 +133,7 @@ export const neonClient = {
   channel: (_name: string) => new RefreshChannel(),
   async removeChannel(channel: RefreshChannel) { channel.unsubscribe(); return 'ok'; },
   auth: {
+    refreshSession: () => authOperation(() => CapacitorNeon.refreshSession()),
     async getSession() { return { data: { session: await currentSession() }, error: null }; },
     async getUser() { return { data: { user: (await currentSession())?.user || null }, error: null }; },
     signInWithPassword: (args: { email: string; password: string }) => authOperation(() => CapacitorNeon.signInWithPassword(args)),

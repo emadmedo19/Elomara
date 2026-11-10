@@ -49,7 +49,9 @@ const friendlyError = (error: unknown) => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const currentUserId = useRef(user?.id); currentUserId.current = user?.id;
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const currentProfileId = useRef(userProfile?.uid); currentProfileId.current = userProfile?.uid;
   const [role, setRole] = useState<UserProfile['role'] | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,15 +60,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
   const recoveryEmail = useRef('');
   const profileLoadVersion = useRef(0);
+  const profileReadUser = useRef<string | undefined>(undefined);
   const oauthCallbackInProgress = useRef(false);
 
   const loadProfile = async (currentUser: User | null, quiet = false) => {
     const loadVersion = ++profileLoadVersion.current;
     setUser(currentUser);
     if (!currentUser) {
+      profileReadUser.current = undefined;
       setUserProfile(null); setRole(null); setIsAdmin(false); setIsLoading(false);
       return;
     }
+    profileReadUser.current = currentUser.id;
     if (!quiet) setIsLoading(true);
     try {
       const { data, error } = await supabase.from('profiles')
@@ -92,7 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAuthError('تم تسجيل الدخول لكن تعذر تحميل بيانات الحساب. حاول مرة أخرى.');
       }
     } finally {
-      if (loadVersion === profileLoadVersion.current) setIsLoading(false);
+      if (loadVersion === profileLoadVersion.current) { profileReadUser.current = undefined; setIsLoading(false); }
     }
   };
 
@@ -181,6 +186,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') setIsPasswordRecovery(true);
       authEventSeen = true;
+      // The current profile read already uses the renewed token. Starting
+      // another one here can feed back into repeated 401/session refreshes.
+      if (event === 'TOKEN_REFRESHED' && session && session.user.id === profileReadUser.current) return;
       // Ignore a stale null event while the OAuth callback is exchanging its code.
       if (!session && oauthCallbackInProgress.current) return;
       if (active) window.setTimeout(() => {
@@ -196,7 +204,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
           return;
         }
-        void loadProfile(session?.user ?? null);
+        // Renewing a known user's token is a background profile check. A
+        // temporary data failure must not discard the already verified profile.
+        const quietRefresh = event === 'TOKEN_REFRESHED' && Boolean(session && session.user.id === currentUserId.current && session.user.id === currentProfileId.current);
+        void loadProfile(session?.user ?? null, quietRefresh);
       }, 0);
     });
 
