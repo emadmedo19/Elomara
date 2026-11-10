@@ -72,17 +72,33 @@ export default async function handle(request: Request) {
     const {data:rows,error}=await admin.rpc("claim_mobile_notifications",{batch_size:40});
     if(error) throw new Error("Could not claim notifications");
     let sent=0,failed=0;
+    const imageCache = new Map<string, string | null>();
+    const getAnnouncementImage = async (notificationId: string, category: string): Promise<string | null> => {
+      if (category !== 'announcements') return null;
+      if (imageCache.has(notificationId)) return imageCache.get(notificationId) || null;
+      const { data: notice } = await admin.from('app_notifications').select('entity_id').eq('id', notificationId).eq('category', 'announcements').maybeSingle();
+      if (!notice?.entity_id) { imageCache.set(notificationId, null); return null; }
+      const { data: announcement } = await admin.from('announcements').select('image_url,archived_at').eq('id', notice.entity_id).maybeSingle();
+      const candidate = String(announcement?.image_url || '');
+      // FCM must fetch a publicly reachable HTTPS image; never send base64/data or private URLs.
+      let safe: string | null = null;
+      try { const url = new URL(candidate); if (url.protocol === 'https:' && !url.username && !url.password && !announcement?.archived_at && !/^(localhost|127\\.|10\\.|192\\.168\\.|172\\.(1[6-9]|2\\d|3[01])\\.)/i.test(url.hostname)) safe = url.toString(); } catch { /* Not a hosted image URL. */ }
+      imageCache.set(notificationId, safe);
+      return safe;
+    };
     await Promise.all((rows||[]).map(async (row: {delivery_id:string;lease_id:string;notification_id:string;device_id:string;token:string;title:string;body:string;category:string;building_id:string})=>{
       try {
+        const imageUrl = await getAnnouncementImage(row.notification_id, row.category);
         const response=await fetch("https://fcm.googleapis.com/v1/projects/elfotoh/messages:send",{
           method:"POST",headers:{Authorization:`Bearer ${access}`,"Content-Type":"application/json"},
           signal:AbortSignal.timeout(15000),
           body:JSON.stringify({message:{token:row.token,notification: {
               title: summarize(row.title, 75) || 'العمارة 🔔',
               body: summarize(row.body, 180) || 'لديك إشعار جديد في التطبيق.',
+              ...(imageUrl ? { image: imageUrl } : {}),
             },
             data:{type:row.category},
-            android:{priority:"high",ttl:"86400s",notification:{channel_id:"default",tag:row.notification_id}}}}),
+            android:{priority:"high",ttl:"86400s",notification:{channel_id:"default",tag:row.notification_id,...(imageUrl ? { image: imageUrl } : {})}}}}),
         });
         if(response.ok){
           const {error:ackError}=await admin.from("notification_deliveries").update({completed_at:new Date().toISOString(),outcome:"sent"}).eq("id",row.delivery_id).eq("lease_id",row.lease_id);
