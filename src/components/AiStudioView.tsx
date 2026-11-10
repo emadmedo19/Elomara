@@ -254,8 +254,9 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
                         key={item.value}
                         type="button"
                         disabled={isGenerating}
+                        aria-pressed={aspectRatio === item.value}
                         onClick={() => { setAspectRatio(item.value); resetPreview(); }}
-                        className={`py-2 px-1 text-center rounded-xl border text-[11px] font-bold transition ${
+                        className={`announcement-ratio-option py-2 px-1 text-center rounded-xl border text-[11px] font-bold transition ${
                           aspectRatio === item.value
                             ? 'bg-[#0f2537] text-white border-[#0f2537] shadow-xs'
                             : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
@@ -287,7 +288,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
                         className="w-full text-right p-2.5 rounded-xl bg-slate-50 hover:bg-teal-50 hover:text-teal-900 border border-slate-200 hover:border-teal-300 transition text-xs flex items-center justify-between"
                       >
                         <span className="font-semibold text-slate-800">{tpl.title}</span>
-                        <span className="text-[10px] bg-slate-200/80 px-2 py-0.5 rounded text-slate-600">
+                        <span dir="ltr" className="announcement-template-ratio text-[10px] bg-slate-200/80 px-2 py-0.5 rounded">
                           {tpl.aspectRatio}
                         </span>
                       </button>

@@ -139,3 +139,17 @@ html:root[data-appearance=dark] .brand-logo .brand-logo-dark { display: block; }
 html:root[data-appearance=dark] .brand-logo { background: transparent !important; padding: 0; }
 html:root[data-appearance=dark] .fotouh-expenses>div:nth-child(1)>div:first-child>div:first-child span { background: #142820 !important; color: #8ae5be !important; }
 html:root[data-appearance=dark] .fotouh-portal main section.bg-gradient-to-l [class~="bg-white/10"] { background: var(--dark-raised) !important; color: var(--dark-text) !important; }
+/* AI screens have their own light surfaces outside the shared utility cards. */
+.announcement-template-ratio { color: #475569; }
+html:root[data-appearance=dark] .fotouh-ai>.ai-chat-thread { background: var(--dark-page) !important; }
+html:root[data-appearance=dark] .announcement-template-ratio[dir=ltr] {
+  background: #242424 !important;
+  color: #e5e5e5 !important;
+  border: 1px solid #454545;
+  font-variant-numeric: tabular-nums;
+}
+html:root[data-appearance=dark] .announcement-ratio-option[aria-pressed=true] {
+  background: #18302a !important;
+  color: var(--dark-accent) !important;
+  border-color: #398775 !important;
+}

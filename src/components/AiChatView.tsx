@@ -167,7 +167,7 @@ export const AiChatView: React.FC<AiChatViewProps> = ({ buildingName }) => {
       </div>
 
       {/* Messages Scrollable Thread */}
-      <div className="flex-1 p-4 sm:p-5 overflow-y-auto space-y-4 bg-slate-50/50">
+      <div className="ai-chat-thread flex-1 p-4 sm:p-5 overflow-y-auto space-y-4 bg-slate-50/50">
         {messages.map((msg) => (
           <div
             key={msg.id}
