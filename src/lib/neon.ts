@@ -56,7 +56,9 @@ const data = new PostgrestClient(dataUrl, { fetch: async (input, init) => {
   if (!session) throw new Error('سجّل الدخول أولًا.');
   const headers = new Headers(init?.headers);
   headers.set('Authorization', `Bearer ${session.accessToken}`);
-  const response = await fetch(input, { ...init, headers });
+  // Keep headers enumerable for Android/native fetch transports. A Headers
+  // instance can lose Content-Type there, making JSON RPCs appear parameterless.
+  const response = await fetch(input, { ...init, headers: Object.fromEntries(headers) });
   // A cached native JWT can be rejected after resume. Retry one read with a
   // refreshed session; never replay mutations or RPCs, which may have side effects.
   if (response.status !== 401 || (init?.method || 'GET').toUpperCase() !== 'GET' || init?.signal?.aborted) return response;
@@ -69,7 +71,7 @@ const data = new PostgrestClient(dataUrl, { fetch: async (input, init) => {
     if (!refreshed || refreshed.user.id !== session.user.id) return response;
     const refreshedHeaders = new Headers(headers);
     refreshedHeaders.set('Authorization', `Bearer ${refreshed.accessToken}`);
-    return fetch(input, { ...init, headers: refreshedHeaders });
+    return fetch(input, { ...init, headers: Object.fromEntries(refreshedHeaders) });
   } catch { return response; }
 } });
 function message(error: unknown): Error { return error instanceof Error ? error : new Error(String(error)); }

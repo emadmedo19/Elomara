@@ -17,7 +17,7 @@ function setup() {
   const requests = [];
   let session = { user: { id: nativeId, email: 'fixture@example.invalid', name: 'Fixture', emailVerified: true },
     accessToken: 'jwt-one', refreshToken: 'native-session-secret', tokenType: 'bearer', expiresIn: 900 };
-  const mock = { initializeCount: 0, removals: 0, initializationFails: false, refreshCount: 0, unauthorizedReads: 0, unauthorizedWrites: false,
+  const mock = { initializeCount: 0, removals: 0, initializationFails: false, refreshCount: 0, unauthorizedReads: 0, unauthorizedWrites: false, nativeHeaderSerialization: false,
     Capacitor: { isNativePlatform: () => true, isPluginAvailable: () => true },
     Native: {
       async initialize() { mock.initializeCount++; if (mock.initializationFails) throw Error('initialization unavailable'); },
@@ -35,6 +35,18 @@ function setup() {
       const url = String(input);
       requests.push({ url, options });
       if (url.endsWith('/rpc/resolve_app_identity')) return Response.json(appId);
+      if (url.endsWith('/rpc/create_manager_building')) {
+        // Native transports enumerate header fields; Headers instances expose no own fields.
+        const wireHeaders = mock.nativeHeaderSerialization
+          ? new Headers(Object.fromEntries(Object.entries(options?.headers || {})))
+          : new Headers(options?.headers);
+        if (wireHeaders.get('content-type') !== 'application/json') {
+          return Response.json({ code: 'PGRST202', message: 'Could not find public.create_manager_building without parameters in the schema cache' }, { status: 404 });
+        }
+        const body = JSON.parse(options.body);
+        if (!body.p_details) return Response.json({ message: 'Missing p_details' }, { status: 400 });
+        return Response.json({ id: 'new-building', name: body.p_details.name });
+      }
       if ((options?.method || 'GET') === 'GET' && mock.unauthorizedReads > 0) {
         mock.unauthorizedReads--; return Response.json({ message: 'JWT expired', code: 'PGRST301' }, { status: 401 });
       }
@@ -135,4 +147,35 @@ test('explicit startup refresh restores the native session and original applicat
   assert.equal(result.data.session.user.id,appId);
   assert.equal(result.data.session.access_token,'jwt-refreshed');
   assert.equal(mock.refreshCount,1);
+});
+
+test('native RPC transport preserves JSON content type, authorization and nested building parameters', async () => {
+  const { api, mock, requests } = setup();
+  mock.nativeHeaderSerialization = true;
+  const details = { name: 'برج الاختبار', address: 'عنوان', totalFloors: 4, totalUnits: 14,
+    monthlyTarget: 28000, reserveFund: 500, managerName: 'مدير', managerPhone: '01012345678' };
+  const result = await api.neonClient.rpc('create_manager_building', { p_details: details });
+  assert.equal(result.error, null);
+  assert.equal(result.data.id, 'new-building');
+  const request = requests.find(r => r.url.endsWith('/rpc/create_manager_building'));
+  assert.equal(request.options.method, 'POST');
+  assert.equal(request.options.headers instanceof Headers, false);
+  const headers = new Headers(Object.fromEntries(Object.entries(request.options.headers)));
+  assert.equal(headers.get('content-type'), 'application/json');
+  assert.equal(headers.get('authorization'), 'Bearer jwt-one');
+  assert.deepEqual(JSON.parse(request.options.body), { p_details: details });
+  assert.equal(requests.filter(r => r.url.endsWith('/rpc/create_manager_building')).length, 1);
+});
+
+test('retried native reads also keep their authorization headers enumerable', async () => {
+  const { api, mock, requests } = setup();
+  mock.unauthorizedReads = 1;
+  const result = await api.neonClient.from('buildings').select('id');
+  assert.equal(result.error, null);
+  const reads = requests.filter(r => r.url.includes('/buildings'));
+  assert.equal(reads.length, 2);
+  for (const request of reads) {
+    assert.equal(request.options.headers instanceof Headers, false);
+    assert.ok(Object.entries(request.options.headers).some(([key]) => key.toLowerCase() === 'authorization'));
+  }
 });
