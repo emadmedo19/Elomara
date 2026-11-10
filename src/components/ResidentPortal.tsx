@@ -272,7 +272,8 @@ export const ResidentPortal: React.FC = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
           <div className="rounded-xl bg-slate-50 border p-3"><div className="text-xs text-slate-500">الاشتراك الشهري</div><b>{money(apartment?.monthly_fee)} جنيه</b></div>
           <div className="rounded-xl bg-slate-50 border p-3"><div className="text-xs text-slate-500">إجمالي المسدد</div><b>{money(apartment?.paid_amount)} جنيه</b></div>
-          <div className="rounded-xl bg-slate-50 border p-3 col-span-2 sm:col-span-1"><div className="text-xs text-slate-500">المتبقي شامل التحصيل الاستثنائي</div><b>{money(apartment?.remaining)} جنيه</b></div>
+          <div className="rounded-xl bg-slate-50 border p-3 col-span-2 sm:col-span-1"><div className="text-xs text-slate-500">المتأخرات بالشهور</div><b>{Number(apartment?.overdue_months || 0)} شهر</b></div>
+          <div className="rounded-xl bg-slate-50 border p-3 col-span-2 sm:col-span-3"><div className="text-xs text-slate-500">المتبقي شامل التحصيل الاستثنائي</div><b>{money(apartment?.remaining)} جنيه</b></div>
         </div>
         {payments.length ? payments.map(p=><div key={p.id} className="flex justify-between gap-3 border-t py-3 text-sm"><div><b>{p.month || dateLabel(p.payment_date)}</b><p className="text-xs text-slate-500">{p.method || 'نقدي'} {p.receipt_number ? '• إيصال '+p.receipt_number : ''}</p>{p.notes && <p className="text-xs text-slate-500 mt-1">{p.notes}</p>}</div><div className="text-left"><b className="whitespace-nowrap">{money(p.amount)} جنيه</b><p className="text-[11px] text-slate-400">{dateLabel(p.payment_date)}</p></div></div>) : <p className="text-sm text-slate-500">لا توجد مدفوعات مسجلة لهذه الشقة حتى الآن.</p>}
       </section>}
