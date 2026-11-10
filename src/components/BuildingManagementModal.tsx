@@ -9,8 +9,8 @@ interface BuildingManagementModalProps {
   buildings?: Building[];
   currentBuilding: Building;
   onSelectBuilding?: (building: Building) => void;
-  onAddBuilding?: (newBuilding: Omit<Building, 'id'>) => void;
-  onUpdateBuilding: (id: string, updatedBuilding: Partial<Building>) => void;
+  onAddBuilding?: (newBuilding: Omit<Building, 'id'>) => Promise<void>;
+  onUpdateBuilding: (id: string, updatedBuilding: Partial<Building>) => Promise<void>;
   onDeleteBuilding?: (id: string) => void;
 }
 
@@ -18,6 +18,8 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
   isOpen, onClose, buildings = [], currentBuilding, onAddBuilding, onUpdateBuilding,
 }) => {
   const isNewBuilding = buildings.length === 0;
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [totalFloors, setTotalFloors] = useState(1);
@@ -33,6 +35,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
 
   useEffect(() => {
     if (!isOpen) return;
+    setSaveError('');
     if (isNewBuilding) {
       setName('');
       setAddress('');
@@ -62,9 +65,9 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (saving || !name.trim()) return;
     const data = {
       name: name.trim(),
       address: address.trim(),
@@ -78,13 +81,19 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
       manager2Name: manager2Name.trim(), manager2Phone: manager2Phone.trim(),
       manager3Name: manager3Name.trim(), manager3Phone: manager3Phone.trim(),
     };
-    if (isNewBuilding) {
-      if (!onAddBuilding) return;
-      onAddBuilding(data);
-    } else {
-      onUpdateBuilding(currentBuilding.id, data);
-    }
-    onClose();
+    setSaving(true); setSaveError('');
+    try {
+      if (isNewBuilding) {
+        if (!onAddBuilding) throw new Error('تعذر بدء إضافة العمارة. حاول مرة أخرى.');
+        await onAddBuilding(data);
+      } else {
+        await onUpdateBuilding(currentBuilding.id, data);
+      }
+      onClose();
+    } catch (failure) {
+      setSaveError(failure instanceof Error ? failure.message : 'تعذر حفظ بيانات العمارة. حاول مرة أخرى.');
+    } finally { setSaving(false); }
+
   };
 
   const field = 'w-full bg-white text-slate-900 placeholder:text-slate-400 text-sm px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500';
@@ -103,10 +112,11 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
               <p className="text-xs text-slate-500">{isNewBuilding ? 'ابدأ بإدخال بيانات العمارة؛ لن يتم إنشاء شقق تلقائيًا' : 'تعديل بيانات العمارة الحالية'}</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100"><X className="w-5 h-5" /></button>
+          <button type="button" disabled={saving} onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100"><X className="w-5 h-5" /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-4">
+          <fieldset disabled={saving} className="space-y-4">
           <div>
             <label className={label}>اسم العمارة *</label>
             <input required value={name} onChange={e => setName(e.target.value)} placeholder="اكتب اسم العمارة" className={field} />
@@ -144,12 +154,14 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
               <div><label className={label}><Phone className="w-3.5 h-3.5 inline ml-1" />هاتف المسؤول الثالث</label><input dir="ltr" type="tel" value={manager3Phone} onChange={e => setManager3Phone(e.target.value)} className={field} /></div>
             </div>
           </div>
+          {saveError && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-6 text-rose-700">{saveError}</p>}
           <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
-            <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold">إلغاء</button>
+            <button type="button" disabled={saving} onClick={onClose} className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold">إلغاء</button>
             <button type="submit" className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1.5">
-              <Save className="w-4 h-4" /><span>{isNewBuilding ? 'إضافة العمارة' : 'حفظ التعديلات'}</span>
+              <Save className="w-4 h-4" /><span>{saving ? 'جارٍ الحفظ...' : isNewBuilding ? 'إضافة العمارة' : 'حفظ التعديلات'}</span>
             </button>
           </div>
+          </fieldset>
         </form>
         {!isNewBuilding && <BuildingDataDeletionButton building={currentBuilding}/>}
       </div>

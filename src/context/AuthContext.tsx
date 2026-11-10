@@ -36,6 +36,7 @@ interface AuthContextType {
   clearPasswordRecovery: () => void;
   signOut: () => Promise<void>;
   clearError: () => void;
+  refreshProfile: () => Promise<void>;
 }
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const getAuthRedirectUrl = (path: 'login-callback' | 'reset-password' = 'login-callback') => Capacitor.isNativePlatform()
@@ -355,7 +356,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isPasswordRecovery, clearPasswordRecovery: () => setIsPasswordRecovery(false),
     needsEmailVerification, verifyEmail,
     cancelEmailVerification: () => { setNeedsEmailVerification(false); setAuthError(null); },
-    signOut, clearError: () => setAuthError(null) }}>
+    signOut, clearError: () => setAuthError(null),
+    refreshProfile: async () => { if (user && currentUserId.current === user.id) await loadProfile(user, true); } }}>
     {children}
   </AuthContext.Provider>;
 };

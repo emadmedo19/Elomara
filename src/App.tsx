@@ -66,7 +66,7 @@ export default function App() {
   const [showIntroSplash, setShowIntroSplash] = useState(true);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [currentBuildingId, setCurrentBuildingIdState] = useState<string>('');
-  const { user, userProfile, isAdmin, isPasswordRecovery, isLoading: isAuthLoading, signOut } = useAuth();
+  const { user, userProfile, isAdmin, isPasswordRecovery, isLoading: isAuthLoading, signOut, refreshProfile } = useAuth();
   // Only a successful load for this identity can unlock the empty-account flow.
   const managerScope = user && isAdmin ? `${user.id}:${userProfile?.buildingId || ''}` : '';
   const managerScopeRef = useRef(managerScope); managerScopeRef.current = managerScope;
@@ -462,13 +462,15 @@ export default function App() {
 
   // 7. BUILDINGS CRUD
   const handleAddBuilding = async (newBldData: Omit<Building, 'id'>) => {
-    if (!user || !isAdmin) { showToast('لا توجد صلاحية لإضافة عمارة.', 'error'); return; }
-    const { data, error } = await supabase.from('buildings').insert({
-      name: newBldData.name, address: newBldData.address, total_units: newBldData.totalUnits,
-      total_floors: newBldData.totalFloors ?? null, balance: 0, monthly_target: newBldData.monthlyTarget,
-      reserve_fund: newBldData.reserveFund, manager_name: newBldData.managerName, manager_phone: newBldData.managerPhone, manager2_name: newBldData.manager2Name || '', manager2_phone: newBldData.manager2Phone || '', manager3_name: newBldData.manager3Name || '', manager3_phone: newBldData.manager3Phone || '',
-    }).select('id,name,address,total_units,total_floors,balance,monthly_target,reserve_fund,manager_name,manager_phone,manager2_name,manager2_phone,manager3_name,manager3_phone').single();
-    if (error || !data) { showToast('فشل حفظ العمارة: ' + (error?.message || 'خطأ غير معروف'), 'error'); return; }
+    if (!user || !isAdmin) throw new Error('لا توجد صلاحية لإضافة عمارة.');
+    const actorId = user.id;
+    const { data, error } = await supabase.rpc('create_manager_building', { p_details: newBldData });
+    if (error || !data?.id) throw new Error('فشل حفظ العمارة: ' + (error?.message || 'لم يتم تأكيد الحفظ'));
+    // Creation may refresh this manager's membership before the RPC returns.
+    // Accept that new link, while rejecting another identity or building.
+    if (managerScopeRef.current !== actorId + ':' && managerScopeRef.current !== actorId + ':' + data.id) {
+      throw new Error('تم تغيير الحساب أو العمارة أثناء الحفظ؛ حدّث بيانات التطبيق.');
+    }
     const newBld: Building = {
       id: data.id, name: data.name, address: data.address || '', totalUnits: Number(data.total_units || 0),
       totalFloors: data.total_floors ?? undefined, balance: Number(data.balance || 0),
@@ -477,20 +479,23 @@ export default function App() {
     };
     setBuildings(rows => [...rows, newBld]);
     setCurrentBuildingIdState(newBld.id);
+    await refreshProfile();
     showToast('تم حفظ العمارة على قاعدة البيانات بنجاح!');
   };
 
   const handleUpdateBuilding = async (id: string, updatedData: Partial<Building>) => {
     const current = buildings.find((b) => b.id === id);
-    if (!current) return;
+    if (!current) throw new Error('لم يتم العثور على العمارة المطلوبة.');
+    const scope = managerScope;
     // This form edits building details; treasury changes use the dedicated RPC.
     const next = { ...current, ...updatedData, balance: current.balance };
     const { error } = await supabase.from('buildings').update({
       name: next.name, address: next.address, total_units: next.totalUnits,
       total_floors: next.totalFloors ?? null, monthly_target: next.monthlyTarget,
       reserve_fund: next.reserveFund, manager_name: next.managerName, manager_phone: next.managerPhone, manager2_name: next.manager2Name || '', manager2_phone: next.manager2Phone || '', manager3_name: next.manager3Name || '', manager3_phone: next.manager3Phone || '',
-    }).eq('id', id);
-    if (error) { showToast('فشل تحديث بيانات العمارة: ' + error.message, 'error'); return; }
+    }).eq('id', id).select('id').single();
+    if (error) throw new Error('فشل تحديث بيانات العمارة: ' + error.message);
+    if (managerScopeRef.current !== scope) throw new Error('تم تغيير الحساب أثناء الحفظ.');
     setBuildings(rows => rows.map(b => b.id === id ? next : b));
     showToast('تم حفظ تعديلات بيانات العمارة على قاعدة البيانات!');
   };

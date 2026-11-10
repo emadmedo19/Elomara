@@ -219,3 +219,26 @@ and later receipt correction/deletion. All fixtures roll back. Browser checks us
 synthetic data at 390×844 in light/dark modes and cover cancellation/back navigation,
 confirmation, request failure/retry and refreshed financial data. The production
 migration links existing assessments only; it does not call the deletion action.
+
+
+Recreating a manager building after deletion uses `create_manager_building` from
+`migrations/008_create_manager_building.sql`. It accepts the current form's details,
+locks the verified profile, requires an approved active unassigned manager, inserts
+the complete building and attaches that manager in one transaction. The new treasury
+starts at zero; unit count is descriptive and never generates apartments. A second
+concurrent/subsequent create for that profile is rejected. RLS still denies direct
+building inserts, and existing pending-user onboarding is unchanged. The form awaits
+confirmed creation/update, retains fields on errors and displays the error locally.
+Successful creation refreshes the manager's verified profile and building data.
+
+Run `TARGET_DATABASE_URL=... node neon/scripts/verify-building-recreation.mjs`
+against the rehearsal database only. It tests delete/recreate, field persistence,
+read access and manager linkage, zero cash, no implicit apartments, duplicate and
+invalid saves, and resident/pending/suspended-role rejection. Everything rolls back.
+The production migration installs the action only; no test or real building is created.
+Browser tests use the actual App and modal with synthetic API responses in light
+and dark modes: failed creation retains all entered fields and displays its error;
+retry opens the new dashboard, refreshes membership and never attempts a direct
+building insert. A membership update arriving before the creation response is also
+accepted for that same manager/new building. Existing-building update failure/retry
+keeps its draft and closes only after confirmed persistence.
