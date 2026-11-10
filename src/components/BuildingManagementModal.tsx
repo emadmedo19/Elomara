@@ -87,12 +87,12 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
     onClose();
   };
 
-  const field = 'w-full text-sm px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500';
+  const field = 'w-full bg-white text-slate-900 placeholder:text-slate-400 text-sm px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500';
   const label = 'block text-xs font-bold text-slate-700 mb-1.5';
 
   return (
     <div className="fixed inset-0 z-50 bg-[#0f2537]/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-      <div className="bg-white rounded-3xl max-w-xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto">
+      <div className="bg-white text-slate-800 rounded-3xl max-w-xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between pb-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-2xl bg-teal-50 text-teal-700 flex items-center justify-center">
