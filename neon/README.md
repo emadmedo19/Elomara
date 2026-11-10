@@ -142,3 +142,24 @@ Neon OTA publication and the scheduled-job handover still remain.
 The candidate restores the original signing object from private Neon storage and
 runs the same certificate/upgrade tests. CI version codes now use epoch seconds
 so the separate candidate/main workflow counters cannot produce a downgrade.
+
+Account and building deletion is defined in `migrations/004_account_and_building_deletion.sql`.
+Installing this migration creates RPC functions only; it never deletes existing rows.
+`delete_account_with_successor` requires a typed confirmation and atomically promotes
+an approved resident of the same building before deleting a manager's application
+identity, native Neon Auth account, OAuth credentials, and sessions. Shared ledgers
+remain, with nullable author references cleared. The imported shadow-only deletion
+RPC is revoked from clients.
+
+`clear_building_data` validates the caller's active manager membership and the
+selected building name. `reset` clears operational/financial records and balances,
+retaining apartments, memberships, and collection configuration. `delete` additionally
+removes the building, apartments, configuration, and join/invite data; it detaches
+members while preserving their accounts. Both operations are transactional and
+remove generated inbox/delivery rows before commit.
+
+Regression fixtures: run `TARGET_DATABASE_URL=... node neon/scripts/verify-deletion-safety.mjs`
+only against `elomara_migration_check_v2`. The runner enforces that database name
+and rolls back the migration and all fixture changes, even after successful checks.
+It never tests by deleting real members or buildings. Native-user FK cascades must
+also be checked against the managed production schema before applying the migration.

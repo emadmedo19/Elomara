@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Building } from '../types';
 import { Building2, Save, X, Phone, MapPin, Layers } from 'lucide-react';
+import { BuildingDataDeletionButton } from './BuildingDataDeletionButton';
 
 interface BuildingManagementModalProps {
   isOpen: boolean;
@@ -150,6 +151,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
             </button>
           </div>
         </form>
+        {!isNewBuilding && <BuildingDataDeletionButton building={currentBuilding}/>}
       </div>
     </div>
   );

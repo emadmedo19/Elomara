@@ -75,6 +75,7 @@ try {
   assertMatchingSnapshot(snapshot, await readSource());
   await client.query(await readFile(new URL('../migrations/002_application_triggers.sql', import.meta.url), 'utf8'));
   await client.query(await readFile(new URL('../migrations/003_verified_identity_link.sql', import.meta.url), 'utf8'));
+  await client.query(await readFile(new URL('../migrations/004_account_and_building_deletion.sql', import.meta.url), 'utf8'));
   await client.query('COMMIT');
   console.log(`PASS: ${manifest.length} application tables and ${snapshot['auth.users'].length} user references copied and verified`);
   for (const table of manifest) console.log(`${table.name}: ${snapshot[table.name].length} rows; sha256=${fingerprint(snapshot[table.name])}`);
