@@ -4,9 +4,12 @@ import { AlertCircle, CheckCircle2, Copy, RefreshCw, ShieldCheck, Trash2, Save, 
 import { supabase } from '../lib/supabase';
 import { Apartment } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { isNeonBackend } from '../lib/neon';
+import { DestructiveActionDialog } from './DestructiveActionDialog';
 
 type RequestRow = { id:string; user_id:string; full_name:string; requested_floor:number; requested_unit_number:string; resident_type:string; requested_label:string; status:string; created_at:string };
-type MemberRow = { id:string; full_name:string; apartment_id:string; resident_label:string; role:string };
+type MemberRow = { id:string; full_name:string; apartment_id:string|null; resident_label:string; role:string; resident_role?:string|null };
+const memberLabel = (member:MemberRow) => member.resident_label || (member.role==='owner'||member.resident_role==='owner'?'مالك':'مستأجر');
 const requestLabel = (row:RequestRow) => row.requested_label || (row.resident_type==='owner'?'مالك':'مستأجر');
 const normalizeSearch = (value:string) => value.normalize('NFKC').toLocaleLowerCase('ar-EG')
   .replace(/[\u064b-\u065f\u0670\u0640]/g,'').replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي')
@@ -38,6 +41,8 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
   const [chosen,setChosen] = useState<Record<string,string>>({});
   const [labels,setLabels] = useState<Record<string,string>>({});
   const [memberLabels,setMemberLabels] = useState<Record<string,string>>({});
+  const [memberRoles,setMemberRoles] = useState<Record<string,'resident'|'manager'>>({});
+  const [roleChange,setRoleChange] = useState<{member:MemberRow;role:'resident'|'manager'}|null>(null);
   const [removing,setRemoving] = useState<MemberRow|null>(null);
   const [code,setCode] = useState('');
   const [revoked,setRevoked] = useState(false);
@@ -57,7 +62,7 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
       const [requests,invite,people] = await Promise.all([
         readAllRows<RequestRow>((start,end)=>supabase.from('building_join_requests').select('id,user_id,full_name,requested_floor,requested_unit_number,resident_type,requested_label,status,created_at').eq('building_id',buildingId).order('created_at',{ascending:false}).order('id',{ascending:false}).range(start,end)),
         supabase.from('building_access_codes').select('code,revoked_at').eq('building_id',buildingId).maybeSingle(),
-        readAllRows<MemberRow>((start,end)=>supabase.from('profiles').select('id,full_name,apartment_id,resident_label,role').eq('building_id',buildingId).eq('approved',true).is('disabled_at',null).in('role',['owner','tenant']).order('full_name').order('id').range(start,end)),
+        readAllRows<MemberRow>((start,end)=>supabase.from('profiles').select(isNeonBackend?'id,full_name,apartment_id,resident_label,role,resident_role':'id,full_name,apartment_id,resident_label,role').eq('building_id',buildingId).eq('approved',true).is('disabled_at',null).in('role',isNeonBackend?['owner','tenant','building_admin']:['owner','tenant']).order('full_name').order('id').range(start,end).returns<MemberRow[]>()),
       ]);
       if (scope.current!==buildingId) return;
       const failure=requests.error||invite.error||people.error;
@@ -67,7 +72,7 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
     } catch { if(scope.current===buildingId)setError('تعذر تحميل الأعضاء والطلبات. حاول مرة أخرى.'); }
     finally { if(scope.current===buildingId)setLoading(false); }
   },[buildingId]);
-  useEffect(()=>{setSearchQuery('');setRows([]);setMembers([]);setChosen({});setLabels({});setMemberLabels({});setRemoving(null);void load();},[load]);
+  useEffect(()=>{setSearchQuery('');setRows([]);setMembers([]);setChosen({});setLabels({});setMemberLabels({});setMemberRoles({});setRoleChange(null);setRemoving(null);void load();},[load]);
   useEffect(()=>{
     if(!removing)return;
     const overflow=document.body.style.overflow;document.body.style.overflow='hidden';
@@ -110,10 +115,23 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
     if(result.error)setError(result.error.message);else{setMessage(accept?'تم اعتماد العضو وربطه بالشقة بالصفة المحددة.':'تم رفض الطلب.');await load();}
   });
   const saveLabel = (member:MemberRow) => act(async()=>{
-    const label=(memberLabels[member.id]??(member.resident_label||(member.role==='owner'?'مالك':'مستأجر'))).trim();
+    const label=(memberLabels[member.id]??memberLabel(member)).trim();
     if(!label){setError('اكتب الصفة قبل الحفظ.');return;}
     const {error:e}=await supabase.rpc('set_building_member_label',{target_building_id:buildingId,target_user_id:member.id,member_label:label});
     if(e)setError(e.message);else{setMessage('تم حفظ صفة العضو.');setMemberLabels(current=>{const next={...current};delete next[member.id];return next;});await load();}
+  });
+  const saveRole = () => act(async()=>{
+    if(!roleChange||!buildingId)return;
+    const {member,role}=roleChange;
+    const {error:e}=await supabase.rpc('set_building_member_role',{target_building_id:buildingId,target_user_id:member.id,new_role:role});
+    setRoleChange(null);
+    // Consume the confirmation dialog's entry without consuming its parent.
+    window.history.back();
+    if(e)setError(e.message);else{
+      setMessage(role==='manager'?'تم تعيين العضو مديرًا معك في نفس العمارة.':'تم إرجاع العضو إلى صلاحيات ساكن.');
+      setMemberRoles(current=>{const next={...current};delete next[member.id];return next;});
+      await load();
+    }
   });
   const removeMember = () => act(async()=>{
     if(!removing||!buildingId)return;
@@ -128,8 +146,8 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
     `${row.full_name} شقة ${row.requested_unit_number} الدور ${row.requested_floor} ${requestLabel(row)}`,terms
   )),[pendingAndRejected,terms]);
   const visibleMembers=useMemo(()=>members.filter(member=>{
-    const apartment=apartmentById.get(member.apartment_id);
-    return matchesSearch(`${member.full_name} ${apartment?`شقة ${apartment.unitNumber} الدور ${apartment.floor}`:'شقة غير محددة'} ${member.resident_label||(member.role==='owner'?'مالك':'مستأجر')}`,terms);
+    const apartment=apartmentById.get(member.apartment_id||'');
+    return matchesSearch(`${member.full_name} ${apartment?`شقة ${apartment.unitNumber} الدور ${apartment.floor}`:'شقة غير محددة'} ${memberLabel(member)} ${member.role==='building_admin'?'مدير':'ساكن'}`,terms);
   }),[members,apartmentById,terms]);
   return <section className="max-w-4xl mx-auto space-y-4" dir="rtl">
     <div className="rounded-3xl bg-[#10283a] text-white p-5">
@@ -163,11 +181,24 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
         </>}
       </article>)}
       <h3 className="flex items-center gap-2 font-bold pt-2"><Users className="h-5 w-5 text-teal-700"/>الأعضاء المسجلون ({terms.length>0?`${visibleMembers.length} من ${members.length}`:members.length})</h3>
-      {visibleMembers.length===0?<div className="rounded-xl bg-white p-6 text-center text-sm text-slate-500"><CheckCircle2 className="mx-auto mb-2 text-teal-600"/>{terms.length>0?'لا توجد نتائج مطابقة للأعضاء. جرّب اسمًا أو رقم شقة آخر.':'لا يوجد أعضاء مسجلون حاليًا.'}</div>:visibleMembers.map(member=>{const apt=apartmentById.get(member.apartment_id);const label=memberLabels[member.id]??(member.resident_label||(member.role==='owner'?'مالك':'مستأجر'));return <article key={member.id} className="rounded-2xl border bg-white p-4 space-y-3">
-        <div className="flex items-start justify-between gap-3"><div className="min-w-0"><b className="break-words">{member.full_name}</b><p className="text-sm text-slate-500 mt-1">{apt?`الدور ${apt.floor} • شقة ${apt.unitNumber}`:'شقة غير محددة'} • {member.resident_label||(member.role==='owner'?'مالك':'مستأجر')}</p></div><button type="button" aria-label={`حذف العضو ${member.full_name}`} disabled={busy} onClick={event=>{deleteTrigger.current=event.currentTarget;setRemoving(member);}} className="flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 shrink-0"><Trash2 className="h-4 w-4"/>حذف</button></div>
-        <div className="flex items-end gap-2"><label className="flex-1 min-w-0 block text-xs text-slate-500">الصفة<input aria-label={`تعديل صفة ${member.full_name}`} disabled={busy} maxLength={60} value={label} onChange={e=>setMemberLabels(v=>({...v,[member.id]:e.target.value}))} className="mt-1 w-full rounded-xl border px-3 py-2 text-sm text-slate-800"/></label><button type="button" aria-label={`حفظ صفة ${member.full_name}`} disabled={busy||label===(member.resident_label||(member.role==='owner'?'مالك':'مستأجر'))||!label.trim()} onClick={()=>void saveLabel(member)} className="flex items-center justify-center gap-1 rounded-xl bg-teal-700 px-3 py-2 text-xs font-bold text-white min-h-10"><Save className="h-4 w-4"/>حفظ</button></div>
-      </article>})}
+      {visibleMembers.length===0?<div className="rounded-xl bg-white p-6 text-center text-sm text-slate-500"><CheckCircle2 className="mx-auto mb-2 text-teal-600"/>{terms.length>0?'لا توجد نتائج مطابقة للأعضاء. جرّب اسمًا أو رقم شقة آخر.':'لا يوجد أعضاء مسجلون حاليًا.'}</div>:visibleMembers.map(member=>{
+        const apt=apartmentById.get(member.apartment_id||'');
+        const label=memberLabels[member.id]??memberLabel(member);
+        const currentRole=member.role==='building_admin'?'manager':'resident';
+        const selectedRole=memberRoles[member.id]??currentRole;
+        const isMe=member.id===userProfile?.uid;
+        return <article key={member.id} className="rounded-2xl border bg-white p-4 space-y-3">
+          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><b className="break-words">{member.full_name}</b><p className="text-sm text-slate-500 mt-1">{apt?`الدور ${apt.floor} • شقة ${apt.unitNumber}`:'شقة غير محددة'} • {memberLabel(member)}</p><span className="inline-block mt-2 rounded-lg bg-teal-50 px-2 py-1 text-xs font-bold text-teal-800">{currentRole==='manager'?'مدير':'ساكن'}{isMe?' — أنت':''}</span></div>{currentRole==='resident'&&<button type="button" aria-label={`حذف العضو ${member.full_name}`} disabled={busy} onClick={event=>{deleteTrigger.current=event.currentTarget;setRemoving(member);}} className="flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 shrink-0"><Trash2 className="h-4 w-4"/>حذف</button>}</div>
+          {isNeonBackend&&!isMe&&<div className="flex items-end gap-2"><label className="flex-1 min-w-0 block text-xs text-slate-500">صلاحيات العضو<select aria-label={`دور ${member.full_name}`} disabled={busy} value={selectedRole} onChange={e=>setMemberRoles(v=>({...v,[member.id]:e.target.value as 'resident'|'manager'}))} className="mt-1 w-full rounded-xl border px-3 py-2 text-sm text-slate-800"><option value="resident">ساكن</option><option value="manager">مدير معايا</option></select></label><button type="button" aria-label={`حفظ دور ${member.full_name}`} disabled={busy||selectedRole===currentRole} onClick={()=>setRoleChange({member,role:selectedRole})} className="rounded-xl bg-teal-700 px-3 py-2 text-xs font-bold text-white min-h-10 disabled:opacity-40">حفظ الدور</button></div>}
+          {currentRole==='resident'&&<div className="flex items-end gap-2"><label className="flex-1 min-w-0 block text-xs text-slate-500">الصفة<input aria-label={`تعديل صفة ${member.full_name}`} disabled={busy} maxLength={60} value={label} onChange={e=>setMemberLabels(v=>({...v,[member.id]:e.target.value}))} className="mt-1 w-full rounded-xl border px-3 py-2 text-sm text-slate-800"/></label><button type="button" aria-label={`حفظ صفة ${member.full_name}`} disabled={busy||label===memberLabel(member)||!label.trim()} onClick={()=>void saveLabel(member)} className="flex items-center justify-center gap-1 rounded-xl bg-teal-700 px-3 py-2 text-xs font-bold text-white min-h-10"><Save className="h-4 w-4"/>حفظ</button></div>}
+        </article>;
+      })}
+
     </>}
+    {roleChange&&<DestructiveActionDialog title="تغيير صلاحيات العضو" busy={busy} onClose={()=>setRoleChange(null)}>
+      <p className="text-sm leading-7 mb-4">{roleChange.role==='manager'?`تعيين ${roleChange.member.full_name} مديرًا معك؟ سيملك صلاحيات إدارة سكان العمارة وسجلاتها وبياناتها، بما فيها حذف بيانات العمارة.`:`إرجاع ${roleChange.member.full_name} إلى ساكن؟ ستتوقف صلاحيات الإدارة ويظل حسابه وشقته وسجلاته محفوظة.`}</p>
+      <button type="button" disabled={busy} onClick={()=>void saveRole()} className="w-full rounded-xl bg-teal-700 p-3 font-bold text-white disabled:opacity-40">{busy?'جارٍ الحفظ…':'تأكيد تغيير الدور'}</button>
+    </DestructiveActionDialog>}
     {removing&&createPortal(<div dir="rtl" className="fixed inset-0 z-[10040] bg-slate-950/50 flex items-center justify-center p-4" onClick={e=>{if(e.target===e.currentTarget&&!busy)setRemoving(null);}}><div ref={dialogRef} data-remove-member-dialog role="alertdialog" aria-modal="true" aria-labelledby="remove-member-title" aria-describedby="remove-member-copy" className="w-full max-w-md rounded-3xl bg-white p-5 shadow-2xl text-slate-800">
       <h3 id="remove-member-title" className="font-bold text-lg text-rose-800">حذف عضوية {removing.full_name}؟</h3><p id="remove-member-copy" className="mt-3 text-sm leading-7 text-slate-600">هيتم فصل الحساب عن العمارة وإلغاء صلاحياته. يقدر يسجّل الدخول بنفس الحساب ويقدّم طلب انضمام جديد بالكود. بيانات الشقة والمدفوعات وباقي أفراد الأسرة مش هتتحذف.</p>
       <div className="flex gap-3 mt-5"><button ref={removeButton} type="button" disabled={busy} onClick={()=>setRemoving(null)} className="flex-1 rounded-xl bg-slate-100 px-4 py-3 font-bold">إلغاء</button><button type="button" disabled={busy} onClick={()=>void removeMember()} className="flex-1 rounded-xl bg-rose-700 px-4 py-3 font-bold text-white">{busy?'جارٍ الحذف...':'تأكيد حذف العضو'}</button></div>

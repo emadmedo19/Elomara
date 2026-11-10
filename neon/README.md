@@ -163,3 +163,14 @@ only against `elomara_migration_check_v2`. The runner enforces that database nam
 and rolls back the migration and all fixture changes, even after successful checks.
 It never tests by deleting real members or buildings. Native-user FK cascades must
 also be checked against the managed production schema before applying the migration.
+
+Registered-member permissions are defined in `migrations/005_building_member_roles.sql`.
+`set_building_member_role` accepts only `resident` or `manager`, checks active manager
+membership and same-building scope, and locks the building before changing roles.
+It cannot demote the last active manager. A profile trigger remembers owner/tenant
+status across all promotion paths, including account-deletion successors, so removing
+management restores the resident's membership without altering apartment or ledger data.
+Installing the migration adds the nullable role-history column and functions/triggers;
+it does not promote or demote existing members. Test with
+`TARGET_DATABASE_URL=... node neon/scripts/verify-member-roles.mjs` in the rehearsal
+DB only; all fixtures and schema changes roll back.
