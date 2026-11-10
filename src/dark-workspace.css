@@ -153,3 +153,9 @@ html:root[data-appearance=dark] .announcement-ratio-option[aria-pressed=true] {
   color: var(--dark-accent) !important;
   border-color: #398775 !important;
 }
+/* Include translucent versions of the same light card colours. These are
+   still light paint on black unless they receive the semantic dark surface. */
+html:root[data-appearance=dark] :is([class^="bg-teal-50/"],[class*=" bg-teal-50/"],[class^="bg-emerald-50/"],[class*=" bg-emerald-50/"]):where(:not(#printable-statement,#printable-statement *)) { background: #142820 !important; border-color: #295442 !important; }
+html:root[data-appearance=dark] :is([class^="bg-rose-50/"],[class*=" bg-rose-50/"]):where(:not(#printable-statement,#printable-statement *)) { background: #2b1519 !important; border-color: #71333d !important; }
+html:root[data-appearance=dark] :is([class^="bg-amber-50/"],[class*=" bg-amber-50/"]):where(:not(#printable-statement,#printable-statement *)) { background: #2a2112 !important; border-color: #6d5426 !important; }
+html:root[data-appearance=dark] :is([class^="bg-slate-50/"],[class*=" bg-slate-50/"]):where(:not(.ai-chat-thread,#printable-statement,#printable-statement *)) { background: var(--dark-card) !important; border-color: var(--dark-line) !important; }
