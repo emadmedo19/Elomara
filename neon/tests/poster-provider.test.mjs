@@ -37,7 +37,7 @@ test('maintenance artwork requests active technicians and keeps space for overla
  const prompt=JSON.parse(calls[0].options.body).prompt;
  assert.match(prompt,/technicians actively inspecting and servicing/);
  assert.match(prompt,/LEFT 40%/);
- assert.match(prompt,/overlay the exact Arabic heading and notice directly onto the photo/);
+ assert.match(prompt,/overlays accurate dark teal Arabic text directly/);
 });
 
 for (const [notice, expected] of [
@@ -53,4 +53,10 @@ for (const [notice, expected] of [
  assert.match(prompt,expected);
  assert.match(prompt,/everyday civilian clothing/);
  assert.doesNotMatch(prompt,/teal workwear|Show the specified work in progress|technicians actively/);
+});
+
+test('approved direction uses flat vector illustration with a light text area',async()=>{
+ const {handler,calls}=setup({POLLINATIONS_API_KEY:'fixture',POLLINATIONS_FREE_ONLY:'true'});
+ await handler(request());const prompt=JSON.parse(calls[0].options.body).prompt;
+ assert.match(prompt,/FLAT VECTOR ILLUSTRATION/);assert.match(prompt,/Strictly 2D illustration/);assert.match(prompt,/light cream negative space/);
 });

@@ -53,15 +53,15 @@ export default async function handle(request: Request): Promise<Response> {
       ? 'qualified electricians actively servicing a safely isolated electrical panel in a residential building, insulated tools, protective gloves and work uniforms'
       : 'skilled maintenance workers actively carrying out the specific repair described in the notice, relevant tools and appropriate safety equipment';
   } else {
-    theme = 'choose a natural photographic scene that directly illustrates the MAIN subject and purpose of the notice; follow its actual content, do not invent repair work or force people into a scene that does not need them';
+    theme = 'choose an illustrated scene that directly illustrates the MAIN subject and purpose of the notice; follow its actual content, do not invent repair work or force people into a scene that does not need them';
   }
   const styling = workScene
     ? 'Show the specified work in progress with authentic tools, natural poses, suitable work clothing and appropriate safety equipment.'
     : 'Match the mood, objects and any people to the actual notice. People, if relevant, wear ordinary everyday civilian clothing. Do not turn this into a maintenance scene.';
   const composition = aspectRatio === "16:9"
-    ? "Place the main subject and any relevant people in the LEFT 40% of the scene. Keep the RIGHT 55% as a naturally calm, slightly darker architectural space for readable Arabic text."
-    : "Place the main subject and any relevant people in the UPPER 45% of the scene. Keep the LOWER half as naturally calm, slightly darker architectural space for readable Arabic text.";
-  const visualPrompt = `Create an attractive premium photographic background for an Egyptian residential building announcement. Scene: ${theme}. Notice context for reference only: ${prompt}. ${styling} High-end commercial photography, realistic details, elegant well-kept Egyptian residential surroundings, beautiful natural light, balanced teal and restrained warm amber architectural accents. ${composition} The photograph must fill the entire ${aspectRatio} canvas edge to edge; the app will overlay the exact Arabic heading and notice directly onto the photo. Balance beautiful subject matter with quiet text space; avoid making the whole image dark. Absolutely NO text, letters, numbers, logos, typography, captions, frames, borders, blank cards, notice boards, inset posters or watermarks. Create a fresh professional composition.`;
+    ? "Place the main illustrated subject and any relevant people in the LEFT 40%. Reserve the RIGHT 55% as quiet, light cream negative space for the Arabic notice."
+    : "Place the main illustrated subject and any relevant people in the LOWER 45%. Reserve the UPPER 55% as quiet, light cream negative space for the Arabic heading and notice.";
+  const visualPrompt = `Create a polished FLAT VECTOR ILLUSTRATION for an Egyptian residential building announcement. Scene: ${theme}. Notice context for reference only: ${prompt}. ${styling} Art direction: modern editorial vector poster, clean geometric shapes, simplified illustrated characters with minimal facial detail, crisp contours, restrained soft shading, elegant architectural lines, warm cream and sand background, deep petrol teal, muted green and mustard yellow accents. Friendly, tasteful and visually striking. Strictly 2D illustration, NOT photography, NOT photorealistic people, NOT a 3D render, NOT an isometric miniature or dollhouse. Keep people and clothing specific to the notice subject. ${composition} The illustration fills the entire ${aspectRatio} canvas with a cohesive cream background; the app overlays accurate dark teal Arabic text directly onto the quiet area. Absolutely NO text, letters, numbers, logos, typography, captions, frames, borders, inset posters or watermarks. Create a fresh beautiful composition.`;
 
 
   const tryPollinations = async (): Promise<string | null> => {
