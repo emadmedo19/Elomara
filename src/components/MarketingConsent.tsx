@@ -4,6 +4,17 @@ import { supabase } from '../lib/supabase';
 import { isNeonBackend } from '../lib/neon';
 
 type Choice = 'unknown' | 'subscribed' | 'declined';
+function describeError(value: unknown): string {
+  if (value instanceof Error) return value.message;
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object') {
+    const error = value as Record<string, unknown>;
+    const parts = ['message', 'code', 'details', 'hint', 'status'].map(key => error[key] == null ? '' : key + ': ' + String(error[key])).filter(Boolean);
+    if (parts.length) return parts.join(' | ');
+    try { return JSON.stringify(value); } catch { /* ignore */ }
+  }
+  return String(value);
+}
 const pendingKey = (email: string) => 'elomara:marketing-signup:' + email.trim().toLowerCase();
 
 async function readChoice(): Promise<Choice> {
@@ -34,7 +45,7 @@ export function MarketingConsentPrompt() {
     const email = user.email;
     try { setChecked(sessionStorage.getItem(pendingKey(email)) === 'yes'); } catch { /* storage may be disabled */ }
     void readChoice().then(value => { if (active) setChoice(value); }).catch((failure) => {
-      if (active) { setChoice(null); setLoadError(failure instanceof Error ? failure.message : String(failure)); }
+      if (active) { setChoice(null); setLoadError(describeError(failure)); }
     });
     return () => { active = false; };
   }, [user?.id, user?.email, isLoading, isPasswordRecovery, retry]);
