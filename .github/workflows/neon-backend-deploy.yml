@@ -35,7 +35,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           POLLINATIONS_API_KEY: ${{ secrets.POLLINATIONS_API_KEY }}
-          POLLINATIONS_FREE_ONLY: ${{ vars.POLLINATIONS_FREE_ONLY }}
+          POLLINATIONS_FREE_ONLY: ${{ vars.POLLINATIONS_FREE_ONLY || secrets.POLLINATIONS_FREE_ONLY }}
         run: node neon/scripts/deploy-backend.mjs
       - name: Save public endpoint configuration
         uses: actions/upload-artifact@v4
