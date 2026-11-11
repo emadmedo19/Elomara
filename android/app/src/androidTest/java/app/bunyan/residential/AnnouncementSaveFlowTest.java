@@ -11,6 +11,7 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.SystemClock;
 import android.util.Base64;
+import android.util.Log;
 import android.webkit.WebView;
 import androidx.core.content.FileProvider;
 import androidx.test.core.app.ActivityScenario;
@@ -43,7 +44,9 @@ public class AnnouncementSaveFlowTest {
             if("true".equals(error)) fail("Native save failed: "+evaluate(view,"window.__saveError"));
             SystemClock.sleep(250);
         }
-        fail("Save did not finish within 90 seconds: "+evaluate(view,"window.__saveError || 'no result'"));
+        String diagnostics=evaluate(view,"JSON.stringify({href:location.href,bridge:Boolean(window.Capacitor?.nativePromise),result:window.__saveResult||null,error:window.__saveError||null,ready:document.readyState})");
+        Log.e("AnnouncementSaveTest","Save timeout: "+diagnostics);
+        fail("Save did not finish within 90 seconds: "+diagnostics);
     }
     @Test public void fullWebViewBridgeAndDocumentResultSaveLargeOpenablePng() throws Exception {
         Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
