@@ -29,16 +29,21 @@ export default async function handle(request: Request): Promise<Response> {
   const buildingName = typeof payload.buildingName === "string" ? payload.buildingName.trim().slice(0, 100) : "";
   const aspectRatio = typeof payload.aspectRatio === "string" && ["1:1", "16:9", "3:4", "9:16"].includes(payload.aspectRatio) ? payload.aspectRatio : "1:1";
   if (prompt.length < 10) return Response.json({ error: "اكتب تفاصيل الإعلان أولاً." }, { status: 400, headers: cors });
-  const theme = /مصعد|اسانسير|أسانسير/.test(prompt) ? 'a modern residential elevator, closed brushed-metal doors and tasteful maintenance equipment'
-    : /مياه|صنابير/.test(prompt) ? 'clear water droplets, elegant blue plumbing pipes and a residential water tank'
-    : /كهرباء|التيار/.test(prompt) ? 'a modern electrical panel, cables and a warm glowing light bulb, safe and orderly'
-    : /نظافة|القمامة/.test(prompt) && !/اشتراك|سداد/.test(prompt) ? 'a spotless elegant residential entrance, green plants and discreet cleaning equipment'
+  const theme = /مصعد|اسانسير|أسانسير/.test(prompt) ? 'two professional elevator technicians actively inspecting and servicing a residential elevator, one using tools at the control cabinet, realistic uniforms and safety equipment'
+    : /مياه|صنابير/.test(prompt) ? 'professional plumbers actively repairing water pipes beside a residential water tank, realistic hand tools and clean work uniforms'
+    : /كهرباء|التيار/.test(prompt) ? 'qualified electricians actively servicing a safely isolated electrical panel in a residential building, insulated tools, protective gloves and work uniforms'
+    : /نظافة|القمامة/.test(prompt) && !/اشتراك|سداد/.test(prompt) ? 'cleaning staff actively mopping and polishing a beautiful residential entrance, cleaning trolley, green plants and daylight'
     : /جراج|سيارة|السيارات/.test(prompt) ? 'an organized residential garage with neatly parked cars and clear access lanes'
-    : /اجتماع|الملاك/.test(prompt) ? 'a welcoming residential meeting area with a round table and neatly arranged chairs'
+    : /اجتماع|الملاك/.test(prompt) ? 'a friendly group of adult residents discussing building matters around a table in an elegant residential meeting area'
     : /اشتراك|سداد/.test(prompt) ? 'a well-maintained residential building entrance with subtle payment and service motifs, no banknotes or numerals'
     : /هدوء|الأصوات/.test(prompt) ? 'a peaceful residential building at dusk, soft window lights, serene atmosphere'
-    : 'an elegant contemporary residential building entrance';
-  const visualPrompt = `Create a beautiful, welcoming architectural editorial illustration for an Egyptian residential community notice. Main subject: ${theme}. Notice context for subject reference only: ${prompt}. Premium contemporary 3D illustration with natural materials, daylight, rich teal, warm ivory, soft sky blue and small amber accents. Bright, crisp, inviting and legible; avoid gloomy scenes, black backgrounds and excessive gold. One recognizable focal subject at the center with ample breathing room, viewed from a comfortable distance. All key objects must fit inside the central third of the canvas so the image can be cropped into a wide or tall cover. Fill the entire ${aspectRatio} canvas. This is artwork only: the app places accurate Arabic text in a separate cream-colored section. Absolutely NO text, letters, numbers, logos, typography, captions, frames, borders, notice boards, inset posters or watermarks. Create a fresh polished composition.`;
+    : /صيانة|إصلاح|اصلاح/.test(prompt) ? 'skilled maintenance workers actively repairing a residential building, realistic tools, work uniforms and appropriate safety equipment'
+    : 'an elegant contemporary residential building entrance with welcoming natural daylight';
+  const composition = aspectRatio === "16:9"
+    ? "Place the people and all important action in the LEFT 40% of the scene. Keep the RIGHT 55% as a naturally calm, slightly darker wall or architectural space for readable Arabic text."
+    : "Place the people and important action in the UPPER 45% of the scene. Keep the LOWER half as naturally calm, slightly darker architectural space for readable Arabic text.";
+  const visualPrompt = `Create an attractive premium photographic background for an Egyptian residential building announcement. Scene: ${theme}. Notice context for reference only: ${prompt}. Show a convincing real scene with natural human poses, visible skilled work and authentic tools when maintenance is involved. High-end commercial photography, realistic people and hands, elegant well-kept Egyptian residential surroundings, beautiful natural daylight, teal workwear and restrained warm amber accents. ${composition} Show the actual work clearly, with no empty equipment-only scene for maintenance notices. The photograph must fill the entire ${aspectRatio} canvas edge to edge; the app will overlay the exact Arabic heading and notice directly onto the photo. Balance bright, beautiful action with quiet text space; avoid making the whole image dark. Absolutely NO text, letters, numbers, logos, typography, captions, frames, borders, blank cards, notice boards, inset posters or watermarks. Create a fresh professional composition.`;
+
 
   const tryPollinations = async (): Promise<string | null> => {
     if (!pollinationsKey || !pollinationsFreeOnly) return null;

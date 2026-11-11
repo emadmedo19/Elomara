@@ -31,3 +31,11 @@ test('subscription notice keeps its payment artwork even when mentioning cleanin
  await handler(request('يرجى سداد اشتراك الشهر لدعم الصيانة والنظافة والحراسة'));
  assert.match(JSON.parse(calls[0].options.body).prompt,/payment and service motifs/);
 });
+test('maintenance artwork requests active technicians and keeps space for overlaid text',async()=>{
+ const {handler,calls}=setup({POLLINATIONS_API_KEY:'fixture',POLLINATIONS_FREE_ONLY:'true'});
+ await handler(request('تنبيه للسكان بموعد صيانة المصعد'));
+ const prompt=JSON.parse(calls[0].options.body).prompt;
+ assert.match(prompt,/technicians actively inspecting and servicing/);
+ assert.match(prompt,/LEFT 40%/);
+ assert.match(prompt,/overlay the exact Arabic heading and notice directly onto the photo/);
+});

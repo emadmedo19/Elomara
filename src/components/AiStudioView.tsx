@@ -166,24 +166,35 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
       canvas.height = height;
       const context = canvas.getContext('2d');
       if (!context) throw new Error('تعذر تجهيز الصورة على هذا الجهاز.');
-      const hero = { x: 0, y: 0, w: width, h: height * 0.36 };
+      const hero = { x: 0, y: 0, w: width, h: height };
       // Cover-crop the illustration into its own area, keeping the Arabic text clear.
       const scale = Math.max(hero.w / image.naturalWidth, hero.h / image.naturalHeight);
       const cropW = hero.w / scale, cropH = hero.h / scale;
       context.drawImage(image, (image.naturalWidth - cropW) / 2, (image.naturalHeight - cropH) / 2,
         cropW, cropH, hero.x, hero.y, hero.w, hero.h);
-      const shade = context.createLinearGradient(0, 0, 0, hero.h);
-      shade.addColorStop(0, 'rgba(5,34,43,0.58)');
-      shade.addColorStop(0.6, 'rgba(5,34,43,0)');
+      const landscape = width / height > 1.3;
+      // The photo fills the whole poster. A soft gradient supports the text
+      // while the workers remain visible in the open part of the composition.
+      const shade = landscape ? context.createLinearGradient(width * 0.22, 0, width, 0)
+        : context.createLinearGradient(0, height * 0.25, 0, height);
+      shade.addColorStop(0, 'rgba(5,27,36,0)');
+      shade.addColorStop(0.45, 'rgba(5,27,36,0.58)');
+      shade.addColorStop(1, 'rgba(5,27,36,0.93)');
       context.fillStyle = shade;
-      context.fillRect(hero.x, hero.y, hero.w, hero.h);
-      const panel = { x: 0, y: hero.h, w: width, h: height - hero.h };
-      context.fillStyle = '#fbf9f3';
-      context.fillRect(panel.x, panel.y, panel.w, panel.h);
+      context.fillRect(0, 0, width, height);
+      const topShade = context.createLinearGradient(0, 0, 0, height * 0.15);
+      topShade.addColorStop(0, 'rgba(5,27,36,0.5)');
+      topShade.addColorStop(1, 'rgba(5,27,36,0)');
+      context.fillStyle = topShade;
+      context.fillRect(0, 0, width, height * 0.15);
+      const panel = landscape ? { x: width * 0.42, y: height * 0.09, w: width * 0.58, h: height * 0.88 }
+        : { x: 0, y: height * 0.40, w: width, h: height * 0.58 };
       const pad = panel.w * 0.075;
       const right = panel.x + panel.w - pad;
       const textWidth = panel.w - pad * 2;
       const unit = Math.min(panel.w, panel.h * 1.5);
+      context.shadowColor = 'rgba(0,0,0,0.45)';
+      context.shadowBlur = 5;
       context.direction = 'rtl';
       context.textAlign = 'right';
       context.textBaseline = 'top';
@@ -205,7 +216,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
         return lines;
       };
       let y = panel.y + panel.h * 0.075;
-      context.fillStyle = '#008577';
+      context.fillStyle = '#8ef0d4';
       context.fillRect(right - unit * 0.075, y, unit * 0.075, Math.max(4, unit * 0.007));
       y += panel.h * 0.035;
       context.font = `bold ${Math.round(unit * 0.025)}px Tahoma, Arial, sans-serif`;
@@ -219,7 +230,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
         titleLines = fitLines(title, textWidth);
         if (titleLines.length <= 2) break;
       }
-      context.fillStyle = '#103844';
+      context.fillStyle = '#ffffff';
       const titleLineHeight = titleSize * 1.3;
       titleLines.forEach((line, index) => context.fillText(line, right, y + index * titleLineHeight, textWidth));
       y += titleLines.length * titleLineHeight + panel.h * 0.035;
@@ -233,12 +244,12 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
         if (lines.length * fontSize * 1.65 <= maxTextHeight) break;
       }
       if (fontSize < 20) throw new Error('نص الإعلان طويل جدًا على المقاس المختار. اختصر النص أو اختر مقاسًا أطول.');
-      context.fillStyle = '#344c54';
+      context.fillStyle = '#f1f7f8';
       const lineHeight = fontSize * 1.65;
       lines.forEach((line, index) => context.fillText(line, right, y + index * lineHeight, textWidth));
-      context.fillStyle = '#d7dfda';
+      context.fillStyle = 'rgba(255,255,255,0.25)';
       context.fillRect(panel.x + pad, footerY - panel.h * 0.025, textWidth, 1.5);
-      context.fillStyle = '#627974';
+      context.fillStyle = '#d0e2e6';
       context.font = `${Math.round(unit * 0.026)}px Tahoma, Arial, sans-serif`;
       context.fillText('مع تحيات إدارة العمارة', right, footerY, textWidth);
       setGeneratedImageUrl(canvas.toDataURL('image/png'));

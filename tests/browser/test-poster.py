@@ -12,7 +12,7 @@ with sync_playwright() as p:
   dims=page.locator('img[alt="Generated building poster"]').evaluate('(i)=>[i.naturalWidth,i.naturalHeight]')
   assert dims==size,dims
   colors=page.locator('img[alt="Generated building poster"]').evaluate("""i=>{const c=document.createElement('canvas');c.width=i.naturalWidth;c.height=i.naturalHeight;const x=c.getContext('2d');x.drawImage(i,0,0);return [.1,.8].map(y=>Array.from(x.getImageData(5,Math.floor(c.height*y),1,1).data).slice(0,3))}""")
-  assert colors[1]==[251,249,243] and colors[0]!=colors[1],colors
+  assert colors[1]!=[251,249,243] and colors[0]!=colors[1] and colors[1][1]>colors[1][0],colors
   print('PASS mobile poster '+ratio+': PNG export, Arabic text and retry after provider quota error')
  for title in ['صيانة المصعد الدورية','انقطاع المياه','انقطاع الكهرباء','نظافة المداخل والممرات','تنظيم مواقف السيارات بالجراج','اجتماع السكان والملاك','تذكير بسداد الاشتراك','تعليمات الهدوء']:
   page.get_by_role('button',name=title,exact=False).click()
