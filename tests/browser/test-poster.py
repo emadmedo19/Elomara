@@ -12,4 +12,12 @@ with sync_playwright() as p:
   dims=page.locator('img[alt="Generated building poster"]').evaluate('(i)=>[i.naturalWidth,i.naturalHeight]')
   assert dims==size,dims
   print('PASS mobile poster '+ratio+': PNG export, Arabic text and retry after provider quota error')
+ for title in ['صيانة المصعد الدورية','انقطاع المياه','انقطاع الكهرباء','نظافة المداخل والممرات','تنظيم مواقف السيارات بالجراج','اجتماع السكان والملاك','تذكير بسداد الاشتراك','تعليمات الهدوء']:
+  page.get_by_role('button',name=title,exact=False).click()
+  text=page.locator('textarea').input_value()
+  assert '\n' in text and len(text)<260
+  page.get_by_role('button',name='توليد لوحة الإعلان الآن',exact=True).click()
+  page.locator('img[alt="Generated building poster"]').wait_for()
+  print('PASS ready template: '+title)
+ page.screenshot(path='/tmp/elomara-poster-template.png',full_page=True)
  b.close()

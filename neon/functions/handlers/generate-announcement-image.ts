@@ -29,7 +29,17 @@ export default async function handle(request: Request): Promise<Response> {
   const buildingName = typeof payload.buildingName === "string" ? payload.buildingName.trim().slice(0, 100) : "";
   const aspectRatio = typeof payload.aspectRatio === "string" && ["1:1", "16:9", "3:4", "9:16"].includes(payload.aspectRatio) ? payload.aspectRatio : "1:1";
   if (prompt.length < 10) return Response.json({ error: "اكتب تفاصيل الإعلان أولاً." }, { status: 400, headers: cors });
-  const visualPrompt = `Create a PREMIUM professional visual background for a residential building notice poster in Egypt. Subject: ${prompt}. Building context: ${buildingName}. Editorial-quality architectural illustration, polished realistic 3D scene, tasteful modern navy, teal and gold, premium art direction, carefully balanced visual hierarchy. IMPORTANT: absolutely NO text, letters, digits, logos, symbols resembling text, watermarks or typography anywhere. Keep the central 60% relatively calm, dark and uncluttered so precise Arabic text can be overlaid later by the app. Place thematic illustrative objects primarily near the edges. Make a genuinely new composition for this request. Aspect ratio ${aspectRatio}.`;
+  const theme = /مصعد|اسانسير|أسانسير/.test(prompt) ? 'a modern residential elevator, closed brushed-metal doors and tasteful maintenance equipment'
+    : /مياه|صنابير/.test(prompt) ? 'clear water droplets, elegant blue plumbing pipes and a residential water tank'
+    : /كهرباء|التيار/.test(prompt) ? 'a modern electrical panel, cables and a warm glowing light bulb, safe and orderly'
+    : /نظافة|القمامة/.test(prompt) ? 'a spotless elegant residential entrance, green plants and discreet cleaning equipment'
+    : /جراج|سيارة|السيارات/.test(prompt) ? 'an organized residential garage with neatly parked cars and clear access lanes'
+    : /اجتماع|الملاك/.test(prompt) ? 'a welcoming residential meeting area with a round table and neatly arranged chairs'
+    : /اشتراك|سداد/.test(prompt) ? 'a well-maintained residential building entrance with subtle payment and service motifs, no banknotes or numerals'
+    : /هدوء|الأصوات/.test(prompt) ? 'a peaceful residential building at dusk, soft window lights, serene atmosphere'
+    : 'an elegant contemporary residential building entrance';
+  const visualPrompt = `Design an elegant illustrated background for a residential community announcement in Egypt. Main visual: ${theme}. Notice context (reference only, never render as text): ${prompt}. Use a cohesive premium 3D editorial illustration, navy and deep teal with restrained warm gold accents, soft cinematic lighting, realistic architectural detail. One clear focal subject, generous negative space, no collage or clutter. Compose the illustrative subject in the upper 18% and supporting objects near the outer edges; keep the rectangle from x=7% to 93%, y=20% to 83% dark, calm and unobstructed for the app's Arabic heading and short body text. Background must fill the entire ${aspectRatio} canvas, with no borders, letterboxing or blank white margins. Absolutely NO text, letters, digits, logos, watermarks, signs or typography anywhere. Do not draw an empty notice board or an inner poster. Create a fresh composition.`;
+
   const tryPollinations = async (): Promise<string | null> => {
     if (!pollinationsKey || !pollinationsFreeOnly) return null;
     // A restricted key with no paid Pollen must be configured by the owner before enabling.
