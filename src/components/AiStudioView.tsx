@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { PosterWallPicker, type PosterWall } from './PosterWallPicker';
 import { Announcement } from '../types';
 import { supabase } from '../lib/supabase';
 import { 
@@ -82,6 +83,8 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const [pendingPoster, setPendingPoster] = useState<{ image: string; text: string; ratio: string; warning: string } | null>(null);
+
   // Pinned state feedback
   const [isPinned, setIsPinned] = useState(false);
 
@@ -130,9 +133,108 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
   ];
 
   const resetPreview = () => {
+    setPendingPoster(null);
     setGeneratedImageUrl(null);
     setIsPinned(false);
     setErrorMessage(null);
+  };
+
+  const renderPoster = async (imageUrl: string, wall: PosterWall, text: string, ratio: string) => {
+    const image = new Image();
+    image.src = imageUrl;
+    await image.decode();
+    const sizes: Record<string, [number, number]> = {'1:1':[1080,1080],'16:9':[1280,720],'3:4':[900,1200],'9:16':[900,1600]};
+    const [width, height] = sizes[ratio] || sizes['1:1'];
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('تعذر تجهيز الصورة على هذا الجهاز.');
+    if (!wall || ![wall.x, wall.y, wall.width, wall.height].every(v => typeof v === 'number' && Number.isFinite(v))
+      || wall.x < 0 || wall.y < 0 || wall.width < 0.32 || wall.height < 0.25 || wall.width * wall.height < 0.14
+      || wall.x + wall.width > 1 || wall.y + wall.height > 1) {
+      throw new Error('تعذر تحديد الحائط الفاضي في الصورة. جرّب توليدها مرة أخرى.');
+    }
+    // Keep normalized analysis coordinates aligned with the whole source image.
+    context.drawImage(image, 0, 0, width, height);
+    context.save();
+    context.globalCompositeOperation = 'multiply';
+    const panel = { x: wall.x * width, y: wall.y * height, w: wall.width * width, h: wall.height * height };
+    context.beginPath();
+    context.rect(panel.x, panel.y, panel.w, panel.h);
+    context.clip();
+    const pad = panel.w * 0.075;
+    const right = panel.x + panel.w - pad;
+    const textWidth = panel.w - pad * 2;
+    const unit = Math.min(panel.w, panel.h * 1.5);
+    context.direction = 'rtl';
+    context.textAlign = 'right';
+    context.textBaseline = 'top';
+    context.font = `bold ${Math.round(Math.min(panel.w * 0.045, width * 0.034))}px Tahoma, Arial, sans-serif`;
+    context.fillStyle = '#103f46';
+    context.fillText(buildingName || 'إدارة العمارة', right, panel.y + panel.h * 0.025, textWidth);
+    const fitLines = (value: string, maxWidth: number) => {
+      const lines: string[] = [];
+      for (const paragraph of value.trim().split(/\n+/)) {
+        let line = '';
+        for (const word of paragraph.trim().split(/\s+/)) {
+          const next = line ? line + ' ' + word : word;
+          if (context.measureText(next).width > maxWidth && line) {
+            lines.push(line); line = word;
+          } else line = next;
+        }
+        if (line) lines.push(line);
+      }
+      return lines;
+    };
+    let y = panel.y + panel.h * 0.075;
+    context.fillStyle = '#d89823';
+    context.fillRect(right - unit * 0.075, y, unit * 0.075, Math.max(4, unit * 0.007));
+    y += panel.h * 0.035;
+    context.font = `bold ${Math.round(unit * 0.025)}px Tahoma, Arial, sans-serif`;
+    context.fillText('تنويه من إدارة العقار', right, y, textWidth);
+    y += panel.h * 0.065;
+    const title = buildAnnouncementPoster(text, buildingName, ratio).title;
+    let titleSize = Math.max(24, Math.round(unit * 0.063));
+    let titleLines: string[] = [];
+    for (; titleSize >= 24; titleSize -= 2) {
+      context.font = `bold ${titleSize}px Tahoma, Arial, sans-serif`;
+      titleLines = fitLines(title, textWidth);
+      if (titleLines.length <= 2) break;
+    }
+    context.fillStyle = '#103f46';
+    const titleLineHeight = titleSize * 1.3;
+    titleLines.forEach((line, index) => context.fillText(line, right, y + index * titleLineHeight, textWidth));
+    y += titleLines.length * titleLineHeight + panel.h * 0.035;
+    const footerY = panel.y + panel.h * 0.91;
+    const maxTextHeight = footerY - y - panel.h * 0.065;
+    let fontSize = Math.max(20, Math.round(unit * 0.043));
+    let lines: string[] = [];
+    for (; fontSize >= 20; fontSize -= 1) {
+      context.font = `${fontSize}px Tahoma, Arial, sans-serif`;
+      lines = fitLines(text, textWidth);
+      if (lines.length * fontSize * 1.65 <= maxTextHeight) break;
+    }
+    if (fontSize < 20) throw new Error('نص الإعلان طويل جدًا على المقاس المختار. اختصر النص أو اختر مقاسًا أطول.');
+    context.fillStyle = '#294c50';
+    const lineHeight = fontSize * 1.65;
+    lines.forEach((line, index) => context.fillText(line, right, y + index * lineHeight, textWidth));
+    context.fillStyle = 'rgba(16,63,70,0.18)';
+    context.fillRect(panel.x + pad, footerY - panel.h * 0.025, textWidth, 1.5);
+    context.fillStyle = '#55716d';
+    context.font = `${Math.round(unit * 0.026)}px Tahoma, Arial, sans-serif`;
+    context.fillText('مع تحيات إدارة العمارة', right, footerY, textWidth);
+    context.restore();
+    setGeneratedImageUrl(canvas.toDataURL('image/png'));
+    setPrompt(text);
+    setPendingPoster(null);
+  };
+  const applyManualWall = async (wall: PosterWall) => {
+    if (!pendingPoster || isGenerating) return;
+    setIsGenerating(true); setErrorMessage(null);
+    try { await renderPoster(pendingPoster.image, wall, pendingPoster.text, pendingPoster.ratio); }
+    catch (error) { setErrorMessage(error instanceof Error ? error.message : 'تعذر تجهيز الإعلان.'); }
+    finally { setIsGenerating(false); }
   };
 
   const handleGenerate = async (customPrompt?: string) => {
@@ -156,94 +258,12 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
         } catch { /* Keep the original error. */ }
         throw new Error(detail);
       }
-      const image = new Image();
-      image.src = data.image;
-      await image.decode();
-      const sizes: Record<string, [number, number]> = {'1:1':[1080,1080],'16:9':[1280,720],'3:4':[900,1200],'9:16':[900,1600]};
-      const [width, height] = sizes[aspectRatio] || sizes['1:1'];
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const context = canvas.getContext('2d');
-      if (!context) throw new Error('تعذر تجهيز الصورة على هذا الجهاز.');
-      const wall = data.wall as { x: number; y: number; width: number; height: number } | undefined;
-      if (!wall || ![wall.x, wall.y, wall.width, wall.height].every(v => typeof v === 'number' && Number.isFinite(v))
-        || wall.x < 0 || wall.y < 0 || wall.width < 0.32 || wall.height < 0.25 || wall.width * wall.height < 0.14
-        || wall.x + wall.width > 1 || wall.y + wall.height > 1) {
-        throw new Error('تعذر تحديد الحائط الفاضي في الصورة. جرّب توليدها مرة أخرى.');
+      if (data.manualPlacement || !data.wall) {
+        setGeneratedImageUrl(null);
+        setPendingPoster({ image: data.image, text, ratio: aspectRatio, warning: data.warning || 'تعذر تحديد الحائط تلقائيًا. يمكنك اختياره يدويًا دون إعادة توليد الصورة.' });
+        return;
       }
-      // Keep normalized analysis coordinates aligned with the whole source image.
-      context.drawImage(image, 0, 0, width, height);
-      context.save();
-      context.globalCompositeOperation = 'multiply';
-      const panel = { x: wall.x * width, y: wall.y * height, w: wall.width * width, h: wall.height * height };
-      context.beginPath();
-      context.rect(panel.x, panel.y, panel.w, panel.h);
-      context.clip();
-      const pad = panel.w * 0.075;
-      const right = panel.x + panel.w - pad;
-      const textWidth = panel.w - pad * 2;
-      const unit = Math.min(panel.w, panel.h * 1.5);
-      context.direction = 'rtl';
-      context.textAlign = 'right';
-      context.textBaseline = 'top';
-      context.font = `bold ${Math.round(Math.min(panel.w * 0.045, width * 0.034))}px Tahoma, Arial, sans-serif`;
-      context.fillStyle = '#103f46';
-      context.fillText(buildingName || 'إدارة العمارة', right, panel.y + panel.h * 0.025, textWidth);
-      const fitLines = (value: string, maxWidth: number) => {
-        const lines: string[] = [];
-        for (const paragraph of value.trim().split(/\n+/)) {
-          let line = '';
-          for (const word of paragraph.trim().split(/\s+/)) {
-            const next = line ? line + ' ' + word : word;
-            if (context.measureText(next).width > maxWidth && line) {
-              lines.push(line); line = word;
-            } else line = next;
-          }
-          if (line) lines.push(line);
-        }
-        return lines;
-      };
-      let y = panel.y + panel.h * 0.075;
-      context.fillStyle = '#d89823';
-      context.fillRect(right - unit * 0.075, y, unit * 0.075, Math.max(4, unit * 0.007));
-      y += panel.h * 0.035;
-      context.font = `bold ${Math.round(unit * 0.025)}px Tahoma, Arial, sans-serif`;
-      context.fillText('تنويه من إدارة العقار', right, y, textWidth);
-      y += panel.h * 0.065;
-      const title = buildAnnouncementPoster(text, buildingName, aspectRatio).title;
-      let titleSize = Math.max(24, Math.round(unit * 0.063));
-      let titleLines: string[] = [];
-      for (; titleSize >= 24; titleSize -= 2) {
-        context.font = `bold ${titleSize}px Tahoma, Arial, sans-serif`;
-        titleLines = fitLines(title, textWidth);
-        if (titleLines.length <= 2) break;
-      }
-      context.fillStyle = '#103f46';
-      const titleLineHeight = titleSize * 1.3;
-      titleLines.forEach((line, index) => context.fillText(line, right, y + index * titleLineHeight, textWidth));
-      y += titleLines.length * titleLineHeight + panel.h * 0.035;
-      const footerY = panel.y + panel.h * 0.91;
-      const maxTextHeight = footerY - y - panel.h * 0.065;
-      let fontSize = Math.max(20, Math.round(unit * 0.043));
-      let lines: string[] = [];
-      for (; fontSize >= 20; fontSize -= 1) {
-        context.font = `${fontSize}px Tahoma, Arial, sans-serif`;
-        lines = fitLines(text, textWidth);
-        if (lines.length * fontSize * 1.65 <= maxTextHeight) break;
-      }
-      if (fontSize < 20) throw new Error('نص الإعلان طويل جدًا على المقاس المختار. اختصر النص أو اختر مقاسًا أطول.');
-      context.fillStyle = '#294c50';
-      const lineHeight = fontSize * 1.65;
-      lines.forEach((line, index) => context.fillText(line, right, y + index * lineHeight, textWidth));
-      context.fillStyle = 'rgba(16,63,70,0.18)';
-      context.fillRect(panel.x + pad, footerY - panel.h * 0.025, textWidth, 1.5);
-      context.fillStyle = '#55716d';
-      context.font = `${Math.round(unit * 0.026)}px Tahoma, Arial, sans-serif`;
-      context.fillText('مع تحيات إدارة العمارة', right, footerY, textWidth);
-      context.restore();
-      setGeneratedImageUrl(canvas.toDataURL('image/png'));
-      setPrompt(text);
+      await renderPoster(data.image, data.wall, text, aspectRatio);
     } catch (error: unknown) {
       setErrorMessage(error instanceof Error ? error.message : 'حدث خطأ أثناء توليد الإعلان.');
     } finally {
@@ -402,7 +422,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
         {/* Right Column: Visual Preview Canvas */}
         <div className="lg:col-span-7">
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col items-center justify-center min-h-[480px]">
-            {generatedImageUrl ? (
+            {pendingPoster ? <PosterWallPicker key={pendingPoster.image} image={pendingPoster.image} warning={pendingPoster.warning} busy={isGenerating} onApply={wall => void applyManualWall(wall)} onCancel={() => setPendingPoster(null)} /> : generatedImageUrl ? (
               <div className="w-full flex flex-col items-center">
                 <div className="relative group max-w-md w-full rounded-2xl overflow-hidden border border-slate-200 shadow-lg bg-slate-900">
                   <img

@@ -6,7 +6,7 @@ import { build } from 'esbuild';
 const bundle=await build({entryPoints:[fileURLToPath(new URL('../functions/handlers/generate-announcement-image.ts',import.meta.url))],bundle:true,write:false,format:'cjs',platform:'node',plugins:[{name:'fixture-db',setup(b){b.onResolve({filter:/database\.mjs$/},()=>({path:'db',namespace:'fixture'}));b.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:`export const createBackendClient=()=>({auth:{getUser:async()=>({data:{user:{id:'synthetic-manager'}},error:null})},from:()=>({select(){return this},eq(){return this},maybeSingle:async()=>({data:globalThis.fixture.profile,error:null})})});`}))}}]});
 function setup(env={}){
  const calls=[];const fixture={inspection:{hasText:false,confidence:.99,wall:{x:.42,y:.08,width:.55,height:.85}},profile:{role:'building_admin',approved:true,disabled_at:null,building_id:'synthetic'}};
- const ctx={fixture,module:{exports:{}},process:{env:{GEMINI_API_KEY:'fixture',...env}},Request,Response,AbortSignal,Uint8Array,btoa,console:{error(){},warn(){}},fetch:async(url,options)=>{calls.push({url,options});if(url.includes('gemini-3.1-flash-lite'))return Response.json({candidates:[{content:{parts:[{text:JSON.stringify(JSON.parse(options.body).contents[0].parts.length===1?{scene:'MAIN subject and purpose: a festive residential celebration'}:fixture.inspection)}]}}]});return url.includes('googleapis')?Response.json({error:{status:'RESOURCE_EXHAUSTED'}},{status:429}):Response.json({data:[{b64_json:'a'.repeat(120)}]});}};
+ const ctx={fixture,module:{exports:{}},process:{env:{GEMINI_API_KEY:'fixture',...env}},Request,Response,AbortSignal,Uint8Array,btoa,console:{error(){},warn(){}},fetch:async(url,options)=>{calls.push({url,options});if(url.includes('gemini-3.1-flash-lite')&&fixture.visionOffline)return Response.json({error:{status:'RESOURCE_EXHAUSTED'}},{status:429});if(url.includes('gemini-3.1-flash-lite'))return Response.json({candidates:[{content:{parts:[{text:JSON.stringify(JSON.parse(options.body).contents[0].parts.length===1?{scene:'MAIN subject and purpose: a festive residential celebration'}:fixture.inspection)}]}}]});return url.includes('googleapis')?Response.json({error:{status:'RESOURCE_EXHAUSTED'}},{status:429}):Response.json({data:[{b64_json:'a'.repeat(120)}]});}};
  vm.runInNewContext(bundle.outputFiles[0].text,ctx);
  return{handler:ctx.module.exports.default,calls,fixture};
 }
@@ -73,14 +73,20 @@ for (const [name, inspection] of [
  ['missing wall',{hasText:false,confidence:.99,wall:null}],
  ['unsafe wall coordinates',{hasText:false,confidence:.99,wall:{x:.8,y:.1,width:.6,height:.7}}],
  ['uncertain wall',{hasText:false,confidence:.3,wall:{x:.1,y:.1,width:.8,height:.6}}],
-]) test('refuses '+name+' instead of painting on the characters',async()=>{
+]) test('offers manual review for '+name+' instead of automatically painting on the characters',async()=>{
  const {handler,fixture}=setup({POLLINATIONS_API_KEY:'fixture',POLLINATIONS_FREE_ONLY:'true'});
  fixture.inspection=inspection;const r=await handler(request());const result=await r.json();
- assert.equal(r.status,422);assert.equal(result.image,undefined);assert.equal(typeof result.error,'string');
+ assert.equal(r.status,200);assert.equal(result.wall,null);assert.equal(result.manualPlacement,true);assert.match(result.image,/^data:image/);assert.equal(typeof result.warning,'string');
 });
 test('image generator receives an English visual description without the Arabic notice text',async()=>{
  const {handler,calls}=setup({POLLINATIONS_API_KEY:'fixture',POLLINATIONS_FREE_ONLY:'true'});
  await handler(request('تنبيه للسكان بموعد صيانة المصعد يوم الجمعة'));
  const visual=JSON.parse(calls.find(c=>c.url.includes('pollinations')).options.body).prompt;
  assert.doesNotMatch(visual,/[\u0600-\u06ff]/);
+});
+
+test('exhausted inspection quota keeps the generated image for manual placement',async()=>{
+ const {handler,fixture}=setup({POLLINATIONS_API_KEY:'fixture',POLLINATIONS_FREE_ONLY:'true'});
+ fixture.visionOffline=true;const r=await handler(request());const result=await r.json();
+ assert.equal(r.status,200);assert.equal(result.manualPlacement,true);assert.equal(result.wall,null);assert.match(result.image,/^data:image/);
 });

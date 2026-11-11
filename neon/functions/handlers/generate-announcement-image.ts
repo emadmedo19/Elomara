@@ -71,7 +71,7 @@ export default async function handle(request: Request): Promise<Response> {
       const wall = await inspectPosterWall(image, key);
       return Response.json({ image, provider, wall }, { headers: cors });
     } catch (error) {
-      return Response.json({ error: error instanceof Error ? error.message : 'تعذر فحص الصورة.' }, { status: 422, headers: cors });
+      return Response.json({ image, provider, wall: null, manualPlacement: true, warning: error instanceof Error ? error.message : 'تعذر فحص الصورة. حدد مكان الكلام يدويًا.' }, { headers: cors });
     }
   };
   const tryPollinations = async (): Promise<string | null> => {

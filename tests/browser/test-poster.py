@@ -6,8 +6,21 @@ with sync_playwright() as p:
  assert page.get_by_role('button',name='توليد لوحة الإعلان الآن',exact=True).is_enabled()
  page.evaluate('window.posterSuccess=true;window.posterNoWall=true')
  page.get_by_role('button',name='توليد لوحة الإعلان الآن',exact=True).click()
- page.get_by_text('تعذر تحديد الحائط الفاضي في الصورة. جرّب توليدها مرة أخرى.',exact=True).wait_for()
+ page.get_by_role('heading',name='حدد مكان الكلام على الصورة',exact=True).wait_for()
+ picker=page.get_by_role('group',name='تحديد مساحة الحائط',exact=True)
+ picker.scroll_into_view_if_needed();box=picker.bounding_box()
+ before=page.evaluate('window.posterCalls')
+ page.mouse.move(box['x']+box['width']*.1,box['y']+box['height']*.1);page.mouse.down()
+ page.mouse.move(box['x']+box['width']*.2,box['y']+box['height']*.2,steps=5);page.mouse.up()
+ assert not page.get_by_role('button',name='كتابة الإعلان في المساحة المحددة',exact=True).is_enabled()
  assert page.locator('img[alt="Generated building poster"]').count()==0
+ box=picker.bounding_box()
+ page.mouse.move(box['x']+box['width']*.1,box['y']+box['height']*.1);page.mouse.down()
+ page.mouse.move(box['x']+box['width']*.9,box['y']+box['height']*.8,steps=12);page.mouse.up()
+ page.get_by_role('button',name='كتابة الإعلان في المساحة المحددة',exact=True).click()
+ page.locator('img[alt="Generated building poster"]').wait_for()
+ assert page.evaluate('window.posterCalls')==before
+ print('PASS failed inspection allows manual wall selection and PNG export without another API call')
  page.evaluate('window.posterNoWall=false')
  for ratio,size in [('1:1',[1080,1080]),('16:9',[1280,720]),('3:4',[900,1200]),('9:16',[900,1600])]:
   page.get_by_role('button',name=ratio,exact=False).first.click()
