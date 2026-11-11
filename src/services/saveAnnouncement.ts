@@ -13,7 +13,10 @@ export async function saveAnnouncementImage(dataUrl: string): Promise<'saved' | 
     return result.saved ? 'saved' : 'cancelled';
   }
   const link = document.createElement('a');
-  link.href = dataUrl; link.download = fileName; document.body.appendChild(link);
-  try { link.click(); } finally { link.remove(); }
+  const binary = atob(dataUrl.slice('data:image/png;base64,'.length));
+  const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+  const objectUrl = URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
+  link.href = objectUrl; link.download = fileName; document.body.appendChild(link);
+  try { link.click(); } finally { link.remove(); setTimeout(() => URL.revokeObjectURL(objectUrl), 60000); }
   return 'download-started';
 }

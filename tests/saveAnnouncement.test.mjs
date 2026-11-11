@@ -7,7 +7,7 @@ const png='data:image/png;base64,iVBORw0KGgo=';
 function setup({native=true,available=true,saved=true,fails=false}={}){
  const calls=[];const fixture={Capacitor:{isNativePlatform:()=>native,isPluginAvailable:()=>available},plugin:{savePng:async opts=>{calls.push(opts);if(fails)throw Error('storage full');return{saved}}}};
  const link={click(){calls.push('download')},remove(){calls.push('remove')}};
- const ctx={fixture,module:{exports:{}},document:{createElement:()=>link,body:{appendChild(){}}}};
+ const ctx={fixture,module:{exports:{}},atob,Blob,Uint8Array,URL:{createObjectURL:()=> 'blob:fixture-png',revokeObjectURL:()=>{}},setTimeout:()=>0,document:{createElement:()=>link,body:{appendChild(){}}}};
  vm.runInNewContext(compiled.outputFiles[0].text,ctx);return{save:ctx.module.exports.saveAnnouncementImage,calls,link};
 }
 test('Android asks native storage to save the combined PNG and only then reports success',async()=>{
@@ -18,6 +18,6 @@ test('write failure is surfaced and an older APK gets an actionable upgrade mess
  await assert.rejects(setup({fails:true}).save(png),/storage full/);await assert.rejects(setup({available:false}).save(png),/APK/);
 });
 test('web keeps the browser download flow and removes its temporary link',async()=>{
- const {save,calls,link}=setup({native:false});assert.equal(await save(png),'download-started');assert.equal(link.href,png);assert.deepEqual(calls,['download','remove']);
+ const {save,calls,link}=setup({native:false});assert.equal(await save(png),'download-started');assert.equal(link.href,'blob:fixture-png');assert.deepEqual(calls,['download','remove']);
 });
 test('missing image never opens a native save dialog',async()=>{const {save,calls}=setup();await assert.rejects(save('bad'),/غير جاهزة/);assert.equal(calls.length,0)});

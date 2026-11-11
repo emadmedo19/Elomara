@@ -55,10 +55,10 @@ for (const [notice, expected] of [
  assert.doesNotMatch(prompt,/teal workwear|Show the specified work in progress|technicians actively/);
 });
 
-test('approved direction uses friendly 3D cartoon characters with separate announcement text',async()=>{
+test('approved direction uses realistic bright photography with separate announcement text',async()=>{
  const {handler,calls}=setup({POLLINATIONS_API_KEY:'fixture',POLLINATIONS_FREE_ONLY:'true'});
  await handler(request());const prompt=JSON.parse(calls.find(c=>c.url.includes("pollinations")).options.body).prompt;
- assert.match(prompt,/FRIENDLY 3D CARTOON ILLUSTRATION/);assert.match(prompt,/clearly stylized cartoon adults/);assert.match(prompt,/all announcement text will be rendered separately BELOW the image/);
+ assert.match(prompt,/REALISTIC PHOTOGRAPH/);assert.match(prompt,/high-end commercial photography/);assert.match(prompt,/all announcement text will be rendered separately BELOW the image/);
 });
 
 test('image generator receives an English visual description without the Arabic notice text',async()=>{
