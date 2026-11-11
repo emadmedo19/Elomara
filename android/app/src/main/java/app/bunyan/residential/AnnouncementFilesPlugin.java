@@ -13,6 +13,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.InputStream;
 import java.security.MessageDigest;
@@ -25,6 +26,85 @@ import android.graphics.BitmapFactory;
 public class AnnouncementFilesPlugin extends Plugin {
     private static final String PREFIX = "data:image/png;base64,";
     private static final int MAX_DATA_URL_LENGTH = 24000000;
+
+    private static final int MAX_CHUNK_LENGTH = 65536;
+    private ByteArrayOutputStream pendingImage;
+    private int expectedChunks;
+    private int receivedChunks;
+    private byte[] pendingSaveBytes;
+
+    @PluginMethod
+    public synchronized void beginPngTransfer(PluginCall call) {
+        int chunks = call.getInt("chunks", 0);
+        if (chunks < 1 || chunks > 512) { call.reject("عدد أجزاء الصورة غير صالح."); return; }
+        pendingImage = new ByteArrayOutputStream();
+        expectedChunks = chunks;
+        receivedChunks = 0;
+        call.resolve();
+    }
+
+    @PluginMethod
+    public synchronized void appendPngChunk(PluginCall call) {
+        String chunk = call.getString("chunk");
+        int index = call.getInt("index", -1);
+        if (pendingImage == null || index != receivedChunks || receivedChunks >= expectedChunks
+                || chunk == null || chunk.isEmpty() || chunk.length() > MAX_CHUNK_LENGTH) {
+            pendingImage = null;
+            call.reject("تعذر نقل الصورة كاملة. حاول مرة أخرى.");
+            return;
+        }
+        try {
+            byte[] part = Base64.decode(chunk, Base64.DEFAULT);
+            if (pendingImage.size() + part.length > MAX_DATA_URL_LENGTH * 3 / 4) throw new IOException("Image too large");
+            pendingImage.write(part);
+            receivedChunks++;
+            call.resolve();
+        } catch (Exception error) {
+            pendingImage = null;
+            call.reject("تعذر نقل جزء من الصورة.");
+        }
+    }
+
+    @PluginMethod
+    public synchronized void finishPngTransfer(PluginCall call) {
+        if (pendingImage == null || receivedChunks != expectedChunks) {
+            call.reject("الصورة غير مكتملة.");
+            return;
+        }
+        byte[] bytes = pendingImage.toByteArray();
+        pendingImage = null;
+        try { validatePngBytes(bytes); }
+        catch (IOException error) { call.reject("الصورة غير سليمة. حاول إنشاءها مرة أخرى."); return; }
+        String name = call.getString("fileName", "elomara-announcement.png");
+        if (!name.matches("[A-Za-z0-9_-]+\\.png")) name = "elomara-announcement.png";
+        pendingSaveBytes = bytes;
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("image/png");
+        intent.putExtra(Intent.EXTRA_TITLE, name);
+        try { startActivityForResult(call, intent, "chunkedSaveResult"); }
+        catch (Exception error) { pendingSaveBytes = null; call.reject("تعذر فتح مكان حفظ الصورة."); }
+    }
+
+    @ActivityCallback
+    private void chunkedSaveResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        byte[] bytes = pendingSaveBytes;
+        pendingSaveBytes = null;
+        Uri uri = result.getData() == null ? null : result.getData().getData();
+        if (result.getResultCode() != Activity.RESULT_OK || uri == null) {
+            JSObject response = new JSObject(); response.put("saved", false); call.resolve(response);
+            return;
+        }
+        if (bytes == null) { call.reject("بيانات الصورة لم تعد متاحة."); return; }
+        getBridge().execute(() -> {
+            try {
+                writeVerifiedBytes(getContext(), uri, bytes);
+                JSObject response = new JSObject(); response.put("saved", true); call.resolve(response);
+            } catch (Exception error) { call.reject("فشل التحقق من الصورة بعد حفظها. حاول اختيار مكان آخر."); }
+        });
+    }
+
 
     @PluginMethod
     public void savePng(PluginCall call) {
@@ -65,6 +145,11 @@ public class AnnouncementFilesPlugin extends Plugin {
         if (dataUrl == null || !dataUrl.startsWith(PREFIX) || dataUrl.length() > MAX_DATA_URL_LENGTH
             || !"content".equals(uri.getScheme())) throw new IOException("Invalid image destination or data");
         byte[] bytes = decodePng(dataUrl);
+        writeVerifiedBytes(context, uri, bytes);
+    }
+
+    private static void writeVerifiedBytes(Context context, Uri uri, byte[] bytes) throws IOException {
+        if (uri == null || !"content".equals(uri.getScheme())) throw new IOException("Invalid destination");
         // Explicit truncation matters when a document provider reuses an existing file.
         try (OutputStream stream = context.getContentResolver().openOutputStream(uri, "wt")) {
             if (stream == null) throw new IOException("Destination unavailable");
@@ -89,8 +174,15 @@ public class AnnouncementFilesPlugin extends Plugin {
         byte[] signature = {(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a};
         if (bytes.length <= signature.length) throw new IOException("Empty PNG");
         for (int i = 0; i < signature.length; i++) if (bytes[i] != signature[i]) throw new IOException("Not a PNG");
-        validatePng(bytes);
+        validatePngBytes(bytes);
         return bytes;
+    }
+
+    private static void validatePngBytes(byte[] bytes) throws IOException {
+        byte[] signature = {(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a};
+        if (bytes.length <= signature.length) throw new IOException("Empty PNG");
+        for (int i=0;i<signature.length;i++) if (bytes[i]!=signature[i]) throw new IOException("Invalid PNG signature");
+        validatePng(bytes);
     }
 
     private static long unsignedInt(byte[] bytes, int at) {
