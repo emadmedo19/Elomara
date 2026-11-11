@@ -25,19 +25,20 @@ export function MarketingConsentPrompt() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [checked, setChecked] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
-    setChoice(null); setError(''); setChecked(false);
+    setChoice(null); setError(''); setLoadError(''); setChecked(false);
     if (!isNeonBackend || !user?.email || isLoading || isPasswordRecovery) return;
     let active = true;
     const email = user.email;
     try { setChecked(sessionStorage.getItem(pendingKey(email)) === 'yes'); } catch { /* storage may be disabled */ }
-    void readChoice().then(value => { if (active) setChoice(value); }).catch(() => {
-      // Consent is optional: a temporary backend failure must not block login.
-      if (active) setChoice(null);
+    void readChoice().then(value => { if (active) setChoice(value); }).catch((failure) => {
+      if (active) { setChoice(null); setLoadError(failure instanceof Error ? failure.message : String(failure)); }
     });
     return () => { active = false; };
-  }, [user?.id, user?.email, isLoading, isPasswordRecovery]);
-  if (!user || isLoading || isPasswordRecovery || choice !== 'unknown') return null;
+  }, [user?.id, user?.email, isLoading, isPasswordRecovery, retry]);
+  if (!user || isLoading || isPasswordRecovery || (choice !== 'unknown' && !loadError)) return null;
   const save = async (subscribe: boolean) => {
     setBusy(true); setError('');
     try {
@@ -51,12 +52,14 @@ export function MarketingConsentPrompt() {
     <section role="dialog" aria-modal="true" aria-labelledby="marketing-consent-title" className="w-full max-w-md rounded-3xl bg-white p-6 text-slate-900 shadow-2xl">
       <h2 id="marketing-consent-title" className="mb-3 text-xl font-bold">تحب توصلك عروض العمارة؟</h2>
       <p className="mb-5 text-sm leading-7 text-slate-600">ممكن نبعتلك عروض الاشتراكات والخصومات على بريدك الإلكتروني. القرار اختياري ومش هيأثر على استخدام التطبيق، وتقدر تلغي موافقتك من الإعدادات في أي وقت.</p>
-      <label className="mb-5 flex items-start gap-3 text-sm leading-6"><input type="checkbox" className="mt-1 h-5 w-5" checked={checked} onChange={e=>setChecked(e.target.checked)}/><span>أوافق على استقبال العروض والخصومات التسويقية عبر البريد الإلكتروني.</span></label>
+      {loadError && <p role="alert" className="mb-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">تعذر تحميل حالة الموافقة: {loadError}</p>}
+      {!loadError && <label className="mb-5 flex items-start gap-3 text-sm leading-6"><input type="checkbox" className="mt-1 h-5 w-5" checked={checked} onChange={e=>setChecked(e.target.checked)}/><span>أوافق على استقبال العروض والخصومات التسويقية عبر البريد الإلكتروني.</span></label>}
       {error && <p role="alert" className="mb-3 text-sm text-rose-700">{error}</p>}
       <div className="flex gap-3">
-        <button type="button" disabled={busy} onClick={()=>void save(checked)} className="flex-1 rounded-xl bg-teal-700 px-4 py-3 font-bold text-white disabled:opacity-50">حفظ اختياري</button>
-        <button type="button" disabled={busy} onClick={()=>void save(false)} className="rounded-xl border border-slate-300 px-4 py-3 font-bold text-slate-700 disabled:opacity-50">ليس الآن</button>
+        <button type="button" disabled={busy || Boolean(loadError)} onClick={()=>void save(checked)} className="flex-1 rounded-xl bg-teal-700 px-4 py-3 font-bold text-white disabled:opacity-50">حفظ اختياري</button>
+        <button type="button" disabled={busy} onClick={()=>{ if (loadError) { setLoadError(''); setChoice('declined'); } else void save(false); }} className="rounded-xl border border-slate-300 px-4 py-3 font-bold text-slate-700 disabled:opacity-50">ليس الآن</button>
       </div>
+      {loadError && <button type="button" className="mt-3 text-sm text-teal-700" onClick={()=>setRetry(x=>x+1)}>إعادة المحاولة</button>}
     </section>
   </div>;
 }
@@ -66,12 +69,13 @@ export function MarketingPreferenceSettings() {
   const [choice, setChoice] = useState<Choice | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
     if (!isNeonBackend || !user?.email) return;
     let active = true;
-    void readChoice().then(value => { if (active) setChoice(value); }).catch(()=>{ if (active) setError('تعذر تحميل حالة الموافقة.'); });
+    void readChoice().then(value => { if (active) { setChoice(value); setError(''); } }).catch((failure)=>{ if (active) setError('تعذر تحميل حالة الموافقة: ' + (failure instanceof Error ? failure.message : String(failure))); });
     return () => { active = false; };
-  }, [user?.id, user?.email]);
+  }, [user?.id, user?.email, retry]);
   if (!isNeonBackend || !user) return null;
   const save = async (value: boolean) => {
     setBusy(true); setError('');
@@ -87,7 +91,7 @@ export function MarketingPreferenceSettings() {
       أوافق على استقبال العروض والخصومات
     </label>
     {choice === null && !error && <p className="text-xs">جارٍ تحميل اختيارك...</p>}
-    {error && <p role="alert" className="text-sm text-rose-700">{error}</p>}
+    {error && <p role="alert" className="text-sm text-rose-700">{error} <button type="button" className="underline" onClick={()=>setRetry(x=>x+1)}>إعادة المحاولة</button></p>}
     {choice && <p className="text-xs text-slate-500">{choice === 'subscribed' ? 'أنت مشترك في رسائل العروض.' : 'لن نرسل لك عروضًا تسويقية.'}</p>}
   </div>;
 }
