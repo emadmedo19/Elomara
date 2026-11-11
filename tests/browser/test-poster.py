@@ -1,9 +1,10 @@
+import sys
 from playwright.sync_api import sync_playwright
 with sync_playwright() as p:
  b=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
  page=b.new_page(viewport={'width':390,'height':844})
  page.add_init_script("""(()=>{const fill=CanvasRenderingContext2D.prototype.fillText;CanvasRenderingContext2D.prototype.fillText=function(t,x,y,...rest){(window.posterInk ||= []).push({t,x,y,font:this.font});return fill.call(this,t,x,y,...rest)}})()""")
- page.goto('http://127.0.0.1:5188/poster.html');page.wait_for_function('window.posterFixture===true')
+ page.goto((sys.argv[1] if len(sys.argv)>1 else 'http://127.0.0.1:5188')+'/poster.html');page.wait_for_function('window.posterFixture===true')
  page.get_by_role('button',name='توليد لوحة الإعلان الآن',exact=True).click();page.get_by_text('حصة الصور غير متاحة',exact=True).wait_for()
  assert page.get_by_role('button',name='توليد لوحة الإعلان الآن',exact=True).is_enabled()
  page.evaluate('window.posterSuccess=true')
@@ -24,6 +25,13 @@ with sync_playwright() as p:
   page.get_by_role('button',name='توليد لوحة الإعلان الآن',exact=True).click();page.locator('img[alt="Generated building poster"]').wait_for()
   assert any(v['font'].startswith('45px') or v['font'].startswith('54px') or v['font'].startswith('64px') for v in page.evaluate('window.posterInk'))
   print('PASS ready template: '+title)
+ with page.expect_download() as saved:
+  page.get_by_role('button',name='حفظ الصورة بجهازك',exact=True).click()
+ download=saved.value
+ assert download.suggested_filename.startswith('elomara-announcement-')
+ with open(download.path(),'rb') as image_file: assert image_file.read(8)==b'\x89PNG\r\n\x1a\n'
+ page.get_by_role('status').filter(has_text='بدأ تنزيل صورة الإعلان').wait_for()
+ print('PASS save button downloads the combined PNG and shows an honest browser status')
  page.get_by_role('button',name='نشر على لوحة إعلانات العمارة',exact=True).click()
  page.wait_for_function('window.pinnedAnnouncement?.imageUrl?.startsWith("data:image/png")')
  assert page.evaluate('window.pinnedAnnouncement.imageUrl')==page.locator('img[alt="Generated building poster"]').get_attribute('src')

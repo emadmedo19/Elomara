@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { saveAnnouncementImage } from '../services/saveAnnouncement';
 import { Announcement } from '../types';
 import { supabase } from '../lib/supabase';
 import { 
@@ -83,6 +84,10 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
 
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   // Pinned state feedback
   const [isPinned, setIsPinned] = useState(false);
 
@@ -131,6 +136,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
   ];
 
   const resetPreview = () => {
+    setSaveMessage(null); setSaveError(null);
     setGeneratedImageUrl(null);
     setIsPinned(false);
     setErrorMessage(null);
@@ -193,6 +199,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
     const text = customPrompt || prompt;
     if (!text.trim() || isGenerating) return;
     setIsGenerating(true);
+    setSaveMessage(null); setSaveError(null);
     setErrorMessage(null);
     setIsPinned(false);
     try {
@@ -216,6 +223,17 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleSave = async () => {
+    if (!generatedImageUrl || isSaving) return;
+    setIsSaving(true); setSaveMessage(null); setSaveError(null);
+    try {
+      const result = await saveAnnouncementImage(generatedImageUrl);
+      if (result === 'saved') setSaveMessage('تم حفظ الإعلان في المكان الذي اخترته.');
+      else if (result === 'download-started') setSaveMessage('بدأ تنزيل صورة الإعلان. راجع التنزيلات في المتصفح.');
+    } catch (error) { setSaveError(error instanceof Error ? error.message : 'تعذر حفظ الصورة. حاول مرة أخرى.'); }
+    finally { setIsSaving(false); }
   };
 
   const handlePinToBoard = async () => {
@@ -378,14 +396,12 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
                     className="w-full h-auto object-contain"
                   />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-3 p-4">
-                    <a
-                      href={generatedImageUrl}
-                      download={`bonyan-announcement-${Date.now()}.png`}
+                    <button type="button" onClick={() => void handleSave()} disabled={isSaving}
                       className="bg-white text-slate-900 px-3.5 py-2 rounded-xl font-bold text-xs shadow-lg hover:bg-slate-100 flex items-center gap-1.5 transition"
                     >
                       <Download className="w-4 h-4 text-teal-600" />
-                      <span>تنزيل الصورة</span>
-                    </a>
+                      <span>{isSaving ? 'جارٍ الحفظ...' : 'تنزيل الصورة'}</span>
+                    </button>
                   </div>
                 </div>
 
@@ -403,16 +419,16 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
                     <span>{isPinned ? 'تم النشر بلوحة الإعلانات ✓' : 'نشر على لوحة إعلانات العمارة'}</span>
                   </button>
 
-                  <a
-                    href={generatedImageUrl}
-                    download={`bonyan-announcement-${Date.now()}.png`}
+                  <button type="button" onClick={() => void handleSave()} disabled={isSaving}
                     className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center gap-1.5 transition"
                   >
                     <Download className="w-4 h-4" />
-                    <span>حفظ الصورة بجهازك</span>
-                  </a>
+                    <span>{isSaving ? 'جارٍ الحفظ...' : 'حفظ الصورة بجهازك'}</span>
+                  </button>
 
                </div>
+               {saveMessage && <p role="status" className="mt-3 text-sm text-teal-700">{saveMessage}</p>}
+               {saveError && <p role="alert" className="mt-3 text-sm text-rose-700">{saveError}</p>}
               </div>
             ) : (
               <div className="text-center p-8 max-w-sm">

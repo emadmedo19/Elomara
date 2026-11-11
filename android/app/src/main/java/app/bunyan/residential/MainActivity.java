@@ -6,6 +6,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     protected void load() {
+        registerPlugin(AnnouncementFilesPlugin.class);
         NativeBackendBootstrap.attach(this, bridgeBuilder);
         super.load();
     }
