@@ -18,7 +18,15 @@ export async function saveAnnouncementImage(dataUrl: string): Promise<'saved' | 
     const chunkLength = 49152; // divisible by four: every chunk decodes independently
     const chunks = Math.ceil(payload.length / chunkLength);
     if (!chunks || chunks > 512) throw new Error('صورة الإعلان كبيرة جدًا للحفظ.');
-    await AnnouncementFiles.beginPngTransfer({ chunks });
+    try {
+      await AnnouncementFiles.beginPngTransfer({ chunks });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/not implemented|not available|not found/i.test(message)) {
+        throw new Error('نسخة أندرويد المثبتة لا تدعم حفظ الصور الجديد. يلزم تثبيت APK مبني بعد تحديث الحفظ؛ تحديث OTA وحده لا يكفي.');
+      }
+      throw error;
+    }
     for (let index = 0; index < chunks; index++) {
       await AnnouncementFiles.appendPngChunk({ index, chunk: payload.slice(index * chunkLength, (index + 1) * chunkLength) });
     }
