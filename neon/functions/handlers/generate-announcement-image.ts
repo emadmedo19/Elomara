@@ -1,4 +1,4 @@
-import { inspectPosterWall, translatePosterContext } from "../poster-layout";
+import { translatePosterContext } from "../poster-scene";
 import { createBackendClient } from "../database.mjs";
 
 const cors = { "Access-Control-Allow-Origin": "https://localhost", "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info" };
@@ -29,7 +29,6 @@ export default async function handle(request: Request): Promise<Response> {
   const prompt = typeof payload.prompt === "string" ? payload.prompt.trim().slice(0, 2500) : "";
   const aspectRatio = typeof payload.aspectRatio === "string" && ["1:1", "16:9", "3:4", "9:16"].includes(payload.aspectRatio) ? payload.aspectRatio : "1:1";
   if (prompt.length < 10) return Response.json({ error: "اكتب تفاصيل الإعلان أولاً." }, { status: 400, headers: cors });
-  if (!key) return Response.json({ error: "خدمة فحص الحائط غير مهيأة. يرجى مراجعة إعدادات Gemini." }, { status: 503, headers: cors });
   let theme: string;
   let workScene = false;
   // The main purpose wins over services merely mentioned inside the notice.
@@ -54,26 +53,14 @@ export default async function handle(request: Request): Promise<Response> {
       ? 'qualified electricians actively servicing a safely isolated electrical panel in a residential building, insulated tools, protective gloves and work uniforms'
       : 'skilled maintenance workers actively carrying out the specific repair described in the notice, relevant tools and appropriate safety equipment';
   } else {
-    try { theme = await translatePosterContext(prompt, key); }
+    try { if (!key) throw new Error("تعذر تجهيز وصف مخصص للصورة حاليًا. اختر أحد النماذج الجاهزة أو حاول لاحقًا."); theme = await translatePosterContext(prompt, key); }
     catch (error) { return Response.json({ error: error instanceof Error ? error.message : 'تعذر تجهيز وصف الصورة.' }, { status: 503, headers: cors }); }
   }
   const styling = workScene
     ? 'Show the specified work in progress with authentic tools, natural poses, suitable work clothing and appropriate safety equipment.'
     : 'Match the mood, objects and any people to the actual notice. People, if relevant, wear ordinary everyday civilian clothing. Do not turn this into a maintenance scene.';
-  const composition = aspectRatio === "16:9"
-    ? "Compose the action and relevant people in the LEFT 40%. In the RIGHT part, show a real continuous interior wall of the building, viewed straight-on and parallel to the camera, covering x=44%..97%, y=8%..96%."
-    : "Compose the relevant people and action in the LOWER part and along the LEFT edge. Show a real continuous interior wall viewed straight-on and parallel to the camera in x=7%..94%, y=6%..65%.";
-  const visualPrompt = `Create a premium FRIENDLY 3D CARTOON ILLUSTRATION for an Egyptian residential building announcement. Scene: ${theme}. ${styling} Art direction: polished animated-feature-quality 3D cartoon, charming expressive adult characters with rounded stylized faces, friendly eyes and natural poses, detailed dimensional environments, smooth premium materials, soft cinematic daylight, rich teal and cheerful orange accents, warm architectural surfaces and lush green plants. Beautiful ambient lighting, depth and gentle shadows. The people are clearly stylized cartoon adults, NOT realistic photographic humans, NOT flat vector artwork, NOT an isometric miniature or dollhouse. Frame the characters at normal human scale. Keep people and clothing specific to the notice subject. ${composition} This wall is an ACTUAL architectural wall inside the scene, naturally connected to the floor, ceiling, doorway or elevator door. Use warm light beige plaster or pale stone, subtle believable texture and architectural edges, with enough contrast for dark teal lettering. Keep the specified wall surface unobstructed and evenly lit; no people, plants, fixtures, tools or wall decorations across that lettering area. Show visible room depth, the elevator doorway or another relevant feature BESIDE the wall. The app will paint accurate Arabic lettering directly on this wall, so its face MUST be front-facing with no perspective skew. Do NOT render a floating card, a freestanding board, a notice board, a framed sign, a white rectangle, an empty graphic backdrop or a faded white haze. Maintain rich clear colors and visible characters throughout the rest of the image. Fill the entire ${aspectRatio} canvas edge to edge. Absolutely NO generated text, letters, numbers, logos, typography, captions or watermarks; leave the actual wall unlettered for the app. Create a fresh beautiful coherent interior composition.`;
-
-
-  const finishImage = async (image: string, provider: string): Promise<Response> => {
-    try {
-      const wall = await inspectPosterWall(image, key);
-      return Response.json({ image, provider, wall }, { headers: cors });
-    } catch (error) {
-      return Response.json({ image, provider, wall: null, manualPlacement: true, warning: error instanceof Error ? error.message : 'تعذر فحص الصورة. حدد مكان الكلام يدويًا.' }, { headers: cors });
-    }
-  };
+  const visualPrompt = `Create a premium FRIENDLY 3D CARTOON ILLUSTRATION for an Egyptian residential building announcement. Scene: ${theme}. ${styling} Art direction: polished animated-feature-quality 3D cartoon, charming expressive adult characters with rounded stylized faces, friendly eyes and natural poses, detailed dimensional environments, smooth premium materials, soft cinematic daylight, rich teal and cheerful orange accents, warm architectural surfaces and lush green plants. Beautiful ambient lighting, depth and gentle shadows. People are clearly stylized cartoon adults, NOT realistic photographic humans, NOT flat vector artwork, NOT an isometric miniature or dollhouse. Keep people and clothing specific to the notice subject. Compose a complete attractive scene filling the entire ${aspectRatio} canvas edge to edge, with the full subjects visible and balanced composition. This image is ONLY an illustration: all announcement text will be rendered separately BELOW the image, so do not reserve empty space for text. Absolutely NO text, letters, numbers, pseudo-lettering, logos, captions, watermarks, notice boards, posters, signs, calendars, menus, receipt lettering or framed panels. Use plain unmarked tools and objects. Do not include any surfaces intended for writing. Create a fresh beautiful coherent scene.`;
+  const finishImage = (image: string, provider: string) => Response.json({ image, provider }, { headers: cors });
   const tryPollinations = async (): Promise<string | null> => {
     if (!pollinationsKey || !pollinationsFreeOnly) return null;
     // A restricted key with no paid Pollen must be configured by the owner before enabling.
@@ -102,6 +89,10 @@ export default async function handle(request: Request): Promise<Response> {
     return null;
   };
   try {
+    if (!key) {
+      const image = await tryPollinations();
+      return image ? finishImage(image, 'pollinations') : Response.json({ error: 'محرك الصور البديل غير متاح حاليًا.' }, { status: 503, headers: cors });
+    }
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + encodeURIComponent(key), {
       method: "POST", headers: { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(90000),

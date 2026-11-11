@@ -14,7 +14,7 @@ const request=(prompt='تنبيه للسكان بموعد صيانة المصع�
 test('Gemini quota failure falls back to the configured alternative and preserves dimensions',async()=>{
  const {handler,calls}=setup({GEMINI_API_KEY:'fixture',POLLINATIONS_API_KEY:'fixture-alternative',POLLINATIONS_FREE_ONLY:'true'});
  const r=await handler(request());const data=await r.json();assert.equal(r.status,200);assert.equal(data.provider,'pollinations');assert.match(data.image,/^data:image\/png;base64,/);
- assert.equal(calls.length,3);assert.equal(JSON.parse(calls[1].options.body).size,'1280x720');
+ assert.equal(calls.length,2);assert.equal(JSON.parse(calls[1].options.body).size,'1280x720');
 });
 test('unconfigured alternative gives an actionable quota error without issuing an alternative request',async()=>{
  const {handler,calls}=setup({GEMINI_API_KEY:'fixture'});const r=await handler(request());assert.equal(r.status,429);assert.match((await r.json()).error,/المزوّد البديل لم يُفعّل/);assert.equal(calls.length,1);
@@ -36,8 +36,8 @@ test('maintenance artwork requests active technicians and keeps space for overla
  await handler(request('تنبيه للسكان بموعد صيانة المصعد'));
  const prompt=JSON.parse(calls.find(c=>c.url.includes("pollinations")).options.body).prompt;
  assert.match(prompt,/technicians actively inspecting and servicing/);
- assert.match(prompt,/LEFT 40%/);
- assert.match(prompt,/paint accurate Arabic lettering directly on this wall/);
+ assert.match(prompt,/BELOW the image/);
+ assert.doesNotMatch(prompt,/ACTUAL architectural wall/);
 });
 
 for (const [notice, expected] of [
@@ -55,29 +55,12 @@ for (const [notice, expected] of [
  assert.doesNotMatch(prompt,/teal workwear|Show the specified work in progress|technicians actively/);
 });
 
-test('approved direction uses friendly 3D cartoon characters with an architectural wall for text',async()=>{
+test('approved direction uses friendly 3D cartoon characters with separate announcement text',async()=>{
  const {handler,calls}=setup({POLLINATIONS_API_KEY:'fixture',POLLINATIONS_FREE_ONLY:'true'});
  await handler(request());const prompt=JSON.parse(calls.find(c=>c.url.includes("pollinations")).options.body).prompt;
- assert.match(prompt,/FRIENDLY 3D CARTOON ILLUSTRATION/);assert.match(prompt,/clearly stylized cartoon adults/);assert.match(prompt,/ACTUAL architectural wall inside the scene/);
+ assert.match(prompt,/FRIENDLY 3D CARTOON ILLUSTRATION/);assert.match(prompt,/clearly stylized cartoon adults/);assert.match(prompt,/all announcement text will be rendered separately BELOW the image/);
 });
 
-test('text belongs to a front-facing wall inside the scene without a floating panel or white haze',async()=>{
- const {handler,calls}=setup({POLLINATIONS_API_KEY:'fixture',POLLINATIONS_FREE_ONLY:'true'});
- await handler(request());const prompt=JSON.parse(calls.find(c=>c.url.includes("pollinations")).options.body).prompt;
- assert.match(prompt,/naturally connected to the floor, ceiling, doorway or elevator door/);
- assert.match(prompt,/front-facing with no perspective skew/);
- assert.match(prompt,/Do NOT render a floating card/);
-});
-for (const [name, inspection] of [
- ['garbled generated text',{hasText:true,confidence:.99,wall:{x:.1,y:.1,width:.8,height:.6}}],
- ['missing wall',{hasText:false,confidence:.99,wall:null}],
- ['unsafe wall coordinates',{hasText:false,confidence:.99,wall:{x:.8,y:.1,width:.6,height:.7}}],
- ['uncertain wall',{hasText:false,confidence:.3,wall:{x:.1,y:.1,width:.8,height:.6}}],
-]) test('offers manual review for '+name+' instead of automatically painting on the characters',async()=>{
- const {handler,fixture}=setup({POLLINATIONS_API_KEY:'fixture',POLLINATIONS_FREE_ONLY:'true'});
- fixture.inspection=inspection;const r=await handler(request());const result=await r.json();
- assert.equal(r.status,200);assert.equal(result.wall,null);assert.equal(result.manualPlacement,true);assert.match(result.image,/^data:image/);assert.equal(typeof result.warning,'string');
-});
 test('image generator receives an English visual description without the Arabic notice text',async()=>{
  const {handler,calls}=setup({POLLINATIONS_API_KEY:'fixture',POLLINATIONS_FREE_ONLY:'true'});
  await handler(request('تنبيه للسكان بموعد صيانة المصعد يوم الجمعة'));
@@ -85,8 +68,10 @@ test('image generator receives an English visual description without the Arabic 
  assert.doesNotMatch(visual,/[\u0600-\u06ff]/);
 });
 
-test('exhausted inspection quota keeps the generated image for manual placement',async()=>{
- const {handler,fixture}=setup({POLLINATIONS_API_KEY:'fixture',POLLINATIONS_FREE_ONLY:'true'});
+test('generation no longer calls vision inspection or returns wall selection data',async()=>{
+ const {handler,calls,fixture}=setup({POLLINATIONS_API_KEY:'fixture',POLLINATIONS_FREE_ONLY:'true'});
  fixture.visionOffline=true;const r=await handler(request());const result=await r.json();
- assert.equal(r.status,200);assert.equal(result.manualPlacement,true);assert.equal(result.wall,null);assert.match(result.image,/^data:image/);
+ assert.equal(r.status,200);assert.match(result.image,/^data:image/);
+ assert.equal(result.wall,undefined);assert.equal(result.manualPlacement,undefined);
+ assert.equal(calls.filter(c=>c.url.includes('gemini-3.1-flash-lite')).length,0);
 });
