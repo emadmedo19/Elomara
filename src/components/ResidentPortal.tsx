@@ -100,7 +100,7 @@ export const ResidentPortal: React.FC = () => {
       supabase.from('apartments').select('id,unit_number,floor,resident_name,resident_phone,is_owner,monthly_fee,payment_status,overdue_months,paid_amount,credit_balance,last_payment_date').eq('id', userProfile.apartmentId).single(),
       supabase.from('buildings').select('id,name,address,manager_name,manager_phone,balance,monthly_target,reserve_fund,total_units,total_floors').eq('id', userProfile.buildingId).single(),
       supabase.from('payments').select('id,amount,payment_date,month,method,receipt_number,notes,payment_type,is_assessment,exceptional_charge_id,assessment_cancelled').eq('apartment_id', userProfile.apartmentId).order('payment_date',{ascending:false}),
-      supabase.from('announcements').select('id,title,content,announcement_type,created_at,pinned,image_url').eq('building_id', userProfile.buildingId).order('pinned',{ascending:false}).order('created_at',{ascending:false}),
+      supabase.from('announcements').select('id,title,content,announcement_type,created_at,pinned').eq('building_id', userProfile.buildingId).order('pinned',{ascending:false}).order('created_at',{ascending:false}),
       supabase.from('maintenance_tickets').select('id,category,title,description,urgency,status,created_at,updated_at').eq('apartment_id', userProfile.apartmentId).order('created_at',{ascending:false}),
       supabase.from('facility_bookings').select('id,facility,booking_date,time_slot,status,created_at').eq('apartment_id', userProfile.apartmentId).order('booking_date',{ascending:false}),
       supabase.rpc('get_building_financial_summary', { p_building_id: userProfile.buildingId }),
@@ -118,7 +118,28 @@ export const ResidentPortal: React.FC = () => {
     setApartment(apt.data ? { ...apt.data, paid_amount: totals?.totalPaid || 0,
       remaining: totals?.remaining || 0, payment_status: totals?.status } : null);
     setBuilding(bld.data); setPayments(rows.filter((p: any) => !p.is_assessment));
+    if (news.error) {
+      console.error('[Elomara resident announcements]', news.error);
+      setError(previous => previous || 'تعذر تحميل الإعلانات: ' + news.error.message);
+    }
     setAnnouncements(news.data || []); setTickets(maintenance.data || []); setBookings(facility.data || []);
+    // Legacy Base64 images are fetched individually, so the announcements list stays below
+    // the API response-size limit. Do not drop the image from the stored announcement.
+    if (!news.error && news.data?.length) {
+      const buildingId = userProfile.buildingId;
+      void (async () => {
+        for (const announcement of news.data) {
+          const { data: image, error: imageError } = await supabase.from('announcements')
+            .select('image_url').eq('id', announcement.id).eq('building_id', buildingId).maybeSingle();
+          if (imageError) {
+            console.warn('[Elomara resident announcement image]', announcement.id, imageError);
+            continue;
+          }
+          if (image?.image_url) setAnnouncements(items => items.map(item =>
+            item.id === announcement.id ? { ...item, image_url: image.image_url } : item));
+        }
+      })();
+    }
     if (report.error) console.error('[Bunyan financial summary]', report.error);
     setFinancialReport(report.data || null);
     setLoading(false); setRefreshing(false);
