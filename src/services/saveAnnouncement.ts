@@ -1,6 +1,9 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 const AnnouncementFiles = registerPlugin<{
   savePng: (options: { dataUrl: string; fileName: string }) => Promise<{ saved: boolean }>;
+  beginPngTransfer: (options: { chunks: number }) => Promise<void>;
+  appendPngChunk: (options: { index: number; chunk: string }) => Promise<void>;
+  finishPngTransfer: (options: { fileName: string }) => Promise<{ saved: boolean }>;
 }>('AnnouncementFiles');
 export async function saveAnnouncementImage(dataUrl: string): Promise<'saved' | 'cancelled' | 'download-started'> {
   if (!dataUrl.startsWith('data:image/png;base64,')) throw new Error('صورة الإعلان غير جاهزة للحفظ.');
@@ -9,7 +12,17 @@ export async function saveAnnouncementImage(dataUrl: string): Promise<'saved' | 
     if (!Capacitor.isPluginAvailable('AnnouncementFiles')) {
       throw new Error('الحفظ على أندرويد يحتاج تثبيت أحدث نسخة APK من التطبيق.');
     }
-    const result = await AnnouncementFiles.savePng({ dataUrl, fileName });
+    // Decode in JavaScript, then transfer small independent base64 blocks to avoid
+    // truncation of multi-megabyte Capacitor bridge messages on Android WebView.
+    const payload = dataUrl.slice('data:image/png;base64,'.length);
+    const chunkLength = 49152; // divisible by four: every chunk decodes independently
+    const chunks = Math.ceil(payload.length / chunkLength);
+    if (!chunks || chunks > 512) throw new Error('صورة الإعلان كبيرة جدًا للحفظ.');
+    await AnnouncementFiles.beginPngTransfer({ chunks });
+    for (let index = 0; index < chunks; index++) {
+      await AnnouncementFiles.appendPngChunk({ index, chunk: payload.slice(index * chunkLength, (index + 1) * chunkLength) });
+    }
+    const result = await AnnouncementFiles.finishPngTransfer({ fileName });
     return result.saved ? 'saved' : 'cancelled';
   }
   const link = document.createElement('a');
