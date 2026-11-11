@@ -1,4 +1,5 @@
 import { BrandLogo } from './BrandLogo';
+import { MarketingPreferenceSettings } from './MarketingConsent';
 import React, { useEffect, useState } from 'react';
 import { Globe2, Palette, Type, ShieldCheck, FileText, RotateCcw, LogOut, Building2, SlidersHorizontal, Check } from 'lucide-react';
 import { SettingsList, SettingsPage } from './SettingsList';
@@ -39,7 +40,7 @@ export function AppPreferencesView({ onBack, onSignOut, onBuildingSettings }: { 
         { id: 'about', label: 'عن التطبيق', icon: Building2, onClick: () => open('about') },
         { id: 'reset', label: 'إعادة ضبط إعدادات العرض', icon: RotateCcw, tone: 'gold', onClick: () => open('reset') },
         { id: 'logout', label: 'تسجيل الخروج', icon: LogOut, tone: 'rose', onClick: onSignOut },
-      ]}/><AccountDeletionButton/><p className="settings-help">المظهر وحجم الخط خاصان بهذا الجهاز، ولا يغيران إعدادات العمارة أو بيانات الحساب.</p>
+      ]}/><MarketingPreferenceSettings/><AccountDeletionButton/><p className="settings-help">المظهر وحجم الخط خاصان بهذا الجهاز، ولا يغيران إعدادات العمارة أو بيانات الحساب.</p>
     </>}
     {page === 'appearance' && <div className="settings-panel"><p>اختار المظهر المناسب لك.</p><div className="settings-options">{([['light','فاتح'],['dark','داكن'],['system','حسب إعداد الجهاز']] as [Appearance,string][]).map(([value,label])=><button type="button" key={value} aria-pressed={preferences.appearance===value} onClick={()=>choose({...preferences,appearance:value})}>{label}{preferences.appearance===value && <Check size={18}/>}</button>)}</div></div>}
     {page === 'font' && <div className="settings-panel"><p>التغيير يظهر فورًا في التطبيق.</p><div className="settings-options">{([['normal','عادي'],['large','كبير'],['extra-large','كبير جدًا']] as [FontSize,string][]).map(([value,label])=><button type="button" key={value} aria-pressed={preferences.fontSize===value} onClick={()=>choose({...preferences,fontSize:value})}>{label}{preferences.fontSize===value && <Check size={18}/>}</button>)}</div><div className="settings-font-preview"><strong>أهلًا بك في العمارة</strong><p>تابع أخبار العمارة وبياناتك بسهولة.</p></div></div>}

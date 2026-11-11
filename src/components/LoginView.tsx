@@ -28,6 +28,7 @@ export const LoginView: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
+  const [marketingSignupConsent, setMarketingSignupConsent] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -153,6 +154,7 @@ export const LoginView: React.FC = () => {
               <label className="fotouh-field"><span>البريد الإلكتروني</span><div><Mail/><input form="auth-form" type="email" dir="ltr" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" required placeholder="name@example.com"/></div></label>
               {authMode !== 'forgot' && <label className="fotouh-field"><span>كلمة المرور</span><div><Lock/><PasswordInput form="auth-form" dir="ltr" minLength={8} value={password} onChange={e=>setPassword(e.target.value)} autoComplete={authMode==='signup'?'new-password':'current-password'} required placeholder={authMode==='signup'?'8 أحرف على الأقل':'كلمة المرور'}/></div></label>}
               {authMode === 'signup' && <label className="fotouh-field"><span>تأكيد كلمة المرور</span><div><Lock/><PasswordInput form="auth-form" dir="ltr" minLength={8} value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="new-password" required placeholder="أعد كتابة كلمة المرور"/></div></label>}
+              {authMode === 'signup' && <label className="flex items-start gap-2 text-sm leading-6 text-slate-600"><input type="checkbox" className="mt-1" checked={marketingSignupConsent} onChange={e=>setMarketingSignupConsent(e.target.checked)}/><span>أوافق اختياريًا على استقبال عروض وخصومات تطبيق العمارة عبر البريد الإلكتروني. يمكنني إلغاء الموافقة لاحقًا.</span></label>}
               <form id="auth-form" onSubmit={async event => {
                 event.preventDefault(); setError(''); setNotice(''); clearError();
                 if (authMode === 'forgot') {
@@ -164,6 +166,7 @@ export const LoginView: React.FC = () => {
                   if (!fullName.trim()) { setError('اكتب اسمك بالكامل.'); return; }
                   if (password.length < 8) { setError('كلمة المرور لازم تكون 8 أحرف على الأقل.'); return; }
                   if (password !== confirmPassword) { setError('تأكيد كلمة المرور غير مطابق.'); return; }
+                  try { sessionStorage.setItem('elomara:marketing-signup:' + email.trim().toLowerCase(), marketingSignupConsent ? 'yes' : 'no'); } catch { /* optional */ }
                   const hasSession = await signUpWithEmail(fullName, email, password);
                   if (!hasSession) setNotice('تم إرسال رسالة تأكيد إلى بريدك الإلكتروني. أكد البريد ثم ارجع وسجّل الدخول.');
                 } else await signInWithEmail(email, password);
