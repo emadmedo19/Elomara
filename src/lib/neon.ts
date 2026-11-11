@@ -135,7 +135,10 @@ export const neonClient = {
   channel: (_name: string) => new RefreshChannel(),
   async removeChannel(channel: RefreshChannel) { channel.unsubscribe(); return 'ok'; },
   auth: {
-    refreshSession: () => authOperation(() => CapacitorNeon.refreshSession()),
+    refreshSession: () => authOperation(async () => {
+      const result = await CapacitorNeon.refreshSession();
+      if (result.session) mappedIds.delete(result.session.user.id);
+    }),
     async getSession() { return { data: { session: await currentSession() }, error: null }; },
     async getUser() { return { data: { user: (await currentSession())?.user || null }, error: null }; },
     signInWithPassword: (args: { email: string; password: string }) => authOperation(() => CapacitorNeon.signInWithPassword(args)),
@@ -161,8 +164,8 @@ export const neonClient = {
         method: 'POST', headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(options?.body || {}),
       });
-      const result = await response.json();
-      if (!response.ok) return { data: null, error: { message: result.error || 'تعذر إكمال الطلب.', context: response } };
+      const result = await response.clone().json();
+      if (!response.ok) return { data: null, error: { message: result.error || 'تعذر إكمال الطلب.', context: response.clone() } };
       return { data: result, error: null };
     } catch (error) { return { data: null, error: message(error) }; }
   } },

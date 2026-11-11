@@ -36,7 +36,7 @@ export default async function handle(request: Request): Promise<Response> {
     const response = await fetch("https://gen.pollinations.ai/v1/images/generations", {
       method: "POST", headers: { Authorization: `Bearer ${pollinationsKey}`, "Content-Type": "application/json" },
       signal: AbortSignal.timeout(90000),
-      body: JSON.stringify({ model: "black-forest-labs/flux.1-schnell", prompt: visualPrompt, size: "1024x1024", response_format: "b64_json", n: 1 }),
+      body: JSON.stringify({ model: "black-forest-labs/flux.1-schnell", prompt: visualPrompt, size: ({ "1:1": "1024x1024", "16:9": "1280x720", "3:4": "768x1024", "9:16": "720x1280" } as Record<string, string>)[aspectRatio], response_format: "b64_json", n: 1 }),
     });
     if (!response.ok) {
       console.warn("[AI poster] Pollinations unavailable", { status: response.status });
@@ -72,7 +72,7 @@ export default async function handle(request: Request): Promise<Response> {
       const providerCode = String(result?.error?.status || '');
       const providerMessage = String(result?.error?.message || '').slice(0, 180);
       console.error('[AI poster] Gemini request failed', { httpStatus: response.status, providerCode, providerMessage });
-      const error = response.status === 429 ? 'تم الوصول لحد استخدام Gemini. حاول لاحقًا.'
+      const error = response.status === 429 ? (pollinationsKey && pollinationsFreeOnly ? 'حصة Google غير متاحة، وتعذر التوليد بالمزوّد البديل حاليًا. حاول لاحقًا.' : 'حصة توليد الصور في Google غير متاحة، والمزوّد البديل لم يُفعّل على الخادم بعد.')
         : response.status === 403 || response.status === 401 ? 'مفتاح Gemini غير مصرح له بتوليد الصور. راجع صلاحيات المفتاح.'
         : response.status === 404 ? 'نموذج توليد الصور غير متاح للمشروع الحالي.'
         : response.status === 400 ? 'خدمة Gemini رفضت إعدادات طلب الصورة.'

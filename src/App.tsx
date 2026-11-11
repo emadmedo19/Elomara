@@ -66,7 +66,7 @@ export default function App() {
   const [showIntroSplash, setShowIntroSplash] = useState(true);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [currentBuildingId, setCurrentBuildingIdState] = useState<string>('');
-  const { user, userProfile, isAdmin, isPasswordRecovery, isLoading: isAuthLoading, signOut, refreshProfile, holdMembership, membershipSyncError } = useAuth();
+  const { user, userProfile, isAdmin, isPasswordRecovery, isLoading: isAuthLoading, signOut, refreshProfile, holdMembership, membershipSyncError, profileRecoveryError } = useAuth();
   const activeUserId = useRef(user?.id); activeUserId.current = user?.id;
   // Only a successful load for this identity can unlock the empty-account flow.
   const managerScope = user && isAdmin ? `${user.id}:${userProfile?.buildingId || ''}` : '';
@@ -1160,6 +1160,17 @@ export default function App() {
         </div>
       </div>
     );
+  }
+
+  if (user && profileRecoveryError) {
+    return <div dir="rtl" className="flex min-h-screen items-center justify-center bg-slate-50 p-5">
+      <div role="alert" className="w-full max-w-lg space-y-4 rounded-3xl border border-slate-200 bg-white p-6 text-center">
+        <h1 className="text-xl font-bold text-slate-900">تعذر تحديث بيانات الحساب</h1>
+        <p className="text-sm leading-7 text-slate-600">{profileRecoveryError}</p>
+        <button type="button" onClick={() => void refreshProfile(undefined, true)} className="w-full rounded-xl bg-teal-700 p-3 font-bold text-white">إعادة المحاولة</button>
+        <button type="button" onClick={() => void signOut()} className="text-sm text-slate-600">تسجيل الخروج</button>
+      </div>
+    </div>;
   }
 
   if (user && membershipSyncError) {

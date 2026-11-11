@@ -17,7 +17,7 @@ function setup() {
   const requests = [];
   let session = { user: { id: nativeId, email: 'fixture@example.invalid', name: 'Fixture', emailVerified: true },
     accessToken: 'jwt-one', refreshToken: 'native-session-secret', tokenType: 'bearer', expiresIn: 900 };
-  const mock = { initializeCount: 0, removals: 0, initializationFails: false, refreshCount: 0, unauthorizedReads: 0, unauthorizedWrites: false, nativeHeaderSerialization: false,
+  const mock = { initializeCount: 0, removals: 0, initializationFails: false, refreshCount: 0, unauthorizedReads: 0, unauthorizedWrites: false, nativeHeaderSerialization: false, resolvedId: appId,
     Capacitor: { isNativePlatform: () => true, isPluginAvailable: () => true },
     Native: {
       async initialize() { mock.initializeCount++; if (mock.initializationFails) throw Error('initialization unavailable'); },
@@ -34,7 +34,7 @@ function setup() {
     fetch: async (input, options) => {
       const url = String(input);
       requests.push({ url, options });
-      if (url.endsWith('/rpc/resolve_app_identity')) return Response.json(appId);
+      if (url.endsWith('/rpc/resolve_app_identity')) return Response.json(mock.resolvedId);
       if (url.endsWith('/rpc/create_manager_building')) {
         // Native transports enumerate header fields; Headers instances expose no own fields.
         const wireHeaders = mock.nativeHeaderSerialization
@@ -51,6 +51,7 @@ function setup() {
         mock.unauthorizedReads--; return Response.json({ message: 'JWT expired', code: 'PGRST301' }, { status: 401 });
       }
       if (options?.method === 'POST' && mock.unauthorizedWrites) return Response.json({ message: 'JWT expired' }, { status: 401 });
+      if (url.includes('/functions/v1/generate-announcement-image')) return Response.json({error:'حصة الصور غير متاحة',code:'RESOURCE_EXHAUSTED'},{status:429});
       if (url.includes('/functions/v1/gemini-chat')) return Response.json({ text: 'fixture reply' });
       return Response.json([{ id: appId }]);
     },
@@ -179,4 +180,21 @@ test('retried native reads also keep their authorization headers enumerable', as
     assert.equal(request.options.headers instanceof Headers, false);
     assert.ok(Object.entries(request.options.headers).some(([key]) => key.toLowerCase() === 'authorization'));
   }
+});
+
+test('forced native renewal revalidates the server mapping instead of keeping a stale application UUID', async () => {
+  const { api, mock } = setup();
+  assert.equal((await api.neonClient.auth.getSession()).data.session.user.id, appId);
+  mock.resolvedId = '33333333-3333-4333-8333-333333333333';
+  const renewed = await api.neonClient.auth.refreshSession();
+  assert.equal(renewed.error, null);
+  assert.equal(renewed.data.session.user.id, mock.resolvedId);
+});
+
+test('function failures preserve a readable provider response and its Arabic message', async()=>{
+ const {api}=setup();
+ const result=await api.neonClient.functions.invoke('generate-announcement-image',{body:{prompt:'fixture'}});
+ assert.equal(result.data,null);
+ assert.equal(result.error.message,'حصة الصور غير متاحة');
+ assert.equal((await result.error.context.json()).code,'RESOURCE_EXHAUSTED');
 });

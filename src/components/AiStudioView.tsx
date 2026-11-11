@@ -146,7 +146,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
         body: { prompt: text, buildingName, aspectRatio },
       });
       if (error || !data?.image) {
-        let detail = typeof data?.error === 'string' ? data.error : 'تعذر توليد الصورة بالذكاء الاصطناعي.';
+        let detail = typeof data?.error === 'string' ? data.error : error?.message || 'تعذر توليد الصورة بالذكاء الاصطناعي.';
         try {
           const response = (error as { context?: Response } | null)?.context;
           if (response && typeof response.json === 'function') {
@@ -182,7 +182,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
       context.direction = 'rtl';
       const center = width / 2;
       const fitLines = (value: string, maxWidth: number, maxLines: number) => {
-        const words = value.trim().split(/\\s+/);
+        const words = value.trim().split(/\s+/);
         const lines: string[] = [];
         let line = '';
         for (const word of words) {

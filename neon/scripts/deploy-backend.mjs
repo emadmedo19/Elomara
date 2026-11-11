@@ -19,6 +19,10 @@ const env = ['GEMINI_API_KEY', 'FIREBASE_SERVICE_ACCOUNT_JSON'].flatMap(name => 
   if (!process.env[name]?.trim()) throw new Error(`Missing secret: ${name}`);
   return ['--env', `${name}=${process.env[name]}`];
 });
+// Missing optional values must be omitted: KEY= would erase live Function settings.
+for (const name of ['POLLINATIONS_API_KEY', 'POLLINATIONS_FREE_ONLY']) {
+  if (process.env[name]?.trim()) env.push('--env', `${name}=${process.env[name].trim()}`);
+}
 run(['functions', 'deploy', 'elomara', '--src', 'neon/functions/index.ts', ...env]);
 const data = run(['functions', 'get', 'elomara'], true);
 const fn = data.function || data;

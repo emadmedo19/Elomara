@@ -36,7 +36,8 @@ interface AuthContextType {
   clearPasswordRecovery: () => void;
   signOut: () => Promise<void>;
   clearError: () => void;
-  refreshProfile: (expectedBuildingId?: string) => Promise<void>;
+  refreshProfile: (expectedBuildingId?: string, renewSession?: boolean) => Promise<void>;
+  profileRecoveryError: string | null;
   holdMembership: () => () => void;
   membershipSyncError: { buildingId: string; message: string } | null;
 }
@@ -54,6 +55,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const currentUserId = useRef(user?.id); currentUserId.current = user?.id;
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const verifiedProfile = useRef<UserProfile | null>(null);
+  const [profileRecoveryError, setProfileRecoveryError] = useState<string | null>(null);
   const currentProfileId = useRef(userProfile?.uid); currentProfileId.current = userProfile?.uid;
   const [role, setRole] = useState<UserProfile['role'] | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -65,15 +68,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const profileLoadVersion = useRef(0);
   const profileReadUser = useRef<string | undefined>(undefined);
   const oauthCallbackInProgress = useRef(false);
-  const membershipSync = useRef<{ userId: string; buildingId: string } | null>(null);
+  const membershipSync = useRef<{ userId: string; buildingId: string; kind: 'write' | 'creation' | 'resume' } | null>(null);
   const membershipSyncVersion = useRef(0);
   const [isSyncingMembership, setIsSyncingMembership] = useState(false);
   const [membershipSyncError, setMembershipSyncError] = useState<{ buildingId: string; message: string } | null>(null);
 
-  const loadProfile = async (currentUser: User | null, quiet = false, expectedBuildingId?: string): Promise<boolean> => {
+  const loadProfile = async (currentUser: User | null, quiet = false, expectedBuildingId?: string, ownsTransition = false): Promise<boolean> => {
     // A confirmed creation owns the profile transition. Background reads cannot
     // restore an older pending profile while its new membership is being verified.
-    if (membershipSync.current && currentUser?.id === membershipSync.current.userId && !expectedBuildingId) return false;
+    if (membershipSync.current && currentUser?.id === membershipSync.current.userId && !expectedBuildingId && !ownsTransition) return false;
     if (membershipSync.current && currentUser?.id !== membershipSync.current.userId) {
       membershipSync.current = null; membershipSyncVersion.current++;
       setIsSyncingMembership(false); setMembershipSyncError(null);
@@ -83,6 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(currentUser);
     if (!currentUser) {
       profileReadUser.current = undefined;
+      verifiedProfile.current = null; setProfileRecoveryError(null);
       setUserProfile(null); setRole(null); setIsAdmin(false); setIsLoading(false);
       return false;
     }
@@ -91,39 +95,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const controller = new AbortController();
     try {
-      const request = supabase.from('profiles')
-        .select('id, full_name, phone, role, building_id, apartment_id, approved, disabled_at, resident_label')
-        .eq('id', currentUser.id).abortSignal(controller.signal).maybeSingle();
-      const { data, error } = expectedBuildingId ? await Promise.race([
+      const request = isNeonBackend ? supabase.rpc('get_current_membership').abortSignal(controller.signal)
+        : supabase.from('profiles')
+          .select('id, full_name, phone, role, building_id, apartment_id, approved, disabled_at, resident_label')
+          .eq('id', currentUser.id).abortSignal(controller.signal).maybeSingle();
+      const { data, error } = await Promise.race([
         Promise.resolve(request),
         new Promise<never>((_, reject) => { timeout = setTimeout(() => {
           controller.abort(); reject(new Error('تعذر تحديث الحساب في الوقت المحدد'));
         }, 7000); }),
-      ]) : await request;
+      ]);
       if (error) throw error;
       if (loadVersion !== profileLoadVersion.current) return false;
-      // A resume-time empty response must be confirmed before replacing a
-      // previously verified membership with the first-time onboarding screen.
-      // A real removal still clears the profile after the confirmation read.
-      let confirmedData = data;
-      if (!confirmedData && !expectedBuildingId && currentProfileId.current === currentUser.id) {
-        const retry = await supabase.from('profiles')
-          .select('id, full_name, phone, role, building_id, apartment_id, approved, disabled_at, resident_label')
-          .eq('id', currentUser.id).maybeSingle();
-        if (loadVersion !== profileLoadVersion.current) return false;
-        if (retry.error) throw retry.error;
-        confirmedData = retry.data;
+      if (isNeonBackend && (!data || data.id !== currentUser.id || typeof data.approved !== 'boolean'
+        || !['building_admin','owner','tenant','pending'].includes(data.role))) {
+        throw new Error('تعذر تأكيد بيانات الحساب الحالية');
       }
-      if (expectedBuildingId && (!confirmedData || confirmedData.id !== currentUser.id || confirmedData.role !== 'building_admin'
-        || confirmedData.approved !== true || confirmedData.disabled_at || confirmedData.building_id !== expectedBuildingId)) return false;
-      const profile: UserProfile | null = confirmedData ? {
-        uid: confirmedData.id, email: currentUser.email ?? null,
-        displayName: confirmedData.full_name || currentUser.user_metadata?.full_name || currentUser.email || null,
-        role: confirmedData.role as UserProfile['role'],
-        buildingId: confirmedData.building_id || undefined, apartmentId: confirmedData.apartment_id || undefined,
-        phone: confirmedData.phone || undefined, residentLabel: confirmedData.resident_label || undefined,
-        status: confirmedData.disabled_at ? 'suspended' : confirmedData.approved ? 'active' : 'pending',
+      if (expectedBuildingId && (!data || data.id !== currentUser.id || data.role !== 'building_admin'
+        || data.approved !== true || data.disabled_at || data.building_id !== expectedBuildingId)) return false;
+      const profile: UserProfile | null = data ? {
+        uid: data.id, email: currentUser.email ?? null,
+        displayName: data.full_name || currentUser.user_metadata?.full_name || currentUser.email || null,
+        role: data.role as UserProfile['role'],
+        buildingId: data.building_id || undefined, apartmentId: data.apartment_id || undefined,
+        phone: data.phone || undefined, residentLabel: data.resident_label || undefined,
+        status: data.disabled_at ? 'suspended' : data.approved ? 'active' : 'pending',
       } : null;
+      verifiedProfile.current = profile; setProfileRecoveryError(null);
       setUserProfile(profile); setRole(profile?.role ?? null);
       const admin = profile?.role === 'building_admin';
       setIsAdmin(Boolean(admin && profile?.status === 'active'));
@@ -131,8 +129,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       if (loadVersion === profileLoadVersion.current) {
         console.error('Account profile loading failed:', error);
-        // Network/token refresh failures must not erase a verified membership.
-        // Only a successful profile read may change the user's role.
+        // Keep only the same identity's verified profile during transient failures.
+        if (verifiedProfile.current?.uid !== currentUser.id) {
+          setUserProfile(null); setRole(null); setIsAdmin(false); verifiedProfile.current = null;
+        }
+        if (isNeonBackend && !expectedBuildingId) setProfileRecoveryError('تعذر التحقق من بيانات حسابك. أعد المحاولة لاستعادة العمارة.');
         if (!quiet) setAuthError('تعذر تحديث بيانات الحساب مؤقتًا. حاول مرة أخرى.');
       }
       return false;
@@ -145,7 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const holdMembership = () => {
     if (!user || currentUserId.current !== user.id) return () => {};
     const version = ++membershipSyncVersion.current;
-    membershipSync.current = { userId: user.id, buildingId: '' };
+    membershipSync.current = { userId: user.id, buildingId: '', kind: 'write' };
     ++profileLoadVersion.current;
     // Never freeze background membership checks indefinitely if a write stalls.
     const timer = setTimeout(() => {
@@ -161,16 +162,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   };
 
-  const refreshProfile = async (expectedBuildingId?: string) => {
+  const refreshProfile = async (expectedBuildingId?: string, renewSession = false) => {
     if (!user || currentUserId.current !== user.id) return;
-    if (!expectedBuildingId) { await loadProfile(user, true); return; }
+    if (!expectedBuildingId && !renewSession) { await loadProfile(user, true); return; }
     const version = ++membershipSyncVersion.current;
-    membershipSync.current = { userId: user.id, buildingId: expectedBuildingId };
+    membershipSync.current = { userId: user.id, buildingId: expectedBuildingId || '', kind: renewSession ? 'resume' : 'creation' };
     ++profileLoadVersion.current; // Invalidate reads started before the creation committed.
-    setMembershipSyncError(null); setIsSyncingMembership(true);
+    setMembershipSyncError(null); setProfileRecoveryError(null);
+    setIsSyncingMembership(!renewSession || verifiedProfile.current?.uid !== user.id);
+    let lookupUser = user;
+    if (renewSession && isNeonBackend) {
+      let sessionTimeout: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const result = await Promise.race([
+          supabase.auth.refreshSession(),
+          new Promise<never>((_, reject) => { sessionTimeout = setTimeout(() => reject(new Error('Session refresh timed out')), 7000); }),
+        ]);
+        if (version !== membershipSyncVersion.current || currentUserId.current !== user.id) return;
+        if (result.error) throw result.error;
+        const restored = result.data.session?.user;
+        if (!restored || restored.id !== user.id) {
+          await loadProfile(restored || null); return;
+        }
+        lookupUser = restored;
+      } catch {
+        if (version === membershipSyncVersion.current) {
+          setIsSyncingMembership(false);
+          setProfileRecoveryError('تعذر استعادة اتصال حسابك. تأكد من الإنترنت واضغط إعادة المحاولة.');
+        }
+        return;
+      } finally { clearTimeout(sessionTimeout); }
+    }
     for (let attempt = 0; attempt < 4; attempt++) {
       if (version !== membershipSyncVersion.current || currentUserId.current !== user.id) return;
-      if (await loadProfile(user, true, expectedBuildingId)) {
+      if (await loadProfile(lookupUser, true, expectedBuildingId, true)) {
         if (version === membershipSyncVersion.current) {
           membershipSync.current = null; setIsSyncingMembership(false);
         }
@@ -180,7 +205,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     if (version === membershipSyncVersion.current && currentUserId.current === user.id) {
       setIsSyncingMembership(false);
-      setMembershipSyncError({ buildingId: expectedBuildingId,
+      if (renewSession) { setProfileRecoveryError('تعذر التحقق من بيانات حسابك الحالية. اضغط إعادة المحاولة لاستعادة العمارة.'); return; }
+      setMembershipSyncError({ buildingId: expectedBuildingId!,
         message: 'تم حفظ العمارة، لكن تعذر تحديث بيانات حسابك. اضغط إعادة المحاولة للدخول إليها.' });
     }
   };
@@ -290,7 +316,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         // Renewing a known user's token is a background profile check. A
         // temporary data failure must not discard the already verified profile.
-        const quietRefresh = event === 'TOKEN_REFRESHED' && Boolean(session && session.user.id === currentUserId.current && session.user.id === currentProfileId.current);
+        const quietRefresh = Boolean(session && session.user.id === currentUserId.current && session.user.id === currentProfileId.current);
         void loadProfile(session?.user ?? null, quietRefresh);
       }, 0);
     });
@@ -321,13 +347,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const channel = supabase.channel(`own-membership-${user.id}`).on('postgres_changes', {
       event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}`,
     }, refreshMembership).subscribe();
+    let resuming = false; let lastResume = 0;
+    const resume = () => {
+      if (!active || currentUserId.current !== user.id || (membershipSync.current && membershipSync.current.kind !== 'resume') || resuming || Date.now()-lastResume<1000) return;
+      lastResume=Date.now(); resuming=true;
+      void refreshProfile(undefined, true).finally(() => { resuming=false; });
+    };
+    const visibleResume = () => { if (document.visibilityState !== 'hidden') resume(); };
+    const nativeResume = CapacitorApp.addListener('appStateChange', ({ isActive }) => { if (isActive) resume(); });
     const interval = window.setInterval(refreshMembership, 60000);
-    window.addEventListener('focus', refreshMembership);
-    document.addEventListener('visibilitychange', refreshMembership);
+    window.addEventListener('focus', visibleResume);
+    document.addEventListener('visibilitychange', visibleResume);
     return () => {
       active = false; window.clearInterval(interval);
-      window.removeEventListener('focus', refreshMembership);
-      document.removeEventListener('visibilitychange', refreshMembership);
+      window.removeEventListener('focus', visibleResume);
+      document.removeEventListener('visibilitychange', visibleResume);
+      void nativeResume.then(listener => listener.remove());
       void supabase.removeChannel(channel);
     };
   }, [user?.id]);
@@ -432,6 +467,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthError(null);
     membershipSync.current = null; membershipSyncVersion.current++;
     ++profileLoadVersion.current; currentUserId.current = undefined;
+    verifiedProfile.current = null; setProfileRecoveryError(null);
     setIsSyncingMembership(false); setMembershipSyncError(null);
     const { error } = await supabase.auth.signOut();
     if (error) setAuthError(friendlyError(error));
@@ -443,7 +479,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     needsEmailVerification, verifyEmail,
     cancelEmailVerification: () => { setNeedsEmailVerification(false); setAuthError(null); },
     signOut, clearError: () => setAuthError(null),
-    refreshProfile, holdMembership, membershipSyncError }}>
+    refreshProfile, holdMembership, membershipSyncError, profileRecoveryError }}>
     {children}
   </AuthContext.Provider>;
 };

@@ -277,3 +277,19 @@ The recreation runner also checks 14/4, 14/14, 2/5, 0/3 and 1/1 distributions,
 sequential numbering, repeat safety, existing custom records, blank financial defaults
 and unchanged opening balance. The browser fixture's `autounits` scenario verifies
 that generated records render immediately in the existing Collections screen.
+
+
+Background resume now forces a native session renewal and reads the caller's profile
+through the uncached `get_current_membership()` RPC (011), retaining RLS and verified
+identity mapping. Read failures show recovery/retry instead of first-time onboarding;
+real role removals still apply. `verify-current-membership.mjs` runs only in the
+rehearsal DB and rolls back. `test-resume-membership.py` exercises native resume,
+missing/offline reads, session failures, identity switching and genuine revocation.
+
+The optional Pollinations provider requires GitHub Actions secret
+`POLLINATIONS_API_KEY` and Actions variable `POLLINATIONS_FREE_ONLY=true` (only after
+the owner has configured a key without paid Pollen). The deploy workflow forwards
+both when present; omitted values preserve existing Neon Function settings. The flag
+is an operator opt-in, not a provider-enforced spending cap. Never expose the key
+through a VITE variable. Live deployment environment names can be checked without
+reading secrets. Google's 429 quota errors cannot be fixed by repeated app retries.
