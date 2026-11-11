@@ -166,19 +166,20 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
       canvas.height = height;
       const context = canvas.getContext('2d');
       if (!context) throw new Error('تعذر تجهيز الصورة على هذا الجهاز.');
-      const hero = { x: 0, y: 0, w: width, h: height };
-      // Cover-crop the illustration into its own area, keeping the Arabic text clear.
-      const scale = Math.max(hero.w / image.naturalWidth, hero.h / image.naturalHeight);
-      const cropW = hero.w / scale, cropH = hero.h / scale;
-      context.drawImage(image, (image.naturalWidth - cropW) / 2, (image.naturalHeight - cropH) / 2,
-        cropW, cropH, hero.x, hero.y, hero.w, hero.h);
-      const landscape = width / height > 1.3;
-      // Ink is drawn directly on the wall generated as part of the scene.
-      // Preserve all artwork and its lighting: no white fill or gradient overlay.
+      const wall = data.wall as { x: number; y: number; width: number; height: number } | undefined;
+      if (!wall || ![wall.x, wall.y, wall.width, wall.height].every(v => typeof v === 'number' && Number.isFinite(v))
+        || wall.x < 0 || wall.y < 0 || wall.width < 0.32 || wall.height < 0.25 || wall.width * wall.height < 0.14
+        || wall.x + wall.width > 1 || wall.y + wall.height > 1) {
+        throw new Error('تعذر تحديد الحائط الفاضي في الصورة. جرّب توليدها مرة أخرى.');
+      }
+      // Keep normalized analysis coordinates aligned with the whole source image.
+      context.drawImage(image, 0, 0, width, height);
       context.save();
       context.globalCompositeOperation = 'multiply';
-      const panel = landscape ? { x: width * 0.42, y: height * 0.09, w: width * 0.58, h: height * 0.88 }
-        : { x: 0, y: height * 0.07, w: width, h: height * 0.57 };
+      const panel = { x: wall.x * width, y: wall.y * height, w: wall.width * width, h: wall.height * height };
+      context.beginPath();
+      context.rect(panel.x, panel.y, panel.w, panel.h);
+      context.clip();
       const pad = panel.w * 0.075;
       const right = panel.x + panel.w - pad;
       const textWidth = panel.w - pad * 2;
@@ -186,9 +187,9 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
       context.direction = 'rtl';
       context.textAlign = 'right';
       context.textBaseline = 'top';
-      context.font = `bold ${Math.round(Math.min(hero.w * 0.057, width * 0.034))}px Tahoma, Arial, sans-serif`;
+      context.font = `bold ${Math.round(Math.min(panel.w * 0.045, width * 0.034))}px Tahoma, Arial, sans-serif`;
       context.fillStyle = '#103f46';
-      context.fillText(buildingName || 'إدارة العمارة', right, panel.y + panel.h * 0.012, textWidth);
+      context.fillText(buildingName || 'إدارة العمارة', right, panel.y + panel.h * 0.025, textWidth);
       const fitLines = (value: string, maxWidth: number) => {
         const lines: string[] = [];
         for (const paragraph of value.trim().split(/\n+/)) {
@@ -211,7 +212,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
       context.fillText('تنويه من إدارة العقار', right, y, textWidth);
       y += panel.h * 0.065;
       const title = buildAnnouncementPoster(text, buildingName, aspectRatio).title;
-      let titleSize = Math.round(unit * 0.063);
+      let titleSize = Math.max(24, Math.round(unit * 0.063));
       let titleLines: string[] = [];
       for (; titleSize >= 24; titleSize -= 2) {
         context.font = `bold ${titleSize}px Tahoma, Arial, sans-serif`;
@@ -224,7 +225,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
       y += titleLines.length * titleLineHeight + panel.h * 0.035;
       const footerY = panel.y + panel.h * 0.91;
       const maxTextHeight = footerY - y - panel.h * 0.065;
-      let fontSize = Math.round(unit * 0.043);
+      let fontSize = Math.max(20, Math.round(unit * 0.043));
       let lines: string[] = [];
       for (; fontSize >= 20; fontSize -= 1) {
         context.font = `${fontSize}px Tahoma, Arial, sans-serif`;

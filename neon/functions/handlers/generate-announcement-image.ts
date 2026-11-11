@@ -1,3 +1,4 @@
+import { inspectPosterWall, translatePosterContext } from "../poster-layout";
 import { createBackendClient } from "../database.mjs";
 
 const cors = { "Access-Control-Allow-Origin": "https://localhost", "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info" };
@@ -26,9 +27,9 @@ export default async function handle(request: Request): Promise<Response> {
   let payload: { prompt?: unknown; aspectRatio?: unknown; buildingName?: unknown };
   try { payload = await request.json(); } catch { return Response.json({ error: "طلب غير صالح." }, { status: 400, headers: cors }); }
   const prompt = typeof payload.prompt === "string" ? payload.prompt.trim().slice(0, 2500) : "";
-  const buildingName = typeof payload.buildingName === "string" ? payload.buildingName.trim().slice(0, 100) : "";
   const aspectRatio = typeof payload.aspectRatio === "string" && ["1:1", "16:9", "3:4", "9:16"].includes(payload.aspectRatio) ? payload.aspectRatio : "1:1";
   if (prompt.length < 10) return Response.json({ error: "اكتب تفاصيل الإعلان أولاً." }, { status: 400, headers: cors });
+  if (!key) return Response.json({ error: "خدمة فحص الحائط غير مهيأة. يرجى مراجعة إعدادات Gemini." }, { status: 503, headers: cors });
   let theme: string;
   let workScene = false;
   // The main purpose wins over services merely mentioned inside the notice.
@@ -53,7 +54,8 @@ export default async function handle(request: Request): Promise<Response> {
       ? 'qualified electricians actively servicing a safely isolated electrical panel in a residential building, insulated tools, protective gloves and work uniforms'
       : 'skilled maintenance workers actively carrying out the specific repair described in the notice, relevant tools and appropriate safety equipment';
   } else {
-    theme = 'choose an illustrated scene that directly illustrates the MAIN subject and purpose of the notice; follow its actual content, do not invent repair work or force people into a scene that does not need them';
+    try { theme = await translatePosterContext(prompt, key); }
+    catch (error) { return Response.json({ error: error instanceof Error ? error.message : 'تعذر تجهيز وصف الصورة.' }, { status: 503, headers: cors }); }
   }
   const styling = workScene
     ? 'Show the specified work in progress with authentic tools, natural poses, suitable work clothing and appropriate safety equipment.'
@@ -61,9 +63,17 @@ export default async function handle(request: Request): Promise<Response> {
   const composition = aspectRatio === "16:9"
     ? "Compose the action and relevant people in the LEFT 40%. In the RIGHT part, show a real continuous interior wall of the building, viewed straight-on and parallel to the camera, covering x=44%..97%, y=8%..96%."
     : "Compose the relevant people and action in the LOWER part and along the LEFT edge. Show a real continuous interior wall viewed straight-on and parallel to the camera in x=7%..94%, y=6%..65%.";
-  const visualPrompt = `Create a premium FRIENDLY 3D CARTOON ILLUSTRATION for an Egyptian residential building announcement. Scene: ${theme}. Notice context for reference only: ${prompt}. ${styling} Art direction: polished animated-feature-quality 3D cartoon, charming expressive adult characters with rounded stylized faces, friendly eyes and natural poses, detailed dimensional environments, smooth premium materials, soft cinematic daylight, rich teal and cheerful orange accents, warm architectural surfaces and lush green plants. Beautiful ambient lighting, depth and gentle shadows. The people are clearly stylized cartoon adults, NOT realistic photographic humans, NOT flat vector artwork, NOT an isometric miniature or dollhouse. Frame the characters at normal human scale. Keep people and clothing specific to the notice subject. ${composition} This wall is an ACTUAL architectural wall inside the scene, naturally connected to the floor, ceiling, doorway or elevator door. Use warm light beige plaster or pale stone, subtle believable texture and architectural edges, with enough contrast for dark teal lettering. Keep the specified wall surface unobstructed and evenly lit; no people, plants, fixtures, tools or wall decorations across that lettering area. Show visible room depth, the elevator doorway or another relevant feature BESIDE the wall. The app will paint accurate Arabic lettering directly on this wall, so its face MUST be front-facing with no perspective skew. Do NOT render a floating card, a freestanding board, a notice board, a framed sign, a white rectangle, an empty graphic backdrop or a faded white haze. Maintain rich clear colors and visible characters throughout the rest of the image. Fill the entire ${aspectRatio} canvas edge to edge. Absolutely NO generated text, letters, numbers, logos, typography, captions or watermarks; leave the actual wall unlettered for the app. Create a fresh beautiful coherent interior composition.`;
+  const visualPrompt = `Create a premium FRIENDLY 3D CARTOON ILLUSTRATION for an Egyptian residential building announcement. Scene: ${theme}. ${styling} Art direction: polished animated-feature-quality 3D cartoon, charming expressive adult characters with rounded stylized faces, friendly eyes and natural poses, detailed dimensional environments, smooth premium materials, soft cinematic daylight, rich teal and cheerful orange accents, warm architectural surfaces and lush green plants. Beautiful ambient lighting, depth and gentle shadows. The people are clearly stylized cartoon adults, NOT realistic photographic humans, NOT flat vector artwork, NOT an isometric miniature or dollhouse. Frame the characters at normal human scale. Keep people and clothing specific to the notice subject. ${composition} This wall is an ACTUAL architectural wall inside the scene, naturally connected to the floor, ceiling, doorway or elevator door. Use warm light beige plaster or pale stone, subtle believable texture and architectural edges, with enough contrast for dark teal lettering. Keep the specified wall surface unobstructed and evenly lit; no people, plants, fixtures, tools or wall decorations across that lettering area. Show visible room depth, the elevator doorway or another relevant feature BESIDE the wall. The app will paint accurate Arabic lettering directly on this wall, so its face MUST be front-facing with no perspective skew. Do NOT render a floating card, a freestanding board, a notice board, a framed sign, a white rectangle, an empty graphic backdrop or a faded white haze. Maintain rich clear colors and visible characters throughout the rest of the image. Fill the entire ${aspectRatio} canvas edge to edge. Absolutely NO generated text, letters, numbers, logos, typography, captions or watermarks; leave the actual wall unlettered for the app. Create a fresh beautiful coherent interior composition.`;
 
 
+  const finishImage = async (image: string, provider: string): Promise<Response> => {
+    try {
+      const wall = await inspectPosterWall(image, key);
+      return Response.json({ image, provider, wall }, { headers: cors });
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : 'تعذر فحص الصورة.' }, { status: 422, headers: cors });
+    }
+  };
   const tryPollinations = async (): Promise<string | null> => {
     if (!pollinationsKey || !pollinationsFreeOnly) return null;
     // A restricted key with no paid Pollen must be configured by the owner before enabling.
@@ -92,10 +102,6 @@ export default async function handle(request: Request): Promise<Response> {
     return null;
   };
   try {
-    if (!key) {
-      const image = await tryPollinations();
-      return image ? Response.json({ image, provider: "pollinations" }, { headers: cors }) : Response.json({ error: "محرك الصور البديل غير متاح حاليًا." }, { status: 503, headers: cors });
-    }
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + encodeURIComponent(key), {
       method: "POST", headers: { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(90000),
@@ -112,12 +118,12 @@ export default async function handle(request: Request): Promise<Response> {
         : response.status === 400 ? 'خدمة Gemini رفضت إعدادات طلب الصورة.'
         : response.status >= 500 ? 'خدمة Gemini غير متاحة مؤقتًا.'
         : 'تعذر توليد الصورة حاليًا.';
-      if ([429, 403, 404, 500, 502, 503].includes(response.status)) { const image = await tryPollinations(); if (image) return Response.json({ image, provider: "pollinations" }, { headers: cors }); }
+      if ([429, 403, 404, 500, 502, 503].includes(response.status)) { const image = await tryPollinations(); if (image) return finishImage(image, "pollinations"); }
       return Response.json({ error, code: providerCode || `HTTP_${response.status}` }, { status: response.status === 429 ? 429 : 502, headers: cors });
     }
     const part = result?.candidates?.[0]?.content?.parts?.find((item: { inlineData?: { data?: string; mimeType?: string } }) => item.inlineData?.data && item.inlineData?.mimeType?.startsWith("image/"));
     if (!part?.inlineData?.data) { console.error("[AI poster] Gemini returned no image", { finishReason: result?.candidates?.[0]?.finishReason || "unknown" }); return Response.json({ error: "خدمة Gemini لم تُرجع صورة. جرّب وصفًا مختلفًا." }, { status: 502, headers: cors }); }
-    return Response.json({ image: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`, provider: "gemini" }, { headers: cors });
+    return finishImage(`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`, "gemini");
   } catch (error) {
     console.error("[AI poster] Request failed", { type: error instanceof Error ? error.name : "unknown" });
     return Response.json({ error: "تعذر الاتصال بخدمة توليد الصور. حاول مجددًا." }, { status: 503, headers: cors });
