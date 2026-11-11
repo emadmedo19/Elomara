@@ -10,7 +10,7 @@ function setup(env={}){
  vm.runInNewContext(bundle.outputFiles[0].text,ctx);
  return{handler:ctx.module.exports.default,calls,fixture};
 }
-const request=()=>new Request('https://backend.invalid/functions/v1/generate-announcement-image',{method:'POST',headers:{authorization:'Bearer fixture','content-type':'application/json'},body:JSON.stringify({prompt:'تنبيه للسكان بموعد صيانة المصعد',aspectRatio:'16:9'})});
+const request=(prompt='تنبيه للسكان بموعد صيانة المصعد')=>new Request('https://backend.invalid/functions/v1/generate-announcement-image',{method:'POST',headers:{authorization:'Bearer fixture','content-type':'application/json'},body:JSON.stringify({prompt,aspectRatio:'16:9'})});
 test('Gemini quota failure falls back to the configured alternative and preserves dimensions',async()=>{
  const {handler,calls}=setup({GEMINI_API_KEY:'fixture',POLLINATIONS_API_KEY:'fixture-alternative',POLLINATIONS_FREE_ONLY:'true'});
  const r=await handler(request());const data=await r.json();assert.equal(r.status,200);assert.equal(data.provider,'pollinations');assert.match(data.image,/^data:image\/png;base64,/);
@@ -24,4 +24,10 @@ test('alternative remains disabled without explicit operator opt-in',async()=>{
 });
 test('resident requests cannot consume image quota',async()=>{
  const {handler,calls,fixture}=setup({GEMINI_API_KEY:'fixture'});fixture.profile.role='tenant';assert.equal((await handler(request())).status,403);assert.equal(calls.length,0);
+});
+
+test('subscription notice keeps its payment artwork even when mentioning cleaning services',async()=>{
+ const {handler,calls}=setup({POLLINATIONS_API_KEY:'fixture',POLLINATIONS_FREE_ONLY:'true'});
+ await handler(request('يرجى سداد اشتراك الشهر لدعم الصيانة والنظافة والحراسة'));
+ assert.match(JSON.parse(calls[0].options.body).prompt,/payment and service motifs/);
 });

@@ -32,7 +32,7 @@ export default async function handle(request: Request): Promise<Response> {
   const theme = /مصعد|اسانسير|أسانسير/.test(prompt) ? 'a modern residential elevator, closed brushed-metal doors and tasteful maintenance equipment'
     : /مياه|صنابير/.test(prompt) ? 'clear water droplets, elegant blue plumbing pipes and a residential water tank'
     : /كهرباء|التيار/.test(prompt) ? 'a modern electrical panel, cables and a warm glowing light bulb, safe and orderly'
-    : /نظافة|القمامة/.test(prompt) ? 'a spotless elegant residential entrance, green plants and discreet cleaning equipment'
+    : /نظافة|القمامة/.test(prompt) && !/اشتراك|سداد/.test(prompt) ? 'a spotless elegant residential entrance, green plants and discreet cleaning equipment'
     : /جراج|سيارة|السيارات/.test(prompt) ? 'an organized residential garage with neatly parked cars and clear access lanes'
     : /اجتماع|الملاك/.test(prompt) ? 'a welcoming residential meeting area with a round table and neatly arranged chairs'
     : /اشتراك|سداد/.test(prompt) ? 'a well-maintained residential building entrance with subtle payment and service motifs, no banknotes or numerals'
