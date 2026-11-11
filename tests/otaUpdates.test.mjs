@@ -25,13 +25,16 @@ const compiledCandidate = await compile(true);
 
 function setup(options = {}) {
   const calls = [];
+  const cleanupCalls = [];
   const mock = {
     Capacitor: { isNativePlatform: () => options.native !== false },
     App: { addListener: async (_, cb) => { mock.resume = cb; return { remove: async () => {} }; } },
     LiveUpdate: {
-      ready: async () => { calls.push('ready'); if (options.readyFails) throw Error('ready'); },
+      ready: async () => { calls.push('ready'); if (options.readyFails) throw Error('ready'); return { previousBundleId: options.previous ?? null }; },
       getCurrentBundle: async () => ({ bundleId: options.current ?? null }),
       getNextBundle: async () => ({ bundleId: options.next ?? null }),
+      getBundles: async () => { cleanupCalls.push('list'); if (options.listFails) throw Error('list'); return { bundleIds: options.bundles ?? [] }; },
+      deleteBundle: async ({bundleId}) => { cleanupCalls.push(['delete',bundleId]); if (options.deleteFails === bundleId) throw Error('storage'); },
       downloadBundle: async args => { calls.push(['download', args]); if (options.downloadFails) throw Error('offline'); await options.downloadWait; },
       setNextBundle: async args => { calls.push(['stage', args]); },
       reload: async () => { calls.push('reload'); if (options.reloadFails) throw Error('reload'); },
@@ -42,7 +45,7 @@ function setup(options = {}) {
     fetch: async () => { calls.push('fetch'); if (options.offline) throw Error('offline'); return { ok: true, json: async () => options.manifest ?? (options.candidate ? makeManifest(neonBase) : manifest) }; },
   };
   vm.runInNewContext((options.candidate ? compiledCandidate : compiled).outputFiles[0].text, context);
-  return { api: context.module.exports, calls, mock };
+  return { api: context.module.exports, calls, mock, cleanupCalls };
 }
 
 test('startup offers update without downloading, staging or reloading; ready runs first', async () => {
@@ -136,4 +139,36 @@ test('Neon refuses a legacy Supabase manifest', async () => {
   await api.checkForOtaUpdate();
   assert.equal(api.getOtaSnapshot().manifest, null);
   assert.equal(calls.some(call => Array.isArray(call)), false);
+});
+
+test('successful startup removes accumulated bundles but protects current, staged and previous versions',async()=>{
+ const current='1'.repeat(40),next='2'.repeat(40),previous='3'.repeat(40),old='4'.repeat(40),older='5'.repeat(40);
+ const {api,calls,cleanupCalls}=setup({current,next,previous,bundles:[current,next,previous,old,older,'public','not-an-ota-bundle']});
+ await api.checkForOtaUpdate();
+ assert.equal(calls[0],'ready');
+ assert.deepEqual(cleanupCalls,['list',['delete',old],['delete',older]]);
+ assert.equal(calls.some(c=>c==='reload'||Array.isArray(c)),false);
+ await api.checkForOtaUpdate();assert.equal(cleanupCalls.filter(c=>c==='list').length,1);
+});
+test('embedded startup also clears old OTA bundles while retaining a staged update',async()=>{
+ const next='2'.repeat(40),old='4'.repeat(40);
+ const {api,cleanupCalls}=setup({next,bundles:[old,next]});await api.checkForOtaUpdate();
+ assert.deepEqual(cleanupCalls,['list',['delete',old]]);
+});
+test('failed readiness and web execution never list or delete bundles',async()=>{
+ for(const options of [{readyFails:true},{native:false}]){
+  const {api,cleanupCalls}=setup({...options,bundles:['4'.repeat(40)]});await api.checkForOtaUpdate();assert.deepEqual(cleanupCalls,[]);
+ }
+});
+test('cleanup errors do not prevent update checks, and one failed delete does not stop the rest',async()=>{
+ const a='4'.repeat(40),b='5'.repeat(40);
+ for(const options of [{listFails:true},{deleteFails:a}]){
+  const {api,cleanupCalls}=setup({...options,bundles:[a,b]});await api.checkForOtaUpdate();
+  assert.equal(api.getOtaSnapshot().manifest.bundleId,id);
+  if(!options.listFails)assert.deepEqual(cleanupCalls,['list',['delete',a],['delete',b]]);
+ }
+});
+test('offline startup still removes obsolete bundles without downloading or reloading',async()=>{
+ const old='4'.repeat(40);const {api,calls,cleanupCalls}=setup({offline:true,bundles:[old]});
+ await api.checkForOtaUpdate();assert.deepEqual(cleanupCalls,['list',['delete',old]]);assert.equal(api.getOtaSnapshot().manifest,null);assert.equal(calls.includes('reload'),false);
 });

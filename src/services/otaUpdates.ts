@@ -31,11 +31,34 @@ export const subscribeToOta = (listener: () => void) => {
   return () => { listeners.delete(listener); };
 };
 
+async function removeUnusedBundles(previousBundleId?: string | null): Promise<void> {
+  try {
+    // Run only after ready() succeeds and before any update can begin downloading.
+    const [current, next, downloaded] = await Promise.all([
+      LiveUpdate.getCurrentBundle(), LiveUpdate.getNextBundle(), LiveUpdate.getBundles(),
+    ]);
+    if (!(typeof current.bundleId === 'string' || current.bundleId === null)
+      || !(typeof next.bundleId === 'string' || next.bundleId === null)
+      || !Array.isArray(downloaded.bundleIds)) return;
+    const keep = new Set([current.bundleId, next.bundleId, previousBundleId]);
+    for (const bundleId of downloaded.bundleIds) {
+      // Delete only app-managed OTA bundles, never native assets or arbitrary files.
+      if (!/^[a-f0-9]{40}$/.test(bundleId) || keep.has(bundleId)) continue;
+      try { await LiveUpdate.deleteBundle({ bundleId }); }
+      catch (error) { console.warn('[OTA] Could not remove an unused bundle:', error); }
+    }
+  } catch (error) {
+    // Storage cleanup must never block startup, offline use or update recovery.
+    console.warn('[OTA] Bundle cleanup unavailable:', error);
+  }
+}
+
 async function markCurrentBundleReady(): Promise<boolean> {
   if (!Capacitor.isNativePlatform()) return false;
   try {
     const ready = await LiveUpdate.ready();
     console.info('[OTA] Current bundle marked ready:', ready);
+    await removeUnusedBundles(ready?.previousBundleId);
     return true;
   } catch (error) {
     console.warn('[OTA] Ready check failed:', error);
