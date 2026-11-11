@@ -35,9 +35,15 @@ public class AnnouncementSaveFlowTest {
         assertTrue("JavaScript callback timed out",done.await(10,TimeUnit.SECONDS)); return value.get();
     }
     private void waitFor(WebView view,String expression) throws Exception {
-        long end=SystemClock.uptimeMillis()+20000;
-        while(SystemClock.uptimeMillis()<end){ if("true".equals(evaluate(view,expression)))return;SystemClock.sleep(100); }
-        fail("Save did not finish: "+evaluate(view,"window.__saveError || 'no result'"));
+        // Large PNG bridge transfers and document-provider writes can exceed 20 seconds on CI emulators.
+        long end=SystemClock.uptimeMillis()+90000;
+        while(SystemClock.uptimeMillis()<end){
+            if("true".equals(evaluate(view,expression))) return;
+            String error=evaluate(view,"Boolean(window.__saveError)");
+            if("true".equals(error)) fail("Native save failed: "+evaluate(view,"window.__saveError"));
+            SystemClock.sleep(250);
+        }
+        fail("Save did not finish within 90 seconds: "+evaluate(view,"window.__saveError || 'no result'"));
     }
     @Test public void fullWebViewBridgeAndDocumentResultSaveLargeOpenablePng() throws Exception {
         Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
