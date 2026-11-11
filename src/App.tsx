@@ -186,7 +186,7 @@ export default function App() {
 
             const [ticketResult, announcementResult, expenseResult, settingsResult] = await Promise.all([
               supabase.from('maintenance_tickets').select('id,building_id,apartment_id,unit_number,resident_name,category,title,description,urgency,status,created_at').in('building_id', rows.map(b => b.id)).order('created_at', { ascending: false }).abortSignal(requestController.signal),
-              supabase.from('announcements').select('id,building_id,title,content,announcement_type,image_url,pinned,created_at').in('building_id', rows.map(b => b.id)).order('created_at', { ascending: false }).abortSignal(requestController.signal),
+              supabase.from('announcements').select('id,building_id,title,content,announcement_type,pinned,created_at').in('building_id', rows.map(b => b.id)).order('created_at', { ascending: false }).abortSignal(requestController.signal),
               supabase.from('expenses').select('id,building_id,title,category,amount,expense_date,vendor,notes,receipt_url,approved_by').in('building_id', rows.map(b => b.id)).order('expense_date', { ascending: false }).abortSignal(requestController.signal),
               supabase.from('app_settings').select('setting_value').eq('building_id', rows[0].id).eq('setting_key', 'general').abortSignal(requestController.signal).maybeSingle(),
             ]);
@@ -201,7 +201,7 @@ export default function App() {
             if (announcementResult.error) throw announcementResult.error;
             setAnnouncements((announcementResult.data || []).map((r: any) => ({
               id:r.id, buildingId:r.building_id, title:r.title, content:r.content,
-              type:r.announcement_type, imageUrl:r.image_url || undefined, pinned:r.pinned,
+              type:r.announcement_type, imageUrl:undefined, pinned:r.pinned,
               date:r.created_at,
             })));
             if (cancelled || timedOut) return;
@@ -247,6 +247,25 @@ export default function App() {
       void nativeListener.then(listener => listener?.remove());
     };
   }, [managerScope, managerLoad]);
+
+  // Legacy Base64 announcement images must not block loading the entire building.
+  // Load each image separately after the dashboard becomes usable; keep database records intact.
+  useEffect(() => {
+    if (managerLoad.status !== 'ready' || !managerScope || !announcements.length) return;
+    let cancelled = false;
+    const missing = announcements.filter(item => !item.imageUrl);
+    if (!missing.length) return;
+    void (async () => {
+      for (const item of missing) {
+        if (cancelled) break;
+        const { data, error } = await supabase.from('announcements').select('image_url').eq('id', item.id).maybeSingle();
+        if (cancelled) break;
+        if (error) { console.warn('Announcement image could not load', item.id, error); continue; }
+        if (data?.image_url) setAnnouncements(rows => rows.map(row => row.id === item.id ? { ...row, imageUrl: data.image_url } : row));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [managerLoad.status, managerScope, announcements.length]);
 
   // 3. Navigation State (Defaults directly to 'dashboard')
   const [currentTab, setCurrentTabState] = useState<string>(() => typeof window === 'undefined' ? 'dashboard' : tabFromLocation());
@@ -403,7 +422,7 @@ export default function App() {
 
       const [ticketResult, announcementResult, expenseResult, settingsResult] = await Promise.all([
         supabase.from('maintenance_tickets').select('id,building_id,apartment_id,unit_number,resident_name,category,title,description,urgency,status,created_at').in('building_id', refreshedBuildings.map(b => b.id)).order('created_at', { ascending: false }),
-        supabase.from('announcements').select('id,building_id,title,content,announcement_type,image_url,pinned,created_at').in('building_id', refreshedBuildings.map(b => b.id)).order('created_at', { ascending: false }),
+        supabase.from('announcements').select('id,building_id,title,content,announcement_type,pinned,created_at').in('building_id', refreshedBuildings.map(b => b.id)).order('created_at', { ascending: false }),
         supabase.from('expenses').select('id,building_id,title,category,amount,expense_date,vendor,notes,receipt_url,approved_by').in('building_id', refreshedBuildings.map(b => b.id)).order('expense_date', { ascending: false }),
         supabase.from('app_settings').select('setting_value').eq('building_id', refreshedBuildings[0]?.id || '').eq('setting_key', 'general').maybeSingle(),
       ]);
@@ -417,7 +436,7 @@ export default function App() {
       })));
       setAnnouncements((announcementResult.data || []).map((r: any) => ({
         id:r.id, buildingId:r.building_id, title:r.title, content:r.content,
-        type:r.announcement_type, imageUrl:r.image_url || undefined, pinned:r.pinned,
+        type:r.announcement_type, imageUrl:undefined, pinned:r.pinned,
         date:r.created_at,
       })));
       if (expenseResult.error) throw expenseResult.error;
