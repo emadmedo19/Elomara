@@ -55,8 +55,8 @@ for (const [notice, expected] of [
  assert.doesNotMatch(prompt,/teal workwear|Show the specified work in progress|technicians actively/);
 });
 
-test('approved direction uses flat vector illustration with a light text area',async()=>{
+test('approved direction uses friendly 3D cartoon characters with a light text area',async()=>{
  const {handler,calls}=setup({POLLINATIONS_API_KEY:'fixture',POLLINATIONS_FREE_ONLY:'true'});
  await handler(request());const prompt=JSON.parse(calls[0].options.body).prompt;
- assert.match(prompt,/FLAT VECTOR ILLUSTRATION/);assert.match(prompt,/Strictly 2D illustration/);assert.match(prompt,/light cream negative space/);
+ assert.match(prompt,/FRIENDLY 3D CARTOON ILLUSTRATION/);assert.match(prompt,/clearly stylized cartoon adults/);assert.match(prompt,/light cream negative space/);
 });
