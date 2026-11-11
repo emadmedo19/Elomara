@@ -73,6 +73,7 @@ export default function App() {
   const managerScopeRef = useRef(managerScope); managerScopeRef.current = managerScope;
   const [managerLoad, setManagerLoad] = useState<{ scope: string; status: 'loading' | 'ready' | 'error' }>({ scope: '', status: 'loading' });
   const [managerLoadRevision, setManagerLoadRevision] = useState(0);
+  const [managerLoadFailure, setManagerLoadFailure] = useState('');
   const isDataLoading = managerLoad.scope !== managerScope || managerLoad.status === 'loading';
   const [role, setRole] = useState<UserRole>('manager');
   
@@ -117,12 +118,14 @@ export default function App() {
     let controller: AbortController | undefined;
     let loadTimeout: number | undefined;
     setManagerLoad({ scope: managerScope, status: 'loading' });
+    setManagerLoadFailure('');
     const load = async (attempt = 0) => {
       controller = new AbortController();
       const requestController = controller;
       let timedOut = false;
-      const fail = () => {
+      const fail = (reason = 'انتهت مهلة الاتصال بالخادم') => {
         if (cancelled) return;
+        setManagerLoadFailure(reason);
         if (attempt === 0) retryTimer = window.setTimeout(() => { if (!cancelled) void load(1); }, 800);
         else setManagerLoad({ scope: managerScope, status: 'error' });
       };
@@ -213,8 +216,13 @@ export default function App() {
           }
         }
         if (!cancelled && !timedOut) setManagerLoad({ scope: managerScope, status: 'ready' });
-      } catch {
-        if (!timedOut) fail();
+      } catch (error) {
+        if (!timedOut) {
+          const failure = error as { message?: string; code?: string; status?: number };
+          const detail = [failure?.code || failure?.status, failure?.message].filter(Boolean).join(' — ');
+          console.error('Manager building data load failed', error);
+          fail(detail || 'فشل غير معروف أثناء تحميل بيانات العمارة');
+        }
       } finally { window.clearTimeout(timeout); requestController.abort(); }
     };
     void load();
@@ -1211,7 +1219,8 @@ export default function App() {
       <div role="alert" className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 text-center space-y-4">
         <AlertCircle className="mx-auto h-10 w-10 text-amber-600"/>
         <h1 className="text-xl font-bold text-slate-900">تعذر تحميل بيانات العمارة</h1>
-        <p className="text-sm leading-7 text-slate-600">تأكد من اتصال الإنترنت وحاول مرة أخرى.</p>
+        <p className="text-sm leading-7 text-slate-600">فشل تحميل البيانات من الخادم. حاول مرة أخرى.</p>
+        {managerLoadFailure && <p dir="auto" className="text-xs leading-6 text-slate-700 break-words select-text">تفاصيل الخطأ: {managerLoadFailure}</p>}
         <button type="button" onClick={() => setManagerLoadRevision(value => value + 1)} className="w-full rounded-xl bg-teal-700 p-3 font-bold text-white">إعادة المحاولة</button>
       </div>
     </div>;
