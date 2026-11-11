@@ -173,14 +173,10 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
       context.drawImage(image, (image.naturalWidth - cropW) / 2, (image.naturalHeight - cropH) / 2,
         cropW, cropH, hero.x, hero.y, hero.w, hero.h);
       const landscape = width / height > 1.3;
-      // A light fade leaves the flat illustration visible and supports dark Arabic type.
-      const shade = landscape ? context.createLinearGradient(width * 0.25, 0, width, 0)
-        : context.createLinearGradient(0, height * 0.82, 0, 0);
-      shade.addColorStop(0, 'rgba(255,247,232,0)');
-      shade.addColorStop(0.45, 'rgba(255,247,232,0.93)');
-      shade.addColorStop(1, 'rgba(255,247,232,0.99)');
-      context.fillStyle = shade;
-      context.fillRect(0, 0, width, height);
+      // Ink is drawn directly on the wall generated as part of the scene.
+      // Preserve all artwork and its lighting: no white fill or gradient overlay.
+      context.save();
+      context.globalCompositeOperation = 'multiply';
       const panel = landscape ? { x: width * 0.42, y: height * 0.09, w: width * 0.58, h: height * 0.88 }
         : { x: 0, y: height * 0.07, w: width, h: height * 0.57 };
       const pad = panel.w * 0.075;
@@ -192,7 +188,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
       context.textBaseline = 'top';
       context.font = `bold ${Math.round(Math.min(hero.w * 0.057, width * 0.034))}px Tahoma, Arial, sans-serif`;
       context.fillStyle = '#103f46';
-      context.fillText(buildingName || 'إدارة العمارة', hero.w - width * 0.045, height * 0.035, hero.w - width * 0.09);
+      context.fillText(buildingName || 'إدارة العمارة', right, panel.y + panel.h * 0.012, textWidth);
       const fitLines = (value: string, maxWidth: number) => {
         const lines: string[] = [];
         for (const paragraph of value.trim().split(/\n+/)) {
@@ -244,6 +240,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
       context.fillStyle = '#55716d';
       context.font = `${Math.round(unit * 0.026)}px Tahoma, Arial, sans-serif`;
       context.fillText('مع تحيات إدارة العمارة', right, footerY, textWidth);
+      context.restore();
       setGeneratedImageUrl(canvas.toDataURL('image/png'));
       setPrompt(text);
     } catch (error: unknown) {

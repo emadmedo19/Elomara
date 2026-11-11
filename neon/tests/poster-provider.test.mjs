@@ -37,7 +37,7 @@ test('maintenance artwork requests active technicians and keeps space for overla
  const prompt=JSON.parse(calls[0].options.body).prompt;
  assert.match(prompt,/technicians actively inspecting and servicing/);
  assert.match(prompt,/LEFT 40%/);
- assert.match(prompt,/overlays accurate dark teal Arabic text directly/);
+ assert.match(prompt,/paint accurate Arabic lettering directly on this wall/);
 });
 
 for (const [notice, expected] of [
@@ -55,8 +55,16 @@ for (const [notice, expected] of [
  assert.doesNotMatch(prompt,/teal workwear|Show the specified work in progress|technicians actively/);
 });
 
-test('approved direction uses friendly 3D cartoon characters with a light text area',async()=>{
+test('approved direction uses friendly 3D cartoon characters with an architectural wall for text',async()=>{
  const {handler,calls}=setup({POLLINATIONS_API_KEY:'fixture',POLLINATIONS_FREE_ONLY:'true'});
  await handler(request());const prompt=JSON.parse(calls[0].options.body).prompt;
- assert.match(prompt,/FRIENDLY 3D CARTOON ILLUSTRATION/);assert.match(prompt,/clearly stylized cartoon adults/);assert.match(prompt,/light cream negative space/);
+ assert.match(prompt,/FRIENDLY 3D CARTOON ILLUSTRATION/);assert.match(prompt,/clearly stylized cartoon adults/);assert.match(prompt,/ACTUAL architectural wall inside the scene/);
+});
+
+test('text belongs to a front-facing wall inside the scene without a floating panel or white haze',async()=>{
+ const {handler,calls}=setup({POLLINATIONS_API_KEY:'fixture',POLLINATIONS_FREE_ONLY:'true'});
+ await handler(request());const prompt=JSON.parse(calls[0].options.body).prompt;
+ assert.match(prompt,/naturally connected to the floor, ceiling, doorway or elevator door/);
+ assert.match(prompt,/front-facing with no perspective skew/);
+ assert.match(prompt,/Do NOT render a floating card/);
 });
