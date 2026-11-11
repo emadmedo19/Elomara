@@ -39,3 +39,18 @@ test('maintenance artwork requests active technicians and keeps space for overla
  assert.match(prompt,/LEFT 40%/);
  assert.match(prompt,/overlay the exact Arabic heading and notice directly onto the photo/);
 });
+
+for (const [notice, expected] of [
+ ['دعوة لاجتماع السكان والملاك لمناقشة صيانة المصعد والكهرباء', /community meeting/],
+ ['يرجى سداد الاشتراك لدعم صيانة المصعد ونظافة العمارة', /payment and service motifs/],
+ ['يرجى مراعاة الهدوء وتجنب أعمال الصيانة المزعجة', /serene atmosphere/],
+ ['يرجى الالتزام بأماكن السيارات داخل الجراج', /organized residential garage/],
+ ['تهنئة للسكان بمناسبة شهر رمضان الكريم', /MAIN subject and purpose/],
+]) test('non-maintenance notice follows its purpose: '+notice,async()=>{
+ const {handler,calls}=setup({POLLINATIONS_API_KEY:'fixture',POLLINATIONS_FREE_ONLY:'true'});
+ await handler(request(notice));
+ const prompt=JSON.parse(calls[0].options.body).prompt;
+ assert.match(prompt,expected);
+ assert.match(prompt,/everyday civilian clothing/);
+ assert.doesNotMatch(prompt,/teal workwear|Show the specified work in progress|technicians actively/);
+});
