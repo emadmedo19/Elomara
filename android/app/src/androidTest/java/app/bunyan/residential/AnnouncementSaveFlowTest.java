@@ -35,18 +35,19 @@ public class AnnouncementSaveFlowTest {
         InstrumentationRegistry.getInstrumentation().runOnMainSync(()->view.evaluateJavascript(script,r->{value.set(r);done.countDown();}));
         assertTrue("JavaScript callback timed out",done.await(10,TimeUnit.SECONDS)); return value.get();
     }
-    private void waitFor(WebView view,String expression) throws Exception {
+    private void waitFor(WebView view,String stage,String expression) throws Exception {
         // Large PNG bridge transfers and document-provider writes can exceed 20 seconds on CI emulators.
+        Log.i("AnnouncementSaveTest","Waiting for stage: "+stage);
         long end=SystemClock.uptimeMillis()+90000;
         while(SystemClock.uptimeMillis()<end){
-            if("true".equals(evaluate(view,expression))) return;
+            if("true".equals(evaluate(view,expression))) { Log.i("AnnouncementSaveTest","Completed stage: "+stage); return; }
             String error=evaluate(view,"Boolean(window.__saveError)");
-            if("true".equals(error)) fail("Native save failed: "+evaluate(view,"window.__saveError"));
+            if("true".equals(error)) fail("Native save failed at "+stage+": "+evaluate(view,"window.__saveError"));
             SystemClock.sleep(250);
         }
         String diagnostics=evaluate(view,"JSON.stringify({href:location.href,bridge:Boolean(window.Capacitor?.nativePromise),result:window.__saveResult||null,error:window.__saveError||null,ready:document.readyState})");
-        Log.e("AnnouncementSaveTest","Save timeout: "+diagnostics);
-        fail("Save did not finish within 90 seconds: "+diagnostics);
+        Log.e("AnnouncementSaveTest","Save timeout at "+stage+": "+diagnostics);
+        fail("Save did not finish at "+stage+" within 90 seconds: "+diagnostics);
     }
     @Test public void fullWebViewBridgeAndDocumentResultSaveLargeOpenablePng() throws Exception {
         Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
@@ -62,7 +63,7 @@ public class AnnouncementSaveFlowTest {
             Intents.intending(hasAction(Intent.ACTION_CREATE_DOCUMENT)).respondWith(new Instrumentation.ActivityResult(Activity.RESULT_OK,new Intent().setData(uri)));
             try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
                 AtomicReference<WebView> ref=new AtomicReference<>();scenario.onActivity(a->ref.set(a.getBridge().getWebView()));WebView view=ref.get();
-                waitFor(view,"Boolean(window.Capacitor && window.Capacitor.nativePromise)");
+                waitFor(view,"bridge ready","Boolean(window.Capacitor && window.Capacitor.nativePromise)");
                 // Match the production saveAnnouncementImage flow: large base64 payloads must
                 // cross the WebView bridge in small chunks, never one multi-MB JS evaluation.
                 String payload=Base64.encodeToString(encoded.toByteArray(),Base64.NO_WRAP);
@@ -70,16 +71,16 @@ public class AnnouncementSaveFlowTest {
                 int chunks=(payload.length()+chunkLength-1)/chunkLength;
                 JSONObject begin=new JSONObject().put("chunks",chunks);
                 evaluate(view,"window.__saveResult=null;window.__saveError=null;window.__transferDone=false;window.Capacitor.nativePromise('AnnouncementFiles','beginPngTransfer',"+begin+").then(()=>window.__transferDone=true).catch(e=>window.__saveError=e.message);true;");
-                waitFor(view,"Boolean(window.__transferDone)");
+                waitFor(view,"begin transfer","Boolean(window.__transferDone)");
                 for(int index=0;index<chunks;index++){
                     String chunk=payload.substring(index*chunkLength,Math.min((index+1)*chunkLength,payload.length()));
                     JSONObject part=new JSONObject().put("index",index).put("chunk",chunk);
                     evaluate(view,"window.__transferDone=false;window.Capacitor.nativePromise('AnnouncementFiles','appendPngChunk',"+part+").then(()=>window.__transferDone=true).catch(e=>window.__saveError=e.message);true;");
-                    waitFor(view,"Boolean(window.__transferDone)");
+                    waitFor(view,"chunk "+index+"/"+chunks,"Boolean(window.__transferDone)");
                 }
                 JSONObject finish=new JSONObject().put("fileName","announcement-flow.png");
                 evaluate(view,"window.Capacitor.nativePromise('AnnouncementFiles','finishPngTransfer',"+finish+").then(r=>window.__saveResult=r).catch(e=>window.__saveError=e.message);true;");
-                waitFor(view,"Boolean(window.__saveResult?.saved)");
+                waitFor(view,"document picker and save callback","Boolean(window.__saveResult?.saved)");
                 Intents.intended(hasAction(Intent.ACTION_CREATE_DOCUMENT));
                 assertEquals(encoded.size(),output.length());Bitmap saved=BitmapFactory.decodeFile(output.getPath());assertNotNull(saved);
                 assertEquals(original.getWidth(),saved.getWidth());assertEquals(original.getHeight(),saved.getHeight());assertEquals(original.getPixel(111,222),saved.getPixel(111,222));saved.recycle();
