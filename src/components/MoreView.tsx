@@ -100,13 +100,13 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
     finally { setGenerating(false); }
   };
   const eligible = promoApplied;
-  return <SettingsPage title="المزيد" onBack={onBack}><SettingsList items={[
+  return <SettingsPage title={ownerOpen ? "إدارة اشتراكات المنصة" : showPlans ? "الاشتراك والباقات" : "المزيد"} onBack={ownerOpen ? () => setOwnerOpen(false) : showPlans ? () => setShowPlans(false) : onBack} subpage={ownerOpen || showPlans}>{!ownerOpen && !showPlans && <SettingsList items={[
     ...items,
-    ...(ownerSummary ? [{ id: 'platform-subscriptions', label: 'إدارة اشتراكات المنصة', icon: CreditCard, onClick: () => setOwnerOpen(value => !value) }] : []),
-    { id: 'subscription', label: 'الاشتراك والباقات', icon: CreditCard, onClick: () => setShowPlans(value => !value) },
+    ...(ownerSummary ? [{ id: 'platform-subscriptions', label: 'إدارة اشتراكات المنصة', icon: CreditCard, onClick: () => { setShowPlans(false); setOwnerOpen(true); } }] : []),
+    { id: 'subscription', label: 'الاشتراك والباقات', icon: CreditCard, onClick: () => { setOwnerOpen(false); setShowPlans(true); } },
     { id: 'app-settings', label: 'إعدادات التطبيق', icon: Settings, onClick: onOpenAppSettings },
     { id: 'logout', label: 'تسجيل الخروج', icon: LogOut, tone: 'rose', onClick: onSignOut },
-  ]}/>{ownerSummary && ownerOpen && <section dir="rtl" className="mx-4 my-4 rounded-2xl border border-slate-200 p-4 space-y-3">
+  ]}/>}{ownerSummary && ownerOpen && <section dir="rtl" className="mx-4 my-4 rounded-2xl border border-slate-200 p-4 space-y-3">
     <h3 className="text-lg font-bold">إدارة اشتراكات المنصة</h3>
     <p className="text-sm">العمارات: {ownerSummary.buildings} · تجريبي: {ownerSummary.trial} · نشط: {ownerSummary.active} · مجاني VIP: {ownerSummary.vip}</p>
     <p className="text-sm">أكواد متاحة: {ownerSummary.codes_available} · مستخدمة: {ownerSummary.codes_used}</p>
@@ -158,5 +158,5 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
       {eligible && <p className="text-sm text-emerald-700">خصم 50% مبدئيًا. التفعيل النهائي مشروط بتوافر مكان ضمن أول 10 عمارات وإتمام أول دفعة.</p>}
     </div>}
     <p className="text-sm text-slate-500">الدفع الإلكتروني قيد التجهيز. الأسعار المعروضة للتعريف فقط؛ لم يتم تفعيل أي اشتراك أو حجز الخصم.</p>
-  </section>}<AccountDeletionButton/></SettingsPage>;
+  </section>}{!ownerOpen && !showPlans && <AccountDeletionButton/>}</SettingsPage>;
 }
