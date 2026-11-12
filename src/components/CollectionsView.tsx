@@ -399,33 +399,34 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
 
       {/* Confirmation Modal for Deleting a Payment */}
       {paymentToDelete && (
-        <div className="fixed inset-0 z-50 bg-[#0f2537]/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl border-2 border-rose-300 space-y-3">
+        <div className="fixed inset-0 z-50 bg-[#0f2537]/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-md w-full max-h-[calc(100dvh-2rem)] overflow-y-auto p-4 sm:p-5 shadow-2xl border border-rose-300 space-y-4" dir="rtl" role="alertdialog" aria-modal="true" aria-labelledby="delete-payment-title">
             <div className="flex items-start gap-3 text-rose-950">
               <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
                 <AlertTriangle className="w-5 h-5" />
               </div>
-              <div className="space-y-1.5 flex-1">
-                <h3 className="font-bold text-base text-rose-900">تأكيد حذف دفعة السداد</h3>
+              <div className="space-y-2 flex-1 min-w-0">
+                <h3 id="delete-payment-title" className="font-bold text-base text-rose-900">تأكيد حذف دفعة السداد</h3>
                 <p className="text-xs text-rose-700 leading-relaxed">
                   هل أنت متأكد من حذف هذه الدفعة نهائياً؟ يرجى مراجعة تفاصيلها:
                 </p>
-                <div className="bg-rose-50/60 p-3 rounded-xl border border-rose-200 grid grid-cols-2 gap-2 text-xs">
-                  <div>
+                <div className="bg-rose-50/60 p-3 rounded-xl border border-rose-200 grid grid-cols-2 gap-3 text-xs">
+                  <div className="min-w-0">
                     <span className="text-slate-500 block text-[10px]">المبلغ:</span>
                     <span className="font-bold text-rose-700 text-sm">{paymentToDelete.amount.toLocaleString()} ج.م</span>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-slate-500 block text-[10px]">الشقة:</span>
                     <span className="font-bold text-slate-800">{paymentToDelete.unitNumber}</span>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-slate-500 block text-[10px]">رقم الإيصال:</span>
-                    <span className="font-mono text-slate-700 font-bold">{paymentToDelete.receiptNumber || 'بدون إيصال'}</span>
+                    <span className="font-mono text-slate-700 font-bold break-all" dir="ltr">{paymentToDelete.receiptNumber || 'بدون إيصال'}</span>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-slate-500 block text-[10px]">الدورة والتاريخ:</span>
-                    <span className="text-slate-700">{paymentToDelete.month} • {paymentToDelete.date}</span>
+                    <span className="block text-slate-700 break-words">{paymentToDelete.month}</span>
+                    <span className="block text-slate-600 mt-1" dir="ltr">{paymentToDelete.date}</span>
                   </div>
                 </div>
                 <p className="text-[11px] text-rose-600 font-medium">
@@ -433,18 +434,18 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
                 </p>
               </div>
             </div>
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setPaymentToDelete(null)}
-                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
+                className="px-4 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
               >
-                إلغاء التراجع
+                إلغاء
               </button>
               <button
                 type="button"
                 onClick={handleConfirmDeletePayment}
-                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm"
+                className="px-4 py-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm"
               >
                 تأكيد حذف الدفعة
               </button>
