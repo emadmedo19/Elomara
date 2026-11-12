@@ -319,27 +319,10 @@ export default function App() {
     if (paymentSuccessTimer.current) clearTimeout(paymentSuccessTimer.current);
     paymentSuccessTimer.current = setTimeout(() => setPaymentSuccess(null), 3200);
     try {
-      const AudioContextClass = window.AudioContext;
-      if (AudioContextClass) {
-        const audio = new AudioContextClass();
-        void audio.resume().then(() => {
-          const now = audio.currentTime;
-          [659.25, 880, 1046.5].forEach((frequency, index) => {
-            const oscillator = audio.createOscillator();
-            const gain = audio.createGain();
-            oscillator.type = 'sine';
-            oscillator.frequency.value = frequency;
-            gain.gain.setValueAtTime(0.0001, now + index * 0.12);
-            gain.gain.exponentialRampToValueAtTime(0.075, now + index * 0.12 + 0.025);
-            gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.12 + 0.23);
-            oscillator.connect(gain).connect(audio.destination);
-            oscillator.start(now + index * 0.12);
-            oscillator.stop(now + index * 0.12 + 0.24);
-          });
-          window.setTimeout(() => void audio.close(), 1100);
-        }).catch(() => void audio.close());
-      }
-    } catch { /* Audio may be disabled by device settings; confirmation still appears. */ }
+      const sound = new Audio('/sounds/payment-cha-ching.mp3');
+      sound.volume = 0.85;
+      void sound.play().catch(() => { /* Audio may be disabled; payment confirmation still appears. */ });
+    } catch { /* Audio may be disabled; payment confirmation still appears. */ }
   };
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
