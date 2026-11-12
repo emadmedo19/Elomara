@@ -56,6 +56,11 @@ const data = new PostgrestClient(dataUrl, { fetch: async (input, init) => {
   if (!session) throw new Error('سجّل الدخول أولًا.');
   const headers = new Headers(init?.headers);
   headers.set('Authorization', `Bearer ${session.accessToken}`);
+  // PostgREST RPC parameter matching requires JSON Content-Type on Android.
+  // Some native transports drop the implicit header even when a JSON body exists.
+  if ((init?.method || 'GET').toUpperCase() === 'POST' && typeof init?.body === 'string') {
+    headers.set('Content-Type', 'application/json');
+  }
   // Keep headers enumerable for Android/native fetch transports. A Headers
   // instance can lose Content-Type there, making JSON RPCs appear parameterless.
   const response = await fetch(input, { ...init, cache: 'no-store', headers: Object.fromEntries(headers) });
