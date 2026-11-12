@@ -309,7 +309,36 @@ export default function App() {
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   // 5. Toast System
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
+  const [paymentSuccess, setPaymentSuccess] = useState<{unit: string; month: string; amount: number} | null>(null);
+  const paymentSuccessTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (paymentSuccessTimer.current) clearTimeout(paymentSuccessTimer.current); }, []);
+  const announcePaymentSuccess = (unit: string, month: string, amount: number) => {
+    setPaymentSuccess({unit, month, amount});
+    if (paymentSuccessTimer.current) clearTimeout(paymentSuccessTimer.current);
+    paymentSuccessTimer.current = setTimeout(() => setPaymentSuccess(null), 3200);
+    try {
+      const AudioContextClass = window.AudioContext;
+      if (AudioContextClass) {
+        const audio = new AudioContextClass();
+        void audio.resume().then(() => {
+          const now = audio.currentTime;
+          [659.25, 880, 1046.5].forEach((frequency, index) => {
+            const oscillator = audio.createOscillator();
+            const gain = audio.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.value = frequency;
+            gain.gain.setValueAtTime(0.0001, now + index * 0.12);
+            gain.gain.exponentialRampToValueAtTime(0.075, now + index * 0.12 + 0.025);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.12 + 0.23);
+            oscillator.connect(gain).connect(audio.destination);
+            oscillator.start(now + index * 0.12);
+            oscillator.stop(now + index * 0.12 + 0.24);
+          });
+          window.setTimeout(() => void audio.close(), 1100);
+        }).catch(() => void audio.close());
+      }
+    } catch { /* Audio may be disabled by device settings; confirmation still appears. */ }
+  };
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
     setToast({ message, type });
@@ -711,6 +740,7 @@ export default function App() {
       });
       if (error) { showToast('تعذر تسجيل السداد الاستثنائي: ' + error.message, 'error'); return false; }
       await refreshAppData();
+      announcePaymentSuccess(String(apt.unitNumber), paymentData.month, paymentData.amount);
       showToast('تم تسجيل المبلغ المسدد وإضافته للخزينة.');
       return true;
     }
@@ -782,6 +812,7 @@ export default function App() {
     logPaymentAudit('create', newPayment, undefined, newPayment, `قيد دفعة جديدة بمبلغ ${paymentData.amount.toLocaleString()} ج.م`);
 
     void sendBuildingPush({ event_type: 'payment', building_id: buildingId, unit_number: apt.unitNumber, amount: paymentData.amount });
+    announcePaymentSuccess(String(apt.unitNumber), paymentData.month, paymentData.amount);
     showToast(
       `تم قيد سداد ${paymentData.amount.toLocaleString()} ج.م لـ ${apt.unitNumber} بنجاح! المتبقي: ${fin.remaining.toLocaleString()} ج.م${
         fin.creditBalance > 0 ? ` (رصيد دائن: ${fin.creditBalance.toLocaleString()} ج.م)` : ''
@@ -1316,6 +1347,15 @@ export default function App() {
         </div>
       )}
 
+      {paymentSuccess && <div role="status" aria-live="polite" dir="rtl" className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/50 p-5" onClick={() => setPaymentSuccess(null)}>
+        <div className="w-full max-w-sm rounded-[2rem] bg-white px-6 py-10 text-center shadow-2xl" onClick={event => event.stopPropagation()}>
+          <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"><CheckCircle2 className="h-16 w-16" strokeWidth={2.5}/></div>
+          <h2 className="text-2xl font-black text-emerald-700">تم تسجيل الدفع بنجاح!</h2>
+          <p className="mt-3 text-slate-600">شقة {paymentSuccess.unit} عن {paymentSuccess.month}</p>
+          <p className="mt-2 text-lg font-bold text-slate-800">{paymentSuccess.amount.toLocaleString('ar-EG')} جنيه</p>
+          <button type="button" onClick={() => setPaymentSuccess(null)} className="mt-6 rounded-xl bg-emerald-600 px-7 py-3 font-bold text-white">تم</button>
+        </div>
+      </div>}
       {isRefreshing && (
         <div className="fixed top-0 left-0 right-0 z-[60] bg-teal-700 text-white text-center text-xs font-bold py-2 shadow-lg">
           <span className="inline-block animate-spin mr-2">↻</span> جارٍ تحديث البيانات وفحص تحديث التطبيق...
