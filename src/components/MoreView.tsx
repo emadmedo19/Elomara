@@ -6,6 +6,16 @@ import { SettingsList, SettingsPage, type SettingsListItem } from './SettingsLis
 import { AccountDeletionButton } from './AccountDeletionButton';
 export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignOut }: { items: SettingsListItem[]; buildingId?: string; onBack: () => void; onOpenAppSettings: () => void; onSignOut: () => void }) {
   const [showPlans, setShowPlans] = useState(false);
+  const [subscription, setSubscription] = useState<{status: string; plan?: string | null; trial_ends_at?: string | null; paid_through?: string | null; days_remaining?: number} | null>(null);
+  const [platformBuildings, setPlatformBuildings] = useState<Array<{id:string;name:string;status:string;plan?:string|null;trial_ends_at?:string|null;paid_through?:string|null}>>([]);
+  useEffect(() => {
+    if (!buildingId) { setSubscription(null); return; }
+    let active = true;
+    void supabase.rpc('get_building_subscription', {p_building_id:buildingId}).then(({data,error}) => {
+      if (active && !error && data) setSubscription(data as typeof subscription);
+    });
+    return () => {active = false;};
+  }, [buildingId]);
   const [specialCode, setSpecialCode] = useState('');
   const [promoApplied, setPromoApplied] = useState(false);
   const [vipRedeeming, setVipRedeeming] = useState(false);
@@ -31,6 +41,7 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
       if (!data?.ok) throw new Error('تعذر تفعيل الكود');
       setVipMessage('تم تفعيل الاشتراك المجاني مدى الحياة لهذه العمارة بنجاح.');
       setSpecialCode('');
+      setSubscription(previous => previous ? {...previous,status:'vip',days_remaining:0} : {status:'vip'});
     } catch (error) { setVipMessage(error instanceof Error ? error.message : 'تعذر تفعيل الكود'); }
     finally { setVipRedeeming(false); }
   };
@@ -42,7 +53,12 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
   useEffect(() => {
     let active = true;
     void supabase.rpc('platform_subscription_admin', { p_action: 'summary' }).then(({data,error}) => {
-      if (active && !error && data && typeof data === 'object') setOwnerSummary(data as typeof ownerSummary);
+      if (active && !error && data && typeof data === 'object') {
+        setOwnerSummary(data as typeof ownerSummary);
+        void supabase.rpc('get_building_subscription', {}).then(({data:list}) => {
+          if (active && Array.isArray(list?.buildings)) setPlatformBuildings(list.buildings);
+        });
+      }
     });
     return () => { active = false; };
   }, []);
@@ -70,12 +86,27 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
     <h3 className="text-lg font-bold">إدارة اشتراكات المنصة</h3>
     <p className="text-sm">العمارات: {ownerSummary.buildings} · تجريبي: {ownerSummary.trial} · نشط: {ownerSummary.active} · مجاني VIP: {ownerSummary.vip}</p>
     <p className="text-sm">أكواد متاحة: {ownerSummary.codes_available} · مستخدمة: {ownerSummary.codes_used}</p>
+    <div className="space-y-2">
+      <h4 className="font-semibold">اشتراكات العمارات</h4>
+      {platformBuildings.map(b => <div key={b.id} className="rounded-xl border border-slate-200 p-3 text-sm">
+        <div className="font-semibold">{b.name}</div>
+        <div>الحالة: {b.status === 'vip' ? 'مجاني' : b.status === 'active' ? 'نشط' : b.status === 'trial' ? 'تجريبي' : 'منتهي'} · الباقة: {b.plan === 'monthly' ? 'شهري' : b.plan === 'annual' ? 'سنوي' : '—'}</div>
+        {b.status === 'trial' && b.trial_ends_at && <div>نهاية التجربة: {new Date(b.trial_ends_at).toLocaleDateString('ar-EG')}</div>}
+        {b.paid_through && <div>تاريخ التجديد: {new Date(b.paid_through).toLocaleDateString('ar-EG')}</div>}
+      </div>)}
+    </div>
     <button type="button" disabled={generating} onClick={() => void generateVip()} className="rounded-xl bg-slate-900 px-4 py-3 text-white disabled:opacity-50">{generating ? 'جارٍ الإنشاء...' : 'إنشاء كود VIP مجاني'}</button>
     {newVipCode && <div className="rounded-xl bg-slate-50 p-3 break-all"><p className="text-sm font-semibold">انسخ الكود الآن؛ لن يظهر مرة أخرى:</p><code dir="ltr">{newVipCode}</code><button type="button" className="block mt-2 underline" onClick={() => void navigator.clipboard.writeText(newVipCode)}>نسخ الكود</button></div>}
     {ownerError && <p role="alert" className="text-sm text-red-600">{ownerError}</p>}
     <p className="text-xs text-slate-500">توليد الأكواد جاهز. تفعيلها داخل حساب العمارة والدفع الإلكتروني قيد الإعداد.</p>
   </section>}{showPlans && <section dir="rtl" className="mx-4 my-4 rounded-2xl border border-slate-200 p-4 space-y-3">
     <h3 className="text-lg font-bold">باقات العمارة</h3>
+    {buildingId && subscription && <div className="rounded-xl border border-slate-200 p-3 text-sm">
+      <p className="font-semibold">حالة الاشتراك: {subscription.status === 'vip' ? 'مجاني' : subscription.status === 'active' ? 'نشط' : subscription.status === 'trial' ? 'تجريبي' : 'منتهي'}</p>
+      {subscription.status === 'trial' && <p>متبقي من التجربة: {subscription.days_remaining ?? 0} يوم · تنتهي {subscription.trial_ends_at ? new Date(subscription.trial_ends_at).toLocaleDateString('ar-EG') : '—'}</p>}
+      {subscription.paid_through && <p>تاريخ التجديد: {new Date(subscription.paid_through).toLocaleDateString('ar-EG')}</p>}
+      {subscription.status === 'expired' && <p>لم يتم تقييد استخدام العمارة؛ الدفع الإلكتروني قيد التجهيز.</p>}
+    </div>}
     <p className="text-sm text-slate-500">14 يوم تجربة مجانية لكل عمارة جديدة. السكان يستخدمون التطبيق مجانًا.</p>
     <div className="grid grid-cols-2 gap-3">
       <div className="rounded-xl bg-slate-50 p-3"><div className="font-semibold">شهري</div><div className="text-xl font-bold">{eligible ? '49.50' : '99'} ج</div><div className="text-xs text-slate-500">كل شهر</div></div>
