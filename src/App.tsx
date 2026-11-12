@@ -1340,7 +1340,7 @@ export default function App() {
 
         {/* Content Body */}
         <main className="flex-1 p-3 pb-28 sm:p-6 sm:pb-28 max-w-7xl mx-auto w-full">
-          {currentTab === 'more' && <MoreView onBack={() => goBack('dashboard')} onOpenAppSettings={() => setCurrentTab('app-settings')} onSignOut={() => void signOut()} items={[
+          {currentTab === 'more' && <MoreView buildingId={isAdmin ? currentBuilding.id : ''} onBack={() => goBack('dashboard')} onOpenAppSettings={() => setCurrentTab('app-settings')} onSignOut={() => void signOut()} items={[
             ...(isAdmin ? [{ id: 'exceptional', label: 'التحصيلات الاستثنائية', icon: Wallet, tone: 'teal' as const, onClick: () => setCurrentTab('exceptional-collections') }] : []),
             { id: 'polls', label: 'استطلاعات الرأي', icon: BarChart3, tone: 'violet', onClick: () => setCurrentTab('polls') },
             { id: 'reports', label: 'التقارير', icon: FileText, onClick: () => setCurrentTab('reports') },
