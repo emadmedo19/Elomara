@@ -4,9 +4,24 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { SettingsList, SettingsPage, type SettingsListItem } from './SettingsList';
 import { AccountDeletionButton } from './AccountDeletionButton';
-export function MoreView({ items, onBack, onOpenAppSettings, onSignOut }: { items: SettingsListItem[]; onBack: () => void; onOpenAppSettings: () => void; onSignOut: () => void }) {
+export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignOut }: { items: SettingsListItem[]; buildingId: string; onBack: () => void; onOpenAppSettings: () => void; onSignOut: () => void }) {
   const [showPlans, setShowPlans] = useState(false);
   const [promo, setPromo] = useState('');
+  const [vipInput, setVipInput] = useState('');
+  const [vipRedeeming, setVipRedeeming] = useState(false);
+  const [vipMessage, setVipMessage] = useState('');
+  const redeemVip = async () => {
+    if (!buildingId || vipRedeeming || !vipInput.trim()) return;
+    setVipRedeeming(true); setVipMessage('');
+    try {
+      const { data, error } = await supabase.rpc('redeem_building_vip', {p_building_id: buildingId, p_code: vipInput.trim()});
+      if (error) throw new Error(error.message);
+      if (!data?.ok) throw new Error('تعذر تفعيل الكود');
+      setVipMessage('تم تفعيل الاشتراك المجاني مدى الحياة لهذه العمارة بنجاح.');
+      setVipInput('');
+    } catch (error) { setVipMessage(error instanceof Error ? error.message : 'تعذر تفعيل الكود'); }
+    finally { setVipRedeeming(false); }
+  };
   const [ownerSummary, setOwnerSummary] = useState<{ buildings: number; trial: number; active: number; vip: number; codes_available: number; codes_used: number } | null>(null);
   const [ownerOpen, setOwnerOpen] = useState(false);
   const [newVipCode, setNewVipCode] = useState('');
@@ -54,6 +69,12 @@ export function MoreView({ items, onBack, onOpenAppSettings, onSignOut }: { item
       <div className="rounded-xl bg-slate-50 p-3"><div className="font-semibold">شهري</div><div className="text-xl font-bold">{eligible ? '49.50' : '99'} ج</div><div className="text-xs text-slate-500">كل شهر</div></div>
       <div className="rounded-xl bg-slate-50 p-3"><div className="font-semibold">سنوي</div><div className="text-xl font-bold">{eligible ? '499.50' : '999'} ج</div><div className="text-xs text-slate-500">كل سنة</div></div>
     </div>
+    {buildingId && <div className="space-y-2 rounded-xl border border-slate-200 p-3">
+      <label className="block text-sm font-medium" htmlFor="subscription-vip">كود VIP مجاني مدى الحياة</label>
+      <input id="subscription-vip" dir="ltr" value={vipInput} onChange={event => setVipInput(event.target.value)} placeholder="ELM-VIP-..." autoComplete="off" className="w-full rounded-xl border border-slate-300 p-3" />
+      <button type="button" disabled={!vipInput.trim() || vipRedeeming} onClick={() => void redeemVip()} className="rounded-xl bg-slate-900 px-4 py-3 text-white disabled:opacity-50">{vipRedeeming ? 'جارٍ التفعيل...' : 'تفعيل كود VIP'}</button>
+      {vipMessage && <p role="status" className="text-sm">{vipMessage}</p>}
+    </div>}
     <label className="block text-sm font-medium" htmlFor="subscription-promo">كود الخصم</label>
     <input id="subscription-promo" value={promo} onChange={event => setPromo(event.target.value)} placeholder="أدخل كود الخصم" className="w-full rounded-xl border border-slate-300 p-3" autoComplete="off" />
     {eligible && <p className="text-sm text-emerald-700">خصم 50% مبدئيًا. التفعيل النهائي مشروط بتوافر مكان ضمن أول 10 عمارات وإتمام أول دفعة.</p>}
