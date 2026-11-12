@@ -126,12 +126,14 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
 
   // Handlers
   const handleOpenAddPayment = (apt?: Apartment) => {
+    setDetailsApartment(null);
     setSelectedApartmentForPay(apt || buildingApartments[0] || null);
     setEditingPayment(null);
     setIsPaymentModalOpen(true);
   };
 
   const handleOpenEditPayment = (p: Payment) => {
+    setDetailsApartment(null);
     setEditingPayment(p);
     setIsPaymentModalOpen(true);
   };

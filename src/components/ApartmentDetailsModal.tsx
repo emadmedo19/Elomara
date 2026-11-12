@@ -1,3 +1,4 @@
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Apartment, Payment, UserRole } from '../types';
@@ -43,12 +44,7 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
       detailsScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     }
   }, [isOpen, apartment?.id]);
-  useLayoutEffect(() => {
-    if (!isOpen || !apartment) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = previousOverflow; };
-  }, [isOpen, apartment?.id]);
+  useBodyScrollLock(isOpen && Boolean(apartment));
 
   if (!isOpen || !apartment) return null;
 
