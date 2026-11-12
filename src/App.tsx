@@ -310,6 +310,7 @@ export default function App() {
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   // 5. Toast System
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState<{unit: string; month: string; amount: number} | null>(null);
   const paymentSuccessTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (paymentSuccessTimer.current) clearTimeout(paymentSuccessTimer.current); }, []);
