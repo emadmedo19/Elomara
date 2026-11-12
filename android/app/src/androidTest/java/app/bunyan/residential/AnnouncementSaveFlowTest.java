@@ -67,7 +67,7 @@ public class AnnouncementSaveFlowTest {
                 // Match the production saveAnnouncementImage flow: large base64 payloads must
                 // cross the WebView bridge in small chunks, never one multi-MB JS evaluation.
                 String payload=Base64.encodeToString(encoded.toByteArray(),Base64.NO_WRAP);
-                int chunkLength=49152;
+                int chunkLength=12288;
                 int chunks=(payload.length()+chunkLength-1)/chunkLength;
                 JSONObject begin=new JSONObject().put("chunks",chunks);
                 evaluate(view,"window.__saveResult=null;window.__saveError=null;window.__transferDone=false;window.Capacitor.nativePromise('AnnouncementFiles','beginPngTransfer',"+begin+").then(()=>window.__transferDone=true).catch(e=>window.__saveError=e.message);true;");
