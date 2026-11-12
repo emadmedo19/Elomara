@@ -45,7 +45,7 @@ public class AnnouncementSaveFlowTest {
             if("true".equals(error)) fail("Native save failed at "+stage+": "+evaluate(view,"window.__saveError"));
             SystemClock.sleep(250);
         }
-        String diagnostics=evaluate(view,"JSON.stringify({href:location.href,bridge:Boolean(window.Capacitor?.nativePromise),result:window.__saveResult||null,error:window.__saveError||null,ready:document.readyState})");
+        String diagnostics=evaluate(view,"JSON.stringify({href:location.href,bridge:Boolean(window.Capacitor?.nativePromise),result:window.__saveResult||null,error:window.__saveError||null,ready:document.readyState,transferDone:window.__transferDone,stage:window.__saveStage,timeOrigin:performance.timeOrigin})");
         Log.e("AnnouncementSaveTest","Save timeout at "+stage+": "+diagnostics);
         fail("Save did not finish at "+stage+" within 90 seconds: "+diagnostics);
     }
@@ -75,7 +75,7 @@ public class AnnouncementSaveFlowTest {
                 for(int index=0;index<chunks;index++){
                     String chunk=payload.substring(index*chunkLength,Math.min((index+1)*chunkLength,payload.length()));
                     JSONObject part=new JSONObject().put("index",index).put("chunk",chunk);
-                    evaluate(view,"window.__transferDone=false;window.Capacitor.nativePromise('AnnouncementFiles','appendPngChunk',"+part+").then(()=>window.__transferDone=true).catch(e=>window.__saveError=e.message);true;");
+                    evaluate(view,"window.__saveStage='chunk "+index+"';window.__transferDone=false;window.Capacitor.nativePromise('AnnouncementFiles','appendPngChunk',"+part+").then(()=>window.__transferDone=true).catch(e=>window.__saveError=e.message);true;");
                     waitFor(view,"chunk "+index+"/"+chunks,"Boolean(window.__transferDone)");
                 }
                 JSONObject finish=new JSONObject().put("fileName","announcement-flow.png");
