@@ -135,6 +135,28 @@ class RefreshChannel {
 
 // The existing app keeps its centralized client and all current query builders.
 // Auth uses native storage; no browser cookie or session token is persisted here.
+// Use an explicit JSON request for the building update. Native Android transports
+// can otherwise send an empty RPC body, which PostgREST interprets as no arguments.
+export async function updateNeonBuilding(buildingId: string, details: Record<string, unknown>): Promise<void> {
+  await nativeReady();
+  const session = (await CapacitorNeon.getSession()).session;
+  if (!session) throw new Error('سجّل الدخول أولًا.');
+  const response = await fetch(dataUrl + '/rpc/update_manager_building', {
+    method: 'POST',
+    cache: 'no-store',
+    headers: {
+      Authorization: `Bearer ${session.accessToken}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ p_building_id: buildingId, p_details: details }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(typeof error.message === 'string' ? error.message : 'تعذر تحديث بيانات العمارة.');
+  }
+}
+
 export const neonClient = {
   from: data.from.bind(data), rpc: data.rpc.bind(data),
   channel: (_name: string) => new RefreshChannel(),
