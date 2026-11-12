@@ -1,0 +1,6 @@
+import {build} from 'esbuild';
+import {mkdirSync,writeFileSync,copyFileSync,readdirSync} from 'node:fs';
+const output=process.argv[2]||'/tmp/elomara-statement-print';mkdirSync(output,{recursive:true});
+await build({entryPoints:['tests/browser/statement-print-fixture.tsx'],bundle:true,format:'esm',outfile:output+'/fixture.js',plugins:[{name:'capture-native-print',setup(b){b.onResolve({filter:/^@capgo\/capacitor-printer$/},()=>({path:'printer',namespace:'fixture'}));b.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:`export const Printer={printHtml:async options=>{window.printedHTML=options.html;window.printCalls=(window.printCalls||0)+1;await new Promise((resolve,reject)=>{window.finishPrint=resolve;window.failPrint=()=>reject(new Error('fixture failure'))});},printWebView:async()=>{throw new Error('Do not print the app webview')}};` }));}}]});
+const css=readdirSync('dist/assets').find(n=>n.startsWith('index-')&&n.endsWith('.css'));copyFileSync('dist/assets/'+css,output+'/fixture.css');copyFileSync('public/icon.png',output+'/icon.png');
+writeFileSync(output+'/index.html','<!doctype html><html dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="fixture.css"><div id="root"></div><script type="module" src="fixture.js"></script></html>');

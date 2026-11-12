@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { buildStatementPrintHtml } from '../services/statementPrinting';
 import { Printer as NativePrinter } from '@capgo/capacitor-printer';
 import { Building, Apartment, Expense, Payment } from '../types';
 import { calculateApartmentFinancials, calculateBuildingFinancials } from '../services/financialAccounting';
@@ -40,55 +41,15 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
 
     setIsGeneratingPdf(true);
     setPdfError('');
-    const printStyle = document.createElement('style');
-    printStyle.id = 'bunyan-native-print-style';
-    printStyle.textContent = `
-      @media print {
-        @page { size: A3 landscape; margin: 8mm; }
-        html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
-        body * { visibility: hidden !important; }
-        #printable-statement, #printable-statement * { visibility: visible !important; }
-        #printable-statement {
-          position: static !important;
-          display: block !important;
-          width: 100% !important;
-          max-width: none !important;
-          padding: 0 !important;
-          margin: 0 !important;
-          background: #fff !important;
-          color: #111827 !important;
-          overflow: visible !important;
-          height: auto !important;
-          min-height: 0 !important;
-          box-sizing: border-box !important;
-          direction: rtl !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-        #printable-statement .statement-table-scroll { width: 100% !important; max-width: 100% !important; overflow: visible !important; }
-        #printable-statement table { width: 100% !important; min-width: 0 !important; max-width: 100% !important; table-layout: fixed !important; border-collapse: collapse !important; direction: rtl !important; }
-        #printable-statement th, #printable-statement td { box-sizing: border-box !important; overflow-wrap: anywhere !important; word-break: break-word !important; padding: 5px 4px !important; font-size: 9pt !important; }
-        #printable-statement h1 { font-size: 18pt !important; }
-        #printable-statement .grid { min-width: 0 !important; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 6px !important; }
-        #printable-statement > div { max-width: 100% !important; }
-        #printable-statement img { max-width: 42px !important; }
-        #printable-statement table { break-inside: auto !important; page-break-inside: auto !important; }
-        #printable-statement thead { display: table-header-group !important; }
-        #printable-statement tfoot { display: table-footer-group !important; }
-        #printable-statement tr { break-inside: avoid !important; page-break-inside: avoid !important; }
-        #printable-statement tr { break-inside: avoid !important; page-break-inside: avoid !important; }
-      }
-    `;
-    document.head.appendChild(printStyle);
-
     try {
       if (document.fonts?.ready) await document.fonts.ready;
-      await NativePrinter.printWebView({ name: `كشف حساب ${building.name || 'العمارة'}` });
+      const name = `كشف حساب ${building.name || 'العمارة'}`;
+      const html = await buildStatementPrintHtml(element, name);
+      await NativePrinter.printHtml({ name, html });
     } catch (error) {
       console.error('Native printing failed:', error);
       setPdfError('تعذر فتح شاشة الطباعة. تأكد من تثبيت خدمة الطباعة على الهاتف ثم حاول مرة أخرى.');
     } finally {
-      printStyle.remove();
       setIsGeneratingPdf(false);
     }
   };
@@ -134,7 +95,7 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
         {/* Printable Official Statement Sheet */}
         <div className="space-y-6 text-right font-sans" id="printable-statement">
           {/* Document Header */}
-          <div className="flex items-center justify-between border-b-2 border-[#0f2537] pb-4">
+          <div data-statement-header className="flex items-center justify-between border-b-2 border-[#0f2537] pb-4">
             <div className="flex items-center gap-3">
               <img
                 src="/icon.png"
@@ -156,7 +117,7 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
           </div>
 
           {/* KPI Mini Bento in Statement */}
-          <div className="grid grid-cols-4 gap-3 text-center">
+          <div data-statement-kpis className="grid grid-cols-4 gap-3 text-center">
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
               <span className="text-[11px] text-slate-500 block">إجمالي التحصيلات</span>
               <span className="text-base font-bold text-slate-900 block mt-0.5">{totalInflow.toLocaleString()} ج.م</span>
@@ -261,7 +222,7 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
           </div>
 
           {/* Signatures & Accreditation Footer */}
-          <div className="pt-6 border-t border-slate-300 grid grid-cols-3 gap-6 text-center text-xs">
+          <div data-statement-signatures className="pt-6 border-t border-slate-300 grid grid-cols-3 gap-6 text-center text-xs">
             <div>
               <span className="text-slate-500 block mb-6">أمين صندوق العمارة:</span>
               <p className="font-bold text-slate-900 border-t border-dashed border-slate-400 pt-1">
