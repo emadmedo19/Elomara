@@ -61,37 +61,58 @@ export default async function handle(request: Request): Promise<Response> {
     : 'Match the mood, objects and any people to the actual notice. People, if relevant, wear ordinary everyday civilian clothing. Do not turn this into a maintenance scene.';
   const visualPrompt = `Create a bright professional REALISTIC PHOTOGRAPH for an Egyptian residential building announcement. Scene: ${theme}. ${styling} Art direction: high-end commercial photography, believable adult Egyptian people with natural expressions and proportions, authentic residential architecture, realistic materials, beautiful natural daylight, crisp details, warm inviting colors, restrained teal and amber accents and green plants. Real photographic people and surroundings, NOT cartoon, NOT illustrated characters, NOT a 3D render, NOT an isometric miniature or dollhouse. Keep people and clothing specific to the notice subject. Compose a complete attractive scene filling the entire ${aspectRatio} canvas edge to edge, with the full subjects visible and balanced composition. This image is ONLY an illustration: all announcement text will be rendered separately BELOW the image, so do not reserve empty space for text. Absolutely NO text, letters, numbers, pseudo-lettering, logos, captions, watermarks, notice boards, posters, signs, calendars, menus, receipt lettering or framed panels. Use plain unmarked tools and objects. Do not include any surfaces intended for writing. Create a fresh beautiful coherent scene.`;
   const finishImage = (image: string, provider: string) => Response.json({ image, provider }, { headers: cors });
-  const tryPollinations = async (): Promise<string | null> => {
-    if (!pollinationsKey || !pollinationsFreeOnly) return null;
-    // A restricted key with no paid Pollen must be configured by the owner before enabling.
-    const response = await fetch("https://gen.pollinations.ai/v1/images/generations", {
-      method: "POST", headers: { Authorization: `Bearer ${pollinationsKey}`, "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(90000),
-      body: JSON.stringify({ model: "black-forest-labs/flux.1-schnell", prompt: visualPrompt, size: ({ "1:1": "1024x1024", "16:9": "1280x720", "3:4": "768x1024", "9:16": "720x1280" } as Record<string, string>)[aspectRatio], response_format: "b64_json", n: 1 }),
-    });
-    if (!response.ok) {
-      console.warn("[AI poster] Pollinations unavailable", { status: response.status });
-      return null;
-    }
-    const result = await response.json();
-    const base64 = result?.data?.[0]?.b64_json;
-    if (typeof base64 === "string" && base64.length > 100) return `data:image/png;base64,${base64}`;
-    const url = result?.data?.[0]?.url;
-    if (typeof url === "string" && /^https:\/\//.test(url)) {
-      const imageResponse = await fetch(url, { signal: AbortSignal.timeout(30000) });
-      if (imageResponse.ok && (imageResponse.headers.get("content-type") || "").startsWith("image/")) {
-        const bytes = new Uint8Array(await imageResponse.arrayBuffer());
-        if (bytes.length > 8_000_000) return null;
-        let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte);
-        return `data:${imageResponse.headers.get("content-type")};base64,${btoa(binary)}`;
+  // Report safe provider diagnostics without exposing keys or upstream response bodies.
+  type FallbackResult = { image: string | null; reason: string; code: string };
+  const tryPollinations = async (): Promise<FallbackResult> => {
+    if (!pollinationsKey || !pollinationsFreeOnly) return { image: null, reason: "المزوّد البديل غير مفعّل للاستخدام المجاني.", code: "FALLBACK_DISABLED" };
+    try {
+      const response = await fetch("https://gen.pollinations.ai/v1/images/generations", {
+        method: "POST", headers: { Authorization: `Bearer ${pollinationsKey}`, "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(90000),
+        body: JSON.stringify({ model: "black-forest-labs/flux.1-schnell", prompt: visualPrompt, size: ({ "1:1": "1024x1024", "16:9": "1280x720", "3:4": "768x1024", "9:16": "720x1280" } as Record<string, string>)[aspectRatio], response_format: "b64_json", n: 1 }),
+      });
+      if (!response.ok) {
+        console.warn("[AI poster] Pollinations rejected request", { status: response.status });
+        const reason = response.status === 401 || response.status === 403 ? "مفتاح المزوّد البديل غير مصرح له بالتوليد."
+          : response.status === 429 || response.status === 402 ? "حصة المزوّد البديل المجانية غير متاحة."
+          : response.status === 400 || response.status === 404 ? "نموذج المزوّد البديل أو إعداداته غير مقبولة."
+          : "خدمة المزوّد البديل غير متاحة مؤقتًا.";
+        return { image: null, reason, code: `FALLBACK_HTTP_${response.status}` };
       }
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.startsWith("image/")) {
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        if (bytes.length > 0 && bytes.length <= 8_000_000) {
+          let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte);
+          return { image: `data:${contentType.split(";")[0]};base64,${btoa(binary)}`, reason: "", code: "" };
+        }
+        return { image: null, reason: "الصورة من المزوّد البديل غير صالحة أو كبيرة جدًا.", code: "FALLBACK_IMAGE_SIZE" };
+      }
+      const result = await response.json().catch(() => null);
+      const base64 = result?.data?.[0]?.b64_json;
+      if (typeof base64 === "string" && base64.length > 100) return { image: `data:image/png;base64,${base64}`, reason: "", code: "" };
+      const url = result?.data?.[0]?.url;
+      if (typeof url === "string" && /^https:\/\//.test(url)) {
+        const imageResponse = await fetch(url, { signal: AbortSignal.timeout(30000) });
+        if (imageResponse.ok && (imageResponse.headers.get("content-type") || "").startsWith("image/")) {
+          const bytes = new Uint8Array(await imageResponse.arrayBuffer());
+          if (bytes.length > 0 && bytes.length <= 8_000_000) {
+            let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte);
+            return { image: `data:${(imageResponse.headers.get("content-type") || "image/png").split(";")[0]};base64,${btoa(binary)}`, reason: "", code: "" };
+          }
+        }
+      }
+      console.warn("[AI poster] Pollinations returned no usable image", { contentType });
+      return { image: null, reason: "المزوّد البديل لم يُرجع صورة قابلة للاستخدام.", code: "FALLBACK_NO_IMAGE" };
+    } catch (error) {
+      console.warn("[AI poster] Pollinations request failed", { type: error instanceof Error ? error.name : "unknown" });
+      return { image: null, reason: "تعذّر الاتصال بالمزوّد البديل أو انتهت مهلة الطلب.", code: "FALLBACK_NETWORK" };
     }
-    return null;
   };
   try {
     if (!key) {
-      const image = await tryPollinations();
-      return image ? finishImage(image, 'pollinations') : Response.json({ error: 'محرك الصور البديل غير متاح حاليًا.' }, { status: 503, headers: cors });
+      const fallback = await tryPollinations();
+      return fallback.image ? finishImage(fallback.image, 'pollinations') : Response.json({ error: fallback.reason, code: fallback.code }, { status: 503, headers: cors });
     }
     const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=" + encodeURIComponent(key), {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -109,8 +130,12 @@ export default async function handle(request: Request): Promise<Response> {
         : response.status === 400 ? 'خدمة Gemini رفضت إعدادات طلب الصورة.'
         : response.status >= 500 ? 'خدمة Gemini غير متاحة مؤقتًا.'
         : 'تعذر توليد الصورة حاليًا.';
-      if ([429, 403, 404, 500, 502, 503].includes(response.status)) { const image = await tryPollinations(); if (image) return finishImage(image, "pollinations"); }
-      return Response.json({ error, code: providerCode || `HTTP_${response.status}` }, { status: response.status === 429 ? 429 : 502, headers: cors });
+      if ([429, 403, 404, 500, 502, 503].includes(response.status)) {
+        const fallback = await tryPollinations();
+        if (fallback.image) return finishImage(fallback.image, "pollinations");
+        return Response.json({ error: `${error} ${fallback.reason}`, code: providerCode || `HTTP_${response.status}`, fallbackCode: fallback.code }, { status: response.status === 429 ? 429 : 502, headers: cors });
+      }
+      return Response.json({ error, code: providerCode || `HTTP_${response.status}` }, { status: 502, headers: cors });
     }
     const part = result?.candidates?.[0]?.content?.parts?.find((item: { inlineData?: { data?: string; mimeType?: string } }) => item.inlineData?.data && item.inlineData?.mimeType?.startsWith("image/"));
     if (!part?.inlineData?.data) { console.error("[AI poster] Gemini returned no image", { finishReason: result?.candidates?.[0]?.finishReason || "unknown" }); return Response.json({ error: "خدمة Gemini لم تُرجع صورة. جرّب وصفًا مختلفًا." }, { status: 502, headers: cors }); }
