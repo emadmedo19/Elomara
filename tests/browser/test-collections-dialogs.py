@@ -50,6 +50,24 @@ with sync_playwright() as p:
   page.get_by_title('عرض كشف حساب وتفاصيل الشقة والإيصالات').last.click()
   expect(page.get_by_role('dialog').get_by_text('سجل المدفوعات والإيصالات',exact=False)).to_be_visible()
   page.get_by_role('button',name='إغلاق',exact=True).click()
+  page.get_by_role('button',name='سجل جميع الإيصالات والمدفوعات',exact=False).click()
+  for action in ['cancel','confirm']:
+   page.get_by_title('حذف هذه الدفعة').last.click()
+   dialog=page.get_by_role('alertdialog',name='تأكيد حذف دفعة السداد')
+   expect(dialog).to_be_visible()
+   assert dialog.evaluate('(node)=>node.parentElement.parentElement===document.body')
+   overlay=dialog.locator('..').bounding_box()
+   assert overlay=={'x':0,'y':0,'width':width,'height':height},overlay
+   box=dialog.bounding_box()
+   assert box['y']>=0 and box['y']+box['height']<=height,box
+   assert abs(box['y']+box['height']/2-height/2)<2,box
+   assert page.evaluate('document.body.style.overflow')=='hidden'
+   dialog.get_by_role('button',name='إلغاء' if action=='cancel' else 'تأكيد حذف الدفعة',exact=True).click()
+   expect(dialog).to_have_count(0)
+   assert page.evaluate('document.body.style.overflow')==''
+  expect(page.get_by_title('حذف هذه الدفعة')).to_have_count(0)
+  print('PASS',width,'payment delete overlay covers viewport; dialog centered; cancel/confirm; scroll restored')
+  page.get_by_role('button',name='كشف الشقق وسداد الوحدات',exact=False).click()
   page.get_by_role('button',name='تبديل الشاشة',exact=True).click()
   assert page.evaluate('document.body.style.overflow')==''
   page.get_by_role('button',name='تبديل الشاشة',exact=True).click()

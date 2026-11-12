@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { Building, Apartment, Payment, PaymentStatus, UserRole, PaymentAuditLog } from '../types';
 import { calculateApartmentFinancials, calculateBuildingFinancials } from '../services/financialAccounting';
 import { 
@@ -72,6 +74,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
   // Confirm delete states
   const [apartmentToDelete, setApartmentToDelete] = useState<Apartment | null>(null);
   const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
+  useBodyScrollLock(paymentToDelete !== null);
 
   // Filter apartments by current building
   const buildingApartments = apartments.filter(
@@ -398,8 +401,8 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
       )}
 
       {/* Confirmation Modal for Deleting a Payment */}
-      {paymentToDelete && (
-        <div className="fixed inset-0 z-50 bg-[#0f2537]/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+      {paymentToDelete && createPortal(
+        <div dir="rtl" className="fixed inset-0 z-[100] bg-[#0f2537]/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-md w-full max-h-[calc(100dvh-2rem)] overflow-y-auto p-4 sm:p-5 shadow-2xl border border-rose-300 space-y-4" dir="rtl" role="alertdialog" aria-modal="true" aria-labelledby="delete-payment-title">
             <div className="flex items-start gap-3 text-rose-950">
               <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
@@ -451,7 +454,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>, document.body
       )}
 
       {/* SUBTAB 1: APARTMENTS VIEW */}
