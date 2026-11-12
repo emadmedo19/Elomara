@@ -75,13 +75,17 @@ public class AnnouncementSaveFlowTest {
                 // Drive the sequential bridge calls from the WebView itself. Repeated
                 // instrumentation evaluateJavascript calls can contend with Capacitor's
                 // callback delivery on slow CI emulators.
-                JSONObject transfer=new JSONObject().put("payload",payload).put("chunkLength",chunkLength).put("chunks",chunks);
+                evaluate(view,"window.__testPngPayload='';true;");
+                for(int offset=0;offset<payload.length();offset+=32768){
+                    String segment=payload.substring(offset,Math.min(offset+32768,payload.length()));
+                    evaluate(view,"window.__testPngPayload+="+JSONObject.quote(segment)+";true;");
+                }
                 evaluate(view,"window.__saveStage='transfer';window.__transferDone=false;window.__transferProgress=0;"+
-                    "(async()=>{try{const t="+transfer+";for(let i=0;i<t.chunks;i++){"+
-                    "window.__saveStage='chunk '+i;"+
+                    "(async()=>{try{const p=window.__testPngPayload;const size="+chunkLength+";const count="+chunks+";"+
+                    "for(let i=0;i<count;i++){window.__saveStage='chunk '+i;"+
                     "await window.Capacitor.nativePromise('AnnouncementFiles','appendPngChunk',"+
-                    "{index:i,chunk:t.payload.slice(i*t.chunkLength,(i+1)*t.chunkLength)});"+
-                    "window.__transferProgress=i+1;}window.__transferDone=true;"+
+                    "{index:i,chunk:p.slice(i*size,(i+1)*size)});"+
+                    "window.__transferProgress=i+1;}window.__transferDone=true;window.__testPngPayload=null;"+
                     "}catch(e){window.__saveError=String(e?.message||e);}})();true;");
                 waitFor(view,"all "+chunks+" chunks","Boolean(window.__transferDone)");
                 JSONObject finish=new JSONObject().put("fileName","announcement-flow.png");
