@@ -15,7 +15,7 @@ export async function saveAnnouncementImage(dataUrl: string): Promise<'saved' | 
     // Decode in JavaScript, then transfer small independent base64 blocks to avoid
     // truncation of multi-megabyte Capacitor bridge messages on Android WebView.
     const payload = dataUrl.slice('data:image/png;base64,'.length);
-    const chunkLength = 49152; // divisible by four: every chunk decodes independently
+    const chunkLength = 12288; // smaller bridge messages; divisible by four so chunks decode independently
     const chunks = Math.ceil(payload.length / chunkLength);
     if (!chunks || chunks > 512) throw new Error('صورة الإعلان كبيرة جدًا للحفظ.');
     try {
