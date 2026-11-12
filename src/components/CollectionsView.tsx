@@ -106,7 +106,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
     const matchesStatus = statusFilter === 'all' || fin.status === statusFilter;
 
     return matchesSearch && matchesStatus;
-  });
+  }).sort((a, b) => a.unitNumber.localeCompare(b.unitNumber, 'ar', { numeric: true, sensitivity: 'base' }));
 
   // Filter payments for payments table
   const filteredPayments = buildingPayments.filter((p) => {
