@@ -3,6 +3,7 @@ import { GuardContact } from './GuardContact';
 import React, { useEffect, useRef, useState } from 'react';
 import { NotificationBell } from './NotificationBell';
 import { MoreView } from './MoreView';
+import { ServiceDirectory } from './ServiceDirectory';
 import { AppPreferencesView } from './AppPreferencesView';
 import { calculateApartmentFinancials } from '../services/financialAccounting';
 import { supabase } from '../lib/supabase';
@@ -10,7 +11,7 @@ import { PollsView } from './PollsView';
 import { useAuth } from '../context/AuthContext';
 import { Home, Receipt, Megaphone, LogOut, AlertCircle, Building2, Wrench, CalendarDays, Plus, Clock, CheckCircle2, Wallet, Phone, RefreshCw, MoreHorizontal, BarChart3 } from 'lucide-react';
 
-type ResidentTab = 'home' | 'payments' | 'reports' | 'announcements' | 'maintenance' | 'bookings' | 'building' | 'polls' | 'more' | 'app-settings';
+type ResidentTab = 'home' | 'payments' | 'reports' | 'announcements' | 'maintenance' | 'bookings' | 'building' | 'polls' | 'services' | 'more' | 'app-settings';
 
 const money = (v: unknown) => Number(v || 0).toLocaleString('ar-EG', { maximumFractionDigits: 2 });
 const dateLabel = (v: string) => { if (!v) return '—'; const d = new Date(v.length === 10 ? `${v}T12:00:00` : v); return Number.isNaN(d.getTime()) ? v : new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium', timeStyle: v.length > 10 ? 'short' : undefined }).format(d); };
@@ -34,7 +35,7 @@ export const ResidentPortal: React.FC = () => {
     const back = (event: PopStateEvent) => {
       if (document.querySelector('[data-settings-subpage], [data-notification-dialog]')) return;
       const previous = event.state?.residentPage;
-      setActiveTab((['home', 'payments', 'reports', 'announcements', 'maintenance', 'bookings', 'building', 'polls', 'more', 'app-settings'] as ResidentTab[]).includes(previous) ? previous : 'home');
+      setActiveTab((['home', 'payments', 'reports', 'announcements', 'maintenance', 'bookings', 'building', 'polls', 'services', 'more', 'app-settings'] as ResidentTab[]).includes(previous) ? previous : 'home');
     };
     window.addEventListener('popstate', back);
     return () => window.removeEventListener('popstate', back);
@@ -256,12 +257,14 @@ export const ResidentPortal: React.FC = () => {
       {notice && <div className="rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-100 p-3 text-sm flex gap-2"><CheckCircle2 className="w-5 h-5 shrink-0"/>{notice}</div>}
 
       {activeTab === 'more' && <MoreView onBack={() => window.history.back()} onOpenAppSettings={() => navigateSettings('app-settings')} onSignOut={() => void signOut()} items={[
+        { id: 'services', label: 'دليل الخدمات وأرقام الفنيين', icon: Wrench, tone: 'teal', onClick: () => navigateSettings('services') },
         { id: 'polls', label: 'تصويت الجمعية والقرارات', icon: BarChart3, tone: 'violet', onClick: () => navigateSettings('polls') },
         { id: 'reports', label: 'تقارير العمارة', icon: Wallet, tone: 'teal', onClick: () => navigateSettings('reports') },
         { id: 'bookings', label: 'حجز المرافق', icon: CalendarDays, tone: 'gold', onClick: () => navigateSettings('bookings') },
         { id: 'announcements', label: 'إعلانات العمارة', icon: Megaphone, count: unreadAnnouncementCount, onClick: () => navigateSettings('announcements') },
         { id: 'building', label: 'عن العمارة', icon: Building2, tone: 'teal', onClick: () => navigateSettings('building') },
       ]}/>}
+      {activeTab === 'services' && <ServiceDirectory buildingId={userProfile?.buildingId || ''} canManage={false}/>}
       {activeTab === 'app-settings' && <AppPreferencesView onBack={() => window.history.back()} onSignOut={() => void signOut()}/>}
       {activeTab === 'home' && <>
         <section className="rounded-2xl bg-gradient-to-l from-[#0f2537] to-[#1c4467] text-white p-5 shadow">
