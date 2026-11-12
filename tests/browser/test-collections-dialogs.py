@@ -23,6 +23,26 @@ with sync_playwright() as p:
    expect(page.get_by_role('dialog')).to_have_count(0)
    assert page.evaluate('document.body.style.overflow')==''
    page.mouse.move(width//2,height//2);page.mouse.wheel(0,-600);page.wait_for_timeout(50)
+  for action in ['cancel','close','save']:
+   page.get_by_title('عرض كشف حساب وتفاصيل الشقة والإيصالات').last.click()
+   page.get_by_role('dialog').get_by_role('button',name='تعديل الشقة',exact=True).click()
+   expect(page.get_by_role('dialog')).to_have_count(1)
+   dialog=page.get_by_role('dialog')
+   expect(dialog).to_have_attribute('aria-labelledby','apartment-form-title')
+   assert dialog.evaluate('(node)=>node.parentElement===document.body')
+   assert page.evaluate('document.body.style.overflow')=='hidden'
+   box=dialog.locator('form').bounding_box()
+   assert box['y']>=0 and box['y']+box['height']<=height,box
+   if action=='cancel': dialog.get_by_role('button',name='إلغاء',exact=True).click()
+   elif action=='close': dialog.get_by_role('button',name='إغلاق تعديل الشقة',exact=True).click()
+   else:
+    dialog.locator('input').nth(2).fill('اسم بعد التعديل')
+    dialog.get_by_role('button',name='حفظ تعديلات الشقة',exact=True).click()
+   expect(page.get_by_role('dialog')).to_have_count(0)
+   assert page.evaluate('document.body.style.overflow')==''
+  page.get_by_title('عرض كشف حساب وتفاصيل الشقة والإيصالات').last.click()
+  expect(page.get_by_role('dialog').get_by_text('اسم بعد التعديل',exact=True)).to_be_visible()
+  page.get_by_role('button',name='إغلاق',exact=True).click()
   page.get_by_title('قيد دفعة سداد جديدة لهذه الشقة').last.click()
   page.get_by_role('button',name='تأكيد وقيد السداد',exact=True).click()
   expect(page.get_by_role('dialog')).to_have_count(0)
@@ -46,7 +66,7 @@ with sync_playwright() as p:
   page.get_by_role('button',name='إغلاق الثاني',exact=True).click()
   assert page.evaluate('document.body.style.overflow')=='auto'
   assert not errors,errors
-  print('PASS',width,'details → payment → cancel/save; repeat/reopen; navigation/unmount; overlapping lock cleanup')
+  print('PASS',width,'details → apartment edit → cancel/close/save inside viewport; payment → cancel/save; repeat/reopen; navigation/unmount; overlapping lock cleanup')
   page.close()
  page=browser.new_page(viewport={'width':390,'height':844});page.goto(url+'/?role=owner')
  page.get_by_title('عرض كشف حساب وتفاصيل الشقة والإيصالات').last.click()

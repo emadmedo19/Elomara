@@ -859,6 +859,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
           buildingName={currentBuilding.name}
           role={role}
           onEditApartment={(apt) => {
+            setDetailsApartment(null);
             setEditingApartment(apt);
             setIsAddAptModalOpen(true);
           }}

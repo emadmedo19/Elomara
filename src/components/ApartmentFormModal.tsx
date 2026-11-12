@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { Apartment, PaymentStatus } from '../types';
 import { Building2, Check, X, User } from 'lucide-react';
 
@@ -57,6 +59,8 @@ export const ApartmentFormModal: React.FC<ApartmentFormModalProps> = ({
     }
   }, [apartmentToEdit, isOpen]);
 
+  useBodyScrollLock(isOpen);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -77,9 +81,9 @@ export const ApartmentFormModal: React.FC<ApartmentFormModalProps> = ({
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-[#0f2537]/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-      <form onSubmit={handleSubmit} className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-labelledby="apartment-form-title" dir="rtl" className="fixed inset-0 z-50 bg-[#0f2537]/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+      <form onSubmit={handleSubmit} className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[90dvh] overscroll-contain overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
@@ -87,7 +91,7 @@ export const ApartmentFormModal: React.FC<ApartmentFormModalProps> = ({
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-slate-900">
+              <h3 id="apartment-form-title" className="font-bold text-sm text-slate-900">
                 {apartmentToEdit ? `تعديل بيانات: ${apartmentToEdit.unitNumber}` : 'إضافة شقة سكنية جديدة'}
               </h3>
               <p className="text-xs text-slate-500">
@@ -98,6 +102,7 @@ export const ApartmentFormModal: React.FC<ApartmentFormModalProps> = ({
           <button
             type="button"
             onClick={onClose}
+            aria-label="إغلاق تعديل الشقة"
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700"
           >
             <X className="w-4 h-4" />
@@ -235,6 +240,7 @@ export const ApartmentFormModal: React.FC<ApartmentFormModalProps> = ({
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body
   );
 };
