@@ -47,6 +47,30 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
   };
   const [ownerSummary, setOwnerSummary] = useState<{ buildings: number; trial: number; active: number; vip: number; codes_available: number; codes_used: number } | null>(null);
   const [ownerOpen, setOwnerOpen] = useState(false);
+  const [buildingSearch, setBuildingSearch] = useState('');
+  const [buildingFilter, setBuildingFilter] = useState('all');
+  const [refreshingBuildings, setRefreshingBuildings] = useState(false);
+  const [buildingsError, setBuildingsError] = useState('');
+  const refreshBuildings = async () => {
+    if (refreshingBuildings) return;
+    setRefreshingBuildings(true); setBuildingsError('');
+    try {
+      const [{data:list,error}, {data:summary,error:summaryError}] = await Promise.all([
+        supabase.rpc('get_building_subscription', {}),
+        supabase.rpc('platform_subscription_admin', {p_action:'summary'}),
+      ]);
+      if (error) throw new Error(error.message);
+      if (summaryError) throw new Error(summaryError.message);
+      if (!Array.isArray(list?.buildings)) throw new Error('تعذر قراءة قائمة العمارات');
+      setPlatformBuildings(list.buildings);
+      if (summary) setOwnerSummary(summary as typeof ownerSummary);
+    } catch (error) { setBuildingsError(error instanceof Error ? error.message : 'تعذر تحديث الاشتراكات'); }
+    finally { setRefreshingBuildings(false); }
+  };
+  const visibleBuildings = platformBuildings.filter(b =>
+    (buildingFilter === 'all' || b.status === buildingFilter) &&
+    b.name.toLocaleLowerCase().includes(buildingSearch.trim().toLocaleLowerCase())
+  );
   const [newVipCode, setNewVipCode] = useState('');
   const [ownerError, setOwnerError] = useState('');
   const [generating, setGenerating] = useState(false);
@@ -87,8 +111,22 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
     <p className="text-sm">العمارات: {ownerSummary.buildings} · تجريبي: {ownerSummary.trial} · نشط: {ownerSummary.active} · مجاني VIP: {ownerSummary.vip}</p>
     <p className="text-sm">أكواد متاحة: {ownerSummary.codes_available} · مستخدمة: {ownerSummary.codes_used}</p>
     <div className="space-y-2">
-      <h4 className="font-semibold">اشتراكات العمارات</h4>
-      {platformBuildings.map(b => <div key={b.id} className="rounded-xl border border-slate-200 p-3 text-sm">
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="font-semibold">اشتراكات العمارات</h4>
+        <button type="button" disabled={refreshingBuildings} onClick={() => void refreshBuildings()} className="rounded-lg border border-slate-300 px-3 py-2 text-xs disabled:opacity-50">{refreshingBuildings ? 'جارٍ التحديث...' : 'تحديث البيانات'}</button>
+      </div>
+      <input aria-label="البحث عن عمارة" value={buildingSearch} onChange={event => setBuildingSearch(event.target.value)} placeholder="ابحث باسم العمارة" className="w-full rounded-xl border border-slate-300 p-3 text-sm" />
+      <select aria-label="تصفية حسب حالة الاشتراك" value={buildingFilter} onChange={event => setBuildingFilter(event.target.value)} className="w-full rounded-xl border border-slate-300 p-3 text-sm">
+        <option value="all">جميع الاشتراكات</option>
+        <option value="trial">تجريبي</option>
+        <option value="active">نشط</option>
+        <option value="vip">مجاني</option>
+        <option value="expired">منتهي</option>
+      </select>
+      <p className="text-xs text-slate-500">النتائج: {visibleBuildings.length} من {platformBuildings.length}</p>
+      {buildingsError && <p role="alert" className="text-sm text-red-600">{buildingsError}</p>}
+      {visibleBuildings.length === 0 && <p className="text-sm text-slate-500">لا توجد عمارات مطابقة للبحث.</p>}
+      {visibleBuildings.map(b => <div key={b.id} className="rounded-xl border border-slate-200 p-3 text-sm">
         <div className="font-semibold">{b.name}</div>
         <div>الحالة: {b.status === 'vip' ? 'مجاني' : b.status === 'active' ? 'نشط' : b.status === 'trial' ? 'تجريبي' : 'منتهي'} · الباقة: {b.plan === 'monthly' ? 'شهري' : b.plan === 'annual' ? 'سنوي' : '—'}</div>
         {b.status === 'trial' && b.trial_ends_at && <div>نهاية التجربة: {new Date(b.trial_ends_at).toLocaleDateString('ar-EG')}</div>}
