@@ -1208,8 +1208,7 @@ export default function App() {
   }
 
   // Auth Protection Gate
-  if (isAuthLoading) {
-    return (
+  const authLoadingScreen = (
       <div className="min-h-screen bg-[#07131e] flex flex-col items-center justify-center p-4 selection:bg-teal-500 selection:text-white" dir="rtl">
         <div className="text-center space-y-4 animate-pulse">
           <div className="inline-flex p-3 rounded-3xl bg-white/10 border border-white/20 shadow-2xl backdrop-blur-md">
@@ -1222,7 +1221,16 @@ export default function App() {
         </div>
       </div>
     );
+
+  // Keep form state (email, password and OTP) alive across auth requests.
+  // Replacing LoginView with the loader loses the email before verification.
+  if (!user || isPasswordRecovery) {
+    return <>
+      <div hidden={isAuthLoading}><LoginView /></div>
+      {isAuthLoading && authLoadingScreen}
+    </>;
   }
+  if (isAuthLoading) return authLoadingScreen;
 
   if (user && profileRecoveryError) {
     return <div dir="rtl" className="flex min-h-screen items-center justify-center bg-slate-50 p-5">
@@ -1246,8 +1254,6 @@ export default function App() {
     </div>;
   }
 
-  if (isPasswordRecovery) return <LoginView />;
-  if (!user) return <LoginView />;
   if (!isAdmin) {
     if (userProfile?.status === 'active' && (userProfile.role === 'tenant' || userProfile.role === 'owner')) return <ResidentPortal />;
     return <LoginView />;
