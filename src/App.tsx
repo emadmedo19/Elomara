@@ -36,6 +36,7 @@ import { PdfStatementModal } from './components/PdfStatementModal';
 import { BuildingManagementModal } from './components/BuildingManagementModal';
 import { SettingsModal } from './components/SettingsModal';
 import { MoreView } from './components/MoreView';
+import { ServiceDirectory } from './components/ServiceDirectory';
 import { AppPreferencesView } from './components/AppPreferencesView';
 import { TreasurySettingsView } from './components/TreasurySettingsView';
 import { initializeDevicePreferences } from './services/appPreferences';
@@ -48,7 +49,7 @@ import { LoginView } from './components/LoginView';
 import { supabase } from './lib/supabase';
 import { checkForOtaUpdate } from './services/otaUpdates';
 
-const managerTabs = ['dashboard', 'collections', 'expenses', 'reports', 'resident', 'chat', 'image-studio', 'approvals', 'polls', 'exceptional-collections', 'more', 'app-settings', 'treasury-settings'];
+const managerTabs = ['dashboard', 'collections', 'expenses', 'reports', 'resident', 'chat', 'image-studio', 'approvals', 'polls', 'exceptional-collections', 'services', 'more', 'app-settings', 'treasury-settings'];
 const tabFromLocation = () => {
   const tab = new URLSearchParams(window.location.search).get('tab');
   return tab && managerTabs.includes(tab) ? tab : 'dashboard';
@@ -1382,6 +1383,7 @@ export default function App() {
         <main className="flex-1 p-3 pb-28 sm:p-6 sm:pb-28 max-w-7xl mx-auto w-full">
           {currentTab === 'more' && <MoreView buildingId={isAdmin ? currentBuilding.id : ''} onBack={() => goBack('dashboard')} onOpenAppSettings={() => setCurrentTab('app-settings')} onSignOut={() => void signOut()} items={[
             ...(isAdmin ? [{ id: 'exceptional', label: 'التحصيلات الاستثنائية', icon: Wallet, tone: 'teal' as const, onClick: () => setCurrentTab('exceptional-collections') }] : []),
+            { id: 'services', label: 'دليل الخدمات وأرقام الفنيين', icon: Wrench, tone: 'teal', onClick: () => setCurrentTab('services') },
             { id: 'polls', label: 'استطلاعات الرأي', icon: BarChart3, tone: 'violet', onClick: () => setCurrentTab('polls') },
             { id: 'reports', label: 'التقارير', icon: FileText, onClick: () => setCurrentTab('reports') },
             { id: 'maintenance', label: 'بوابة الساكن والمرافق', icon: Wrench, tone: 'gold', count: unreadTicketCount, onClick: () => setCurrentTab('resident') },
@@ -1396,6 +1398,7 @@ export default function App() {
           {currentTab === 'app-settings' && <AppPreferencesView onBack={() => goBack('more')} onSignOut={() => void signOut()} onBuildingSettings={isAdmin ? () => setIsSettingsModalOpen(true) : undefined}/>}
           {currentTab === 'treasury-settings' && isAdmin && <TreasurySettingsView key={currentBuilding.id} buildingId={currentBuilding.id} onBack={() => goBack('more')} onSaved={({ balance, reserveFund }) => setBuildings(rows => rows.map(building => building.id === currentBuilding.id ? { ...building, balance, reserveFund } : building))}/>}
 
+          {currentTab === 'services' && <ServiceDirectory buildingId={currentBuilding.id} canManage={isAdmin}/>}
           {currentTab === 'polls' && <PollsView buildingId={currentBuilding.id} canManage />}
           {currentTab === 'exceptional-collections' && isAdmin && <ExceptionalCollectionsView key={currentBuilding.id} onCreated={() => void refreshAppData()} buildingId={currentBuilding.id} apartments={apartments.filter(a => a.buildingId === currentBuilding.id)} />}
 
