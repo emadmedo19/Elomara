@@ -516,15 +516,29 @@ export default function App() {
     const scope = managerScope;
     // This form edits building details; treasury changes use the dedicated RPC.
     const next = { ...current, ...updatedData, balance: current.balance };
-    const { error } = await supabase.from('buildings').update({
-      name: next.name, address: next.address, total_units: next.totalUnits,
-      total_floors: next.totalFloors ?? null, monthly_target: next.monthlyTarget,
-      reserve_fund: next.reserveFund, manager_name: next.managerName, manager_phone: next.managerPhone, manager2_name: next.manager2Name || '', manager2_phone: next.manager2Phone || '', manager3_name: next.manager3Name || '', manager3_phone: next.manager3Phone || '',
-    }).eq('id', id).select('id').single();
-    if (error) throw new Error('فشل تحديث بيانات العمارة: ' + error.message);
+    const { error } = await supabase.rpc('update_manager_building', {
+      p_building_id: id,
+      p_details: next,
+    });
+    if (error) throw new Error('فشل تحديث بيانات العمارة والشقق: ' + error.message);
     if (managerScopeRef.current !== scope) throw new Error('تم تغيير الحساب أثناء الحفظ.');
+    // Refresh actual apartment records; dashboards and PDF reports derive totals from these.
+    const { data: apartmentRows, error: apartmentError } = await supabase.from('apartments')
+      .select('id,building_id,unit_number,floor,resident_name,resident_phone,is_owner,monthly_fee,payment_status,overdue_months,last_payment_date,paid_amount,credit_balance')
+      .eq('building_id', id);
+    if (apartmentError) throw new Error('تم حفظ التعديل لكن تعذر تحميل الشقق: ' + apartmentError.message);
+    if (managerScopeRef.current !== scope) throw new Error('تم تغيير الحساب أثناء تحميل الشقق.');
+    const refreshedApartments: Apartment[] = (apartmentRows || []).map((r: any) => ({
+      id:r.id, buildingId:r.building_id, unitNumber:r.unit_number, floor:r.floor,
+      residentName:r.resident_name || '', residentPhone:r.resident_phone || '',
+      isOwner:Boolean(r.is_owner), monthlyFee:Number(r.monthly_fee || 0),
+      status:r.payment_status, overdueMonths:Number(r.overdue_months || 0),
+      lastPaymentDate:r.last_payment_date || undefined, paidAmount:Number(r.paid_amount || 0),
+      creditBalance:Number(r.credit_balance || 0),
+    }));
+    setApartments(rows => [...rows.filter(a => a.buildingId !== id), ...refreshedApartments]);
     setBuildings(rows => rows.map(b => b.id === id ? next : b));
-    showToast('تم حفظ تعديلات بيانات العمارة على قاعدة البيانات!');
+    showToast('تم تحديث بيانات العمارة والشقق والحسابات بنجاح!');
   };
 
   const handleDeleteBuilding = (id: string) => {
