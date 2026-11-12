@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Building } from '../types';
+import { supabase } from '../lib/supabase';
 import { Building2, Save, X, Phone, MapPin, Layers } from 'lucide-react';
 import { BuildingDataDeletionButton } from './BuildingDataDeletionButton';
 
@@ -62,6 +63,21 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
       setManager3Phone(currentBuilding.manager3Phone || '');
     }
   }, [isOpen, isNewBuilding, currentBuilding]);
+
+  // Building counts may change on the server while this modal or an OTA is open.
+  // Always fetch the persisted count before displaying/editing it.
+  useEffect(() => {
+    if (!isOpen || isNewBuilding || !currentBuilding.id) return;
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase.from('buildings')
+        .select('total_units,total_floors').eq('id', currentBuilding.id).single();
+      if (cancelled || error || !data) return;
+      setTotalUnits(Number(data.total_units ?? 0));
+      setTotalFloors(Number(data.total_floors ?? 1));
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, isNewBuilding, currentBuilding.id]);
 
   if (!isOpen) return null;
 
