@@ -52,7 +52,7 @@ BEGIN
    IF NOT EXISTS (SELECT 1 FROM public.apartments WHERE building_id=p_building_id AND unit_number=candidate) THEN
      INSERT INTO public.apartments
        (building_id,unit_number,floor,resident_name,resident_phone,monthly_fee,paid_amount,credit_balance,overdue_months,payment_status)
-     VALUES (p_building_id,candidate,NULL,'','',0,0,0,0,'pending');
+     VALUES (p_building_id,candidate,0,'','',0,0,0,0,'pending');
      inserted_count := inserted_count+1;
    END IF;
    next_number := next_number+1;
