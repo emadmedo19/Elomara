@@ -6,19 +6,31 @@ import { SettingsList, SettingsPage, type SettingsListItem } from './SettingsLis
 import { AccountDeletionButton } from './AccountDeletionButton';
 export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignOut }: { items: SettingsListItem[]; buildingId?: string; onBack: () => void; onOpenAppSettings: () => void; onSignOut: () => void }) {
   const [showPlans, setShowPlans] = useState(false);
-  const [promo, setPromo] = useState('');
-  const [vipInput, setVipInput] = useState('');
+  const [specialCode, setSpecialCode] = useState('');
+  const [promoApplied, setPromoApplied] = useState(false);
   const [vipRedeeming, setVipRedeeming] = useState(false);
   const [vipMessage, setVipMessage] = useState('');
-  const redeemVip = async () => {
-    if (!buildingId || vipRedeeming || !vipInput.trim()) return;
-    setVipRedeeming(true); setVipMessage('');
+  const applySpecialCode = async () => {
+    if (!buildingId || vipRedeeming || !specialCode.trim()) return;
+    setVipMessage('');
+    setPromoApplied(false);
+    const code = specialCode.trim();
+    if (code.toLowerCase() === 'elomara50off') {
+      setPromoApplied(true);
+      setVipMessage('تم التعرف على كود الخصم. الخصم مبدئي لحين إتمام الدفع والتحقق من توافر العرض.');
+      return;
+    }
+    if (!/^ELM-VIP-[A-F0-9]{24}$/i.test(code)) {
+      setVipMessage('الكود غير صحيح. تأكد من كتابته وحاول مرة أخرى.');
+      return;
+    }
+    setVipRedeeming(true);
     try {
-      const { data, error } = await supabase.rpc('redeem_building_vip', {p_building_id: buildingId, p_code: vipInput.trim()});
+      const { data, error } = await supabase.rpc('redeem_building_vip', {p_building_id: buildingId, p_code: code});
       if (error) throw new Error(error.message);
       if (!data?.ok) throw new Error('تعذر تفعيل الكود');
       setVipMessage('تم تفعيل الاشتراك المجاني مدى الحياة لهذه العمارة بنجاح.');
-      setVipInput('');
+      setSpecialCode('');
     } catch (error) { setVipMessage(error instanceof Error ? error.message : 'تعذر تفعيل الكود'); }
     finally { setVipRedeeming(false); }
   };
@@ -47,7 +59,7 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
     } catch (error) { setOwnerError(error instanceof Error ? error.message : 'تعذر إنشاء الكود'); }
     finally { setGenerating(false); }
   };
-  const eligible = promo.trim().toLowerCase() === 'elomara50off';
+  const eligible = promoApplied;
   return <SettingsPage title="المزيد" onBack={onBack}><SettingsList items={[
     ...items,
     ...(ownerSummary ? [{ id: 'platform-subscriptions', label: 'إدارة اشتراكات المنصة', icon: CreditCard, onClick: () => setOwnerOpen(value => !value) }] : []),
@@ -70,14 +82,12 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
       <div className="rounded-xl bg-slate-50 p-3"><div className="font-semibold">سنوي</div><div className="text-xl font-bold">{eligible ? '499.50' : '999'} ج</div><div className="text-xs text-slate-500">كل سنة</div></div>
     </div>
     {buildingId && <div className="space-y-2 rounded-xl border border-slate-200 p-3">
-      <label className="block text-sm font-medium" htmlFor="subscription-vip">كود VIP مجاني مدى الحياة</label>
-      <input id="subscription-vip" dir="ltr" value={vipInput} onChange={event => setVipInput(event.target.value)} placeholder="ELM-VIP-..." autoComplete="off" className="w-full rounded-xl border border-slate-300 p-3" />
-      <button type="button" disabled={!vipInput.trim() || vipRedeeming} onClick={() => void redeemVip()} className="rounded-xl bg-slate-900 px-4 py-3 text-white disabled:opacity-50">{vipRedeeming ? 'جارٍ التفعيل...' : 'تفعيل كود VIP'}</button>
+      <label className="block text-sm font-medium" htmlFor="subscription-special-code">كود خاص أو كود خصم</label>
+      <input id="subscription-special-code" dir="ltr" value={specialCode} onChange={event => { setSpecialCode(event.target.value); setPromoApplied(false); setVipMessage(''); }} placeholder="أدخل الكود هنا" autoComplete="off" className="w-full rounded-xl border border-slate-300 p-3" />
+      <button type="button" disabled={!specialCode.trim() || vipRedeeming} onClick={() => void applySpecialCode()} className="rounded-xl bg-slate-900 px-4 py-3 text-white disabled:opacity-50">{vipRedeeming ? 'جارٍ التحقق...' : 'تطبيق الكود'}</button>
       {vipMessage && <p role="status" className="text-sm">{vipMessage}</p>}
+      {eligible && <p className="text-sm text-emerald-700">خصم 50% مبدئيًا. التفعيل النهائي مشروط بتوافر مكان ضمن أول 10 عمارات وإتمام أول دفعة.</p>}
     </div>}
-    <label className="block text-sm font-medium" htmlFor="subscription-promo">كود الخصم</label>
-    <input id="subscription-promo" value={promo} onChange={event => setPromo(event.target.value)} placeholder="أدخل كود الخصم" className="w-full rounded-xl border border-slate-300 p-3" autoComplete="off" />
-    {eligible && <p className="text-sm text-emerald-700">خصم 50% مبدئيًا. التفعيل النهائي مشروط بتوافر مكان ضمن أول 10 عمارات وإتمام أول دفعة.</p>}
     <p className="text-sm text-slate-500">الدفع الإلكتروني قيد التجهيز. الأسعار المعروضة للتعريف فقط؛ لم يتم تفعيل أي اشتراك أو حجز الخصم.</p>
   </section>}<AccountDeletionButton/></SettingsPage>;
 }
