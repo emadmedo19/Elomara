@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { SettingsList, SettingsPage, type SettingsListItem } from './SettingsList';
 import { AccountDeletionButton } from './AccountDeletionButton';
-export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignOut }: { items: SettingsListItem[]; buildingId: string; onBack: () => void; onOpenAppSettings: () => void; onSignOut: () => void }) {
+export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignOut }: { items: SettingsListItem[]; buildingId?: string; onBack: () => void; onOpenAppSettings: () => void; onSignOut: () => void }) {
   const [showPlans, setShowPlans] = useState(false);
   const [promo, setPromo] = useState('');
   const [vipInput, setVipInput] = useState('');
