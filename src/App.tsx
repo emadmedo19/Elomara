@@ -1,3 +1,4 @@
+import { isNeonBackend, updateNeonBuilding } from './lib/neon';
 import { IntroWindowLights } from './components/IntroWindowLights';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -516,11 +517,15 @@ export default function App() {
     const scope = managerScope;
     // This form edits building details; treasury changes use the dedicated RPC.
     const next = { ...current, ...updatedData, balance: current.balance };
-    const { error } = await supabase.rpc('update_manager_building', {
-      p_building_id: id,
-      p_details: next,
-    });
-    if (error) throw new Error('فشل تحديث بيانات العمارة والشقق: ' + error.message);
+    if (isNeonBackend) {
+      await updateNeonBuilding(id, next);
+    } else {
+      const { error } = await supabase.rpc('update_manager_building', {
+        p_building_id: id,
+        p_details: next,
+      });
+      if (error) throw new Error('فشل تحديث بيانات العمارة والشقق: ' + error.message);
+    }
     if (managerScopeRef.current !== scope) throw new Error('تم تغيير الحساب أثناء الحفظ.');
     // Refresh actual apartment records; dashboards and PDF reports derive totals from these.
     const { data: apartmentRows, error: apartmentError } = await supabase.from('apartments')
