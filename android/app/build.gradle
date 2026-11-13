@@ -6,8 +6,14 @@ def stableSigning = signingConfigPath ? new groovy.json.JsonSlurper().parse(file
 if (System.getenv('CI') && !stableSigning) {
     throw new GradleException('Stable Android signing is required in CI. Refusing a randomly signed APK.')
 }
-// Monotonic across the main and Neon candidate workflows, which have separate run counters.
-def releaseVersionCode = System.getenv('CI') ? Math.floorDiv(System.currentTimeMillis(), 1000L).toInteger() : 1000 + (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
+// Google Play already received a Unix-seconds versionCode (1794572315).
+// Never decrease it: use 10-second slots after 2026-11-13 UTC instead of
+// raw epoch seconds, slowing consumption of the remaining Play version range.
+// Both Android workflows share this clock-based sequence rather than separate run counters.
+def playVersionFloor = 1794572315L
+def versionEpochMillis = 1794528000000L // 2026-11-13T00:00:00Z
+def slot = Math.max(1L, Math.floorDiv(System.currentTimeMillis() - versionEpochMillis, 10000L))
+def releaseVersionCode = (playVersionFloor + slot).toInteger()
 def effectiveVersionCode = providers.gradleProperty('elomaraVersionCode').map { it.toInteger() }.getOrElse(releaseVersionCode)
 
 
