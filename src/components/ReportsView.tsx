@@ -49,7 +49,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   });
 
   return (
-    <div className="fotouh-reports space-y-4" dir="rtl">
+    <div data-tour="reports-page" className="fotouh-reports space-y-4" dir="rtl">
       {/* Top Banner */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

@@ -269,17 +269,17 @@ export const ResidentPortal: React.FC = () => {
       {activeTab === 'services' && <ServiceDirectory buildingId={userProfile?.buildingId || ''} canManage={false}/>}
       {activeTab === 'app-settings' && <AppPreferencesView onBack={() => window.history.back()} onSignOut={() => void signOut()}/>}
       {activeTab === 'home' && <>
-        <section className="rounded-2xl bg-gradient-to-l from-[#0f2537] to-[#1c4467] text-white p-5 shadow">
+        <section data-tour="resident-summary" className="rounded-2xl bg-gradient-to-l from-[#0f2537] to-[#1c4467] text-white p-5 shadow">
           <div className="flex items-center justify-between gap-2"><div className="text-sm text-teal-200">أهلاً بك في بوابة السكان</div><span className="text-[11px] rounded-full bg-emerald-400/15 text-emerald-200 px-3 py-1">حساب معتمد</span></div>
           <h2 className="text-2xl font-black mt-2">{userProfile?.displayName || apartment?.resident_name || user?.email}</h2>
           <p className="mt-1 text-slate-200">شقة {apartment?.unit_number} • الدور {apartment?.floor} • {building?.name}{userProfile?.residentLabel ? ` • ${userProfile.residentLabel}` : ''}</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5">
+          <div data-tour="resident-financials" className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5">
             <div className="rounded-xl bg-white/10 p-3"><div className="text-xs text-slate-300">الاشتراك الشهري</div><b>{money(apartment?.monthly_fee)} جنيه</b></div>
             <div className="rounded-xl bg-white/10 p-3"><div className="text-xs text-slate-300">حالة السداد</div><b>{statusLabel}</b></div>
             <div className="rounded-xl bg-white/10 p-3 col-span-2 sm:col-span-1"><div className="text-xs text-slate-300">رصيد الشقة</div><b>{money(apartment?.credit_balance)} جنيه</b></div>
           </div>
         </section>
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <section data-tour="resident-shortcuts" className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
             {label:'مدفوعاتي',value:payments.length,unit:'عملية',icon:<Wallet/>,tab:'payments' as ResidentTab},
             {label:'بلاغات الصيانة',value:tickets.length,unit:'بلاغ',icon:<Wrench/>,tab:'maintenance' as ResidentTab},
@@ -293,7 +293,7 @@ export const ResidentPortal: React.FC = () => {
         </section>
       </>}
 
-      {activeTab === 'payments' && <section className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm">
+      {activeTab === 'payments' && <section data-tour="resident-payments" className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-3"><Receipt className="w-5 h-5 text-teal-600"/><h3 className="font-bold">حسابي المالي وسجل المدفوعات</h3></div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
           <div className="rounded-xl bg-slate-50 border p-3"><div className="text-xs text-slate-500">الاشتراك الشهري</div><b>{money(apartment?.monthly_fee)} جنيه</b></div>
@@ -304,7 +304,7 @@ export const ResidentPortal: React.FC = () => {
         {payments.length ? payments.map(p=><div key={p.id} className="flex justify-between gap-3 border-t py-3 text-sm"><div><b>{p.month || dateLabel(p.payment_date)}</b><p className="text-xs text-slate-500">{p.method || 'نقدي'} {p.receipt_number ? '• إيصال '+p.receipt_number : ''}</p>{p.notes && <p className="text-xs text-slate-500 mt-1">{p.notes}</p>}</div><div className="text-left"><b className="whitespace-nowrap">{money(p.amount)} جنيه</b><p className="text-[11px] text-slate-400">{dateLabel(p.payment_date)}</p></div></div>) : <p className="text-sm text-slate-500">لا توجد مدفوعات مسجلة لهذه الشقة حتى الآن.</p>}
       </section>}
 
-      {activeTab === 'reports' && <section className="space-y-4">
+      {activeTab === 'reports' && <section data-tour="resident-reports" className="space-y-4">
         <div className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-1"><Wallet className="w-5 h-5 text-teal-600"/><h3 className="font-bold">الملخص المالي للعمارة</h3></div>
           <p className="text-xs text-slate-500 mb-4">كشف تحصيل الشقق: رقم الشقة والمبلغ المسدد والمتبقي وحالة السداد، بدون أسماء السكان أو بياناتهم الشخصية.</p>
@@ -345,11 +345,11 @@ export const ResidentPortal: React.FC = () => {
       {activeTab === 'maintenance' && <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <form onSubmit={submitTicket} className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm space-y-3">
           <div className="flex items-center gap-2"><Wrench className="w-5 h-5 text-teal-600"/><h3 className="font-bold">إرسال بلاغ صيانة جديد</h3></div>
-          <label className="block text-xs font-bold text-slate-600">نوع المشكلة<select value={ticketForm.category} onChange={e=>setTicketForm({...ticketForm,category:e.target.value})} className="mt-1 w-full rounded-xl border p-3 bg-white"><option>سباكة</option><option>كهرباء</option><option>نظافة</option><option>مصعد</option><option>أمن وحراسة</option><option>مرافق مشتركة</option><option>أخرى</option></select></label>
-          <label className="block text-xs font-bold text-slate-600">عنوان البلاغ<input required value={ticketForm.title} onChange={e=>setTicketForm({...ticketForm,title:e.target.value})} maxLength={120} className="mt-1 w-full rounded-xl border p-3" placeholder="مثال: تسريب مياه في الحمام"/></label>
-          <label className="block text-xs font-bold text-slate-600">التفاصيل<textarea required value={ticketForm.description} onChange={e=>setTicketForm({...ticketForm,description:e.target.value})} maxLength={2000} rows={3} className="mt-1 w-full rounded-xl border p-3" placeholder="اشرح المشكلة ومكانها..."/></label>
-          <label className="block text-xs font-bold text-slate-600">الأولوية<select value={ticketForm.urgency} onChange={e=>setTicketForm({...ticketForm,urgency:e.target.value})} className="mt-1 w-full rounded-xl border p-3 bg-white"><option>عادي</option><option>متوسط</option><option>عاجل</option></select></label>
-          <button disabled={submitting} className="w-full rounded-xl bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white font-bold p-3">{submitting?'جارٍ الإرسال...':'إرسال البلاغ للإدارة'}</button>
+          <label className="block text-xs font-bold text-slate-600">نوع المشكلة<select data-tour="ticket-category" value={ticketForm.category} onChange={e=>setTicketForm({...ticketForm,category:e.target.value})} className="mt-1 w-full rounded-xl border p-3 bg-white"><option>سباكة</option><option>كهرباء</option><option>نظافة</option><option>مصعد</option><option>أمن وحراسة</option><option>مرافق مشتركة</option><option>أخرى</option></select></label>
+          <label className="block text-xs font-bold text-slate-600">عنوان البلاغ<input required data-tour="ticket-title" value={ticketForm.title} onChange={e=>setTicketForm({...ticketForm,title:e.target.value})} maxLength={120} className="mt-1 w-full rounded-xl border p-3" placeholder="مثال: تسريب مياه في الحمام"/></label>
+          <label className="block text-xs font-bold text-slate-600">التفاصيل<textarea required data-tour="ticket-description" value={ticketForm.description} onChange={e=>setTicketForm({...ticketForm,description:e.target.value})} maxLength={2000} rows={3} className="mt-1 w-full rounded-xl border p-3" placeholder="اشرح المشكلة ومكانها..."/></label>
+          <label className="block text-xs font-bold text-slate-600">الأولوية<select data-tour="ticket-urgency" value={ticketForm.urgency} onChange={e=>setTicketForm({...ticketForm,urgency:e.target.value})} className="mt-1 w-full rounded-xl border p-3 bg-white"><option>عادي</option><option>متوسط</option><option>عاجل</option></select></label>
+          <button data-tour="ticket-submit" disabled={submitting} className="w-full rounded-xl bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white font-bold p-3">{submitting?'جارٍ الإرسال...':'إرسال البلاغ للإدارة'}</button>
         </form>
         <div className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm"><h3 className="font-bold mb-3">بلاغاتي ومتابعة التنفيذ</h3>{tickets.length ? tickets.map(t=><article key={t.id} className="border-t py-3"><div className="flex items-start justify-between gap-2"><b className="text-sm">{t.title}</b><span className="text-[11px] rounded-full bg-slate-100 px-2 py-1 whitespace-nowrap">{ticketStatus(t.status)}</span></div><p className="text-xs text-slate-500 mt-1">{t.category} • أولوية {t.urgency}</p><p className="text-sm text-slate-600 mt-2">{t.description}</p><p className="text-[11px] text-slate-400 mt-2">تاريخ البلاغ: {new Date(t.created_at).toLocaleDateString('ar-EG')}</p></article>) : <p className="text-sm text-slate-500">لم ترسل أي بلاغات حتى الآن.</p>}</div>
       </section>}
@@ -357,23 +357,23 @@ export const ResidentPortal: React.FC = () => {
       {activeTab === 'bookings' && <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <form onSubmit={submitBooking} className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm space-y-3">
           <div className="flex items-center gap-2"><CalendarDays className="w-5 h-5 text-teal-600"/><h3 className="font-bold">طلب حجز مرفق</h3></div>
-          <label className="block text-xs font-bold text-slate-600">المرفق<select value={bookingForm.facility} onChange={e=>setBookingForm({...bookingForm,facility:e.target.value})} className="mt-1 w-full rounded-xl border p-3 bg-white"><option>الروف</option><option>قاعة الاجتماعات</option><option>مكان انتظار الزوار</option><option>موقف الزوار</option><option>أخرى</option></select></label>
-          <label className="block text-xs font-bold text-slate-600">التاريخ<input required type="date" min={new Date().toISOString().slice(0,10)} value={bookingForm.booking_date} onChange={e=>setBookingForm({...bookingForm,booking_date:e.target.value})} className="mt-1 w-full rounded-xl border p-3"/></label>
-          <label className="block text-xs font-bold text-slate-600">الوقت / الفترة<input required value={bookingForm.time_slot} onChange={e=>setBookingForm({...bookingForm,time_slot:e.target.value})} maxLength={80} className="mt-1 w-full rounded-xl border p-3" placeholder="مثال: من 5 إلى 7 مساءً"/></label>
-          <button disabled={submitting} className="w-full rounded-xl bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white font-bold p-3">{submitting?'جارٍ الإرسال...':'إرسال طلب الحجز'}</button>
+          <label className="block text-xs font-bold text-slate-600">المرفق<select data-tour="booking-facility" value={bookingForm.facility} onChange={e=>setBookingForm({...bookingForm,facility:e.target.value})} className="mt-1 w-full rounded-xl border p-3 bg-white"><option>الروف</option><option>قاعة الاجتماعات</option><option>مكان انتظار الزوار</option><option>موقف الزوار</option><option>أخرى</option></select></label>
+          <label className="block text-xs font-bold text-slate-600">التاريخ<input required type="date" min={new Date().toISOString().slice(0,10)} data-tour="booking-date" value={bookingForm.booking_date} onChange={e=>setBookingForm({...bookingForm,booking_date:e.target.value})} className="mt-1 w-full rounded-xl border p-3"/></label>
+          <label className="block text-xs font-bold text-slate-600">الوقت / الفترة<input required data-tour="booking-time" value={bookingForm.time_slot} onChange={e=>setBookingForm({...bookingForm,time_slot:e.target.value})} maxLength={80} className="mt-1 w-full rounded-xl border p-3" placeholder="مثال: من 5 إلى 7 مساءً"/></label>
+          <button data-tour="booking-submit" disabled={submitting} className="w-full rounded-xl bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white font-bold p-3">{submitting?'جارٍ الإرسال...':'إرسال طلب الحجز'}</button>
           <p className="text-[11px] text-slate-500">الحجز يظل طلبًا قيد المراجعة حتى تؤكده الإدارة.</p>
         </form>
         <div className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm"><h3 className="font-bold mb-3">حجوزاتي</h3>{bookings.length ? bookings.map(b=><article key={b.id} className="border-t py-3 flex justify-between gap-2"><div><b className="text-sm">{b.facility}</b><p className="text-xs text-slate-500 mt-1">{dateLabel(b.booking_date)} • {b.time_slot}</p></div><span className="text-[11px] bg-amber-50 text-amber-800 rounded-full px-2 py-1 h-fit">{b.status}</span></article>) : <p className="text-sm text-slate-500">لا توجد طلبات حجز حتى الآن.</p>}</div>
       </section>}
 
-      {activeTab === 'announcements' && <section className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm">
+      {activeTab === 'announcements' && <section data-tour="resident-announcements" className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-3"><Megaphone className="w-5 h-5 text-teal-600"/><h3 className="font-bold">إعلانات العمارة وقرارات الإدارة</h3></div>
         {announcements.length ? announcements.map(n=><article key={n.id} className="border-t py-4"><div className="flex items-center gap-2"><b>{n.title}</b>{n.pinned && <span className="text-[10px] bg-amber-50 text-amber-700 rounded-full px-2 py-1">مهم</span>}</div><p className="text-sm text-slate-600 mt-2 whitespace-pre-wrap">{n.content}</p>{n.image_url && <a href={n.image_url} target="_blank" rel="noreferrer" className="block mt-3" aria-label={`عرض صورة الإعلان: ${n.title}`}><img src={n.image_url} alt={`صورة الإعلان: ${n.title}`} loading="lazy" className="w-full max-w-lg mx-auto h-auto rounded-2xl border border-slate-200 shadow-sm object-contain" /></a>}<p className="text-[11px] text-slate-400 mt-2">{dateLabel(n.created_at)}</p></article>) : <p className="text-sm text-slate-500">لا توجد إعلانات حاليًا.</p>}
       </section>}
 
       {activeTab === 'polls' && <PollsView buildingId={userProfile.buildingId} canManage={false} />}
 
-      {activeTab === 'building' && <section className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm space-y-4">
+      {activeTab === 'building' && <section data-tour="resident-building" className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm space-y-4">
         <div className="flex items-center gap-2"><Building2 className="w-5 h-5 text-teal-600"/><h3 className="font-bold">معلومات العمارة</h3></div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div className="rounded-xl bg-slate-50 border p-3"><p className="text-xs text-slate-500">عدد الشقق</p><b>{building?.total_units ?? '—'}</b></div>
@@ -381,7 +381,7 @@ export const ResidentPortal: React.FC = () => {
           <div className="rounded-xl bg-slate-50 border p-3"><p className="text-xs text-slate-500">صندوق الاحتياطي</p><b>{money(building?.reserve_fund)} جنيه</b></div>
         </div>
         <div><p className="text-xs text-slate-500">العنوان</p><p className="font-semibold mt-1">{building?.address || 'غير مسجل'}</p></div>
-        <div className="rounded-xl bg-teal-50 border border-teal-100 p-4"><p className="text-sm font-bold text-teal-900">التواصل مع الإدارة</p><p className="text-sm text-teal-800 mt-1">{building?.manager_name || 'إدارة العمارة'}</p><GuardContact buildingId={userProfile.buildingId} />{building?.manager_phone ? <a href={`tel:${building.manager_phone}`} className="inline-flex items-center gap-2 mt-2 text-sm font-bold text-teal-800"><Phone className="w-4 h-4"/>{building.manager_phone}</a> : <p className="text-xs text-teal-700 mt-1">رقم التواصل غير متاح حاليًا.</p>}</div>
+        <div data-tour="resident-contacts" className="rounded-xl bg-teal-50 border border-teal-100 p-4"><p className="text-sm font-bold text-teal-900">التواصل مع الإدارة</p><p className="text-sm text-teal-800 mt-1">{building?.manager_name || 'إدارة العمارة'}</p><GuardContact buildingId={userProfile.buildingId} />{building?.manager_phone ? <a href={`tel:${building.manager_phone}`} className="inline-flex items-center gap-2 mt-2 text-sm font-bold text-teal-800"><Phone className="w-4 h-4"/>{building.manager_phone}</a> : <p className="text-xs text-teal-700 mt-1">رقم التواصل غير متاح حاليًا.</p>}</div>
         <p className="text-[11px] text-slate-500">المعلومات المعروضة هنا تعريفية فقط. التقارير المالية التفصيلية وبيانات الشقق الأخرى متاحة للإدارة وحدها.</p>
       </section>}
     </main>

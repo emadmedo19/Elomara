@@ -128,18 +128,18 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
               <p className="text-xs text-slate-500">{isNewBuilding ? 'أدخل البيانات وسيتم إنشاء الشقق تلقائيًا حسب العدد والأدوار' : 'تعديل بيانات العمارة الحالية'}</p>
             </div>
           </div>
-          <button type="button" disabled={saving} onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100"><X className="w-5 h-5" /></button>
+          <button type="button" data-tour="building-close" disabled={saving} onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100"><X className="w-5 h-5" /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-4">
+        <form data-tour="building-form" onSubmit={handleSubmit} className="mt-4">
           <fieldset disabled={saving} className="space-y-4">
           <div>
             <label className={label}>اسم العمارة *</label>
-            <input required value={name} onChange={e => setName(e.target.value)} placeholder="اكتب اسم العمارة" className={field} />
+            <input required data-tour="building-name" value={name} onChange={e => setName(e.target.value)} placeholder="اكتب اسم العمارة" className={field} />
           </div>
           <div>
             <label className={label}><MapPin className="w-3.5 h-3.5 inline ml-1" />العنوان</label>
-            <input value={address} onChange={e => setAddress(e.target.value)} placeholder="المدينة والحي والشارع" className={field} />
+            <input data-tour="building-address" value={address} onChange={e => setAddress(e.target.value)} placeholder="المدينة والحي والشارع" className={field} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -148,7 +148,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
             </div>
             <div>
               <label className={label}>{isNewBuilding ? 'عدد الشقق التي ستُنشأ' : 'إجمالي الوحدات'}</label>
-              <input type="number" min="0" required value={totalUnits} onChange={e => setTotalUnits(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} />
+              <input type="number" min="0" required data-tour="building-units" value={totalUnits} onChange={e => setTotalUnits(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} />
             </div>
           </div>
           <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-3">{isNewBuilding ? 'سيتم إنشاء الشقق بأرقام متسلسلة وتوزيعها على الأدوار. يمكنك تعديل أسماء السكان والاشتراكات لاحقًا من شاشة الشقق.' : 'عند زيادة العدد، تُضاف الشقق الناقصة تلقائيًا دون تغيير الشقق الحالية أو مدفوعاتها. تُترك الأدوار الجديدة غير محددة حتى تعدّلها من شاشة الشقق. لا يمكن تقليل العدد عن الشقق المسجلة.'}</p>
@@ -158,7 +158,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
           </div>
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div><label className={label}>اسم المسؤول الأول</label><input value={managerName} onChange={e => setManagerName(e.target.value)} className={field} /></div>
+              <div><label className={label}>اسم المسؤول الأول</label><input data-tour="building-manager" value={managerName} onChange={e => setManagerName(e.target.value)} className={field} /></div>
               <div><label className={label}><Phone className="w-3.5 h-3.5 inline ml-1" />هاتف المسؤول الأول</label><input dir="ltr" type="tel" value={managerPhone} onChange={e => setManagerPhone(e.target.value)} className={field} /></div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -180,7 +180,7 @@ export const PollsView: React.FC<Props> = ({ buildingId, canManage }) => {
   }, [polls, canManage, residentFilter]);
 
   return (
-    <div dir="rtl" className="space-y-4">
+    <div data-tour="polls-page" dir="rtl" className="space-y-4">
       <div className="rounded-3xl border border-teal-100 bg-gradient-to-l from-[#0f2d3d] to-[#164e63] p-5 text-white shadow-lg">
         <div className="flex items-center gap-3">
           <div className="rounded-2xl bg-white/10 p-3"><BarChart3 className="h-6 w-6" /></div>
@@ -199,13 +199,13 @@ export const PollsView: React.FC<Props> = ({ buildingId, canManage }) => {
         <form onSubmit={createPoll} className="space-y-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex items-center justify-between gap-2"><h3 className="font-black text-slate-800">إنشاء استطلاع جديد</h3><span className="rounded-full bg-teal-50 px-3 py-1 text-[11px] font-bold text-teal-800">لجميع السكان المعتمدين</span></div>
           <label className="block text-xs font-bold text-slate-600">موضوع / سؤال الاستطلاع
-            <input required minLength={5} maxLength={300} value={question} onChange={event => setQuestion(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-teal-500" placeholder="مثال: هل توافق على تركيب كاميرات للمداخل؟" />
+            <input required minLength={5} maxLength={300} data-tour="poll-question" value={question} onChange={event => setQuestion(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-teal-500" placeholder="مثال: هل توافق على تركيب كاميرات للمداخل؟" />
           </label>
           <label className="block text-xs font-bold text-slate-600">تفاصيل إضافية (اختياري)
             <textarea maxLength={1500} rows={2} value={description} onChange={event => setDescription(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-teal-500" placeholder="وضح أي تفاصيل تساعد السكان على اتخاذ القرار..." />
           </label>
           <label className="block text-xs font-bold text-slate-600">الاختيارات (كل اختيار في سطر مستقل)
-            <textarea required rows={3} value={optionText} onChange={event => setOptionText(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm leading-7 outline-none focus:border-teal-500" />
+            <textarea required rows={3} data-tour="poll-options" value={optionText} onChange={event => setOptionText(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm leading-7 outline-none focus:border-teal-500" />
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-xs font-bold text-slate-600">موعد انتهاء التصويت

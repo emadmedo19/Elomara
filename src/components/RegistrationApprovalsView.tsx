@@ -152,7 +152,7 @@ export const RegistrationApprovalsView: React.FC<{ apartments: Apartment[] }> = 
     const apartment=apartmentById.get(member.apartment_id||'');
     return matchesSearch(`${member.full_name} ${apartment?`شقة ${apartment.unitNumber} الدور ${apartment.floor}`:'شقة غير محددة'} ${memberLabel(member)} ${member.role==='building_admin'?'مدير':'ساكن'}`,terms);
   }),[members,apartmentById,terms]);
-  return <section className="max-w-4xl mx-auto space-y-4" dir="rtl">
+  return <section data-tour="approvals-page" className="max-w-4xl mx-auto space-y-4" dir="rtl">
     <div className="rounded-3xl bg-[#10283a] text-white p-5">
       <div className="flex items-center justify-between gap-3"><div className="flex gap-3 items-center"><ShieldCheck className="h-8 w-8 text-teal-300 shrink-0"/><div><h2 className="text-xl font-bold">طلبات انضمام السكان</h2><p className="text-sm text-slate-300">مراجعة الطلبات وإدارة أعضاء الشقق.</p></div></div><button type="button" aria-label="تحديث الأعضاء والطلبات" disabled={busy||loading} onClick={()=>void load()}><RefreshCw className={loading?'animate-spin':''}/></button></div>
       <p className="mt-3 text-sm text-teal-200">{rows.filter(r=>r.status==='pending').length} طلب قيد المراجعة • {members.length} عضو مسجل</p>

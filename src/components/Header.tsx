@@ -56,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {buildings.map(b => <option key={b.id} value={b.id}>{b.name} • {b.totalUnits} شقة</option>)}
               </select><ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
             </label>
-            <button onClick={onOpenBuildingManagement} title="إدارة العقارات" aria-label="إدارة العقارات" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-teal-200 hover:text-teal-700"><SlidersHorizontal className="h-4 w-4" /></button>
+            <button data-tour="manager-buildings" onClick={onOpenBuildingManagement} title="إدارة العقارات" aria-label="إدارة العقارات" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-teal-200 hover:text-teal-700"><SlidersHorizontal className="h-4 w-4" /></button>
             <NotificationBell onNavigate={onSelectTab}/>
           </div>
         </div>

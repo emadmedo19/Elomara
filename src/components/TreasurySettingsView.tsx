@@ -49,19 +49,19 @@ export function TreasurySettingsView({ buildingId, onBack, onSaved }: { building
     finally { setSaving(false); }
   };
   const delta = snapshot && validAmount(opening) ? (snapshot.openingBalance === null && included !== 'add' ? 0 : Number(opening) - (snapshot.openingBalance || 0)) : 0;
-  return <SettingsPage title="الرصيد الافتتاحي ووديعة الصيانة" onBack={onBack}>
+  return <SettingsPage tourTarget="treasury-page" title="الرصيد الافتتاحي ووديعة الصيانة" onBack={onBack}>
     {error && <p role="alert" className="settings-error">{error}</p>}
     {notice && <p role="status" className="settings-notice">{notice}</p>}
     {loading ? <p role="status" className="settings-help">جارٍ تحميل الأرصدة...</p> : <>
       <button type="button" className="text-sm text-sky-700 mb-4" disabled={saving} onClick={()=>setReload(value=>value+1)}>تحديث الأرصدة من الخادم</button>
       {snapshot && <form className="settings-panel" onSubmit={save}>
         <div className="settings-finance-summary"><div><span>رصيد الخزينة الحالي</span><strong>{money(snapshot.balance)} ج.م</strong></div><div><span>وديعة الصيانة المسجلة</span><strong>{money(snapshot.reserveFund)} ج.م</strong></div></div>
-        <label className="settings-form-label">الرصيد الافتتاحي (ج.م)<input type="number" inputMode="decimal" min="0" max="9999999999.99" step="0.01" required disabled={saving} value={opening} onChange={event=>setOpening(event.target.value)}/></label>
+        <label className="settings-form-label">الرصيد الافتتاحي (ج.م)<input type="number" inputMode="decimal" min="0" max="9999999999.99" step="0.01" required disabled={saving} data-tour="treasury-opening" value={opening} onChange={event=>setOpening(event.target.value)}/></label>
         {snapshot.openingBalance === null ? <>
           <p className="settings-help">لم يُحفظ الرصيد الافتتاحي لهذه العمارة بشكل منفصل من قبل. راجع سجلاتك وحدد طريقة تسجيله حتى لا يُضاف مرتين.</p>
           <fieldset className="settings-finance-choice" disabled={saving}><legend>هل المبلغ موجود ضمن الخزينة الحالية؟</legend><label><input type="radio" name="opening-included" checked={included==='included'} onChange={()=>setIncluded('included')} required/>نعم، تسجيل الرصيد فقط دون إضافته للخزينة</label><label><input type="radio" name="opening-included" checked={included==='add'} onChange={()=>setIncluded('add')} required/>لا، إضافة المبلغ إلى رصيد الخزينة الحالي</label></fieldset>
         </> : <p className="settings-help">تعديل الرصيد الافتتاحي يغيّر الخزينة بقيمة الفرق فقط، مع الاحتفاظ بحركات التحصيل والمصروفات.</p>}
-        <label className="settings-form-label">وديعة الصيانة / الصندوق الاحتياطي (ج.م)<input type="number" inputMode="decimal" min="0" max="9999999999.99" step="0.01" required disabled={saving} value={reserve} onChange={event=>setReserve(event.target.value)}/></label>
+        <label className="settings-form-label">وديعة الصيانة / الصندوق الاحتياطي (ج.م)<input type="number" inputMode="decimal" min="0" max="9999999999.99" step="0.01" required disabled={saving} data-tour="treasury-reserve" value={reserve} onChange={event=>setReserve(event.target.value)}/></label>
         <p className="settings-help">تُحفظ الوديعة في بند الصندوق الاحتياطي الموجود ببيانات العمارة، ولا تُسجل كتحصيل جديد أو تُضاف تلقائيًا لرصيد الخزينة.</p>
         <p className="settings-help">رصيد الخزينة بعد الحفظ: <strong>{money(snapshot.balance + delta)} ج.م</strong></p>
         <button type="submit" className="settings-save" disabled={saving}>{saving ? 'جارٍ الحفظ...' : 'حفظ الأرصدة'}</button>

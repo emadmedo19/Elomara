@@ -27,7 +27,7 @@ export function AppPreferencesView({ onBack, onSignOut, onBuildingSettings }: { 
     setNotice(''); setPage(next);
   };
   const back = () => { if (page === 'list') onBack(); else window.history.back(); };
-  return <SettingsPage title={titles[page]} onBack={back} subpage={page !== 'list'}>
+  return <SettingsPage tourTarget="app-preferences" title={titles[page]} onBack={back} subpage={page !== 'list'}>
     {notice && <p className="settings-notice" role="status">{notice}</p>}
     {page === 'list' && <>
       <SettingsList items={[

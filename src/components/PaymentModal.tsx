@@ -126,7 +126,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
   return createPortal(
     <div role="dialog" aria-modal="true" aria-labelledby="payment-modal-title" dir="rtl" className="fixed inset-0 z-[60] bg-[#0f2537]/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-      <form onSubmit={handleSubmit} className="bg-white rounded-3xl max-w-lg w-full min-w-0 p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden">
+      <form data-tour="payment-form" onSubmit={handleSubmit} className="bg-white rounded-3xl max-w-lg w-full min-w-0 p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between gap-2 pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
@@ -147,7 +147,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            aria-label="إغلاق نافذة السداد"
+            data-tour="payment-close" aria-label="إغلاق نافذة السداد"
             className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-700"
           >
             <X className="w-4 h-4" />
@@ -188,7 +188,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             <div className="min-w-0 space-y-1">
               <label className="text-xs font-bold text-slate-700">الشقة المستهدفة *</label>
               <select
-                value={apartmentId}
+                data-tour="payment-apartment" value={apartmentId}
                 disabled={Boolean(editingPayment)}
                 onChange={(e) => {
                   setApartmentId(e.target.value);
@@ -231,7 +231,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   step="0.01"
                   max={chargeId ? chargeRemaining(chargeId) : undefined}
                   required
-                  value={amount}
+                  data-tour="payment-amount" value={amount}
                   onChange={(e) => setAmount(Number(e.target.value))}
                   onFocus={(e) => e.currentTarget.select()}
                   className="min-w-0 max-w-full w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 font-bold text-teal-800"
@@ -244,7 +244,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 <input
                   type="date"
                   required
-                  value={date}
+                  data-tour="payment-date" value={date}
                   onChange={(e) => setDate(e.target.value)}
                   className="min-w-0 max-w-full w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
                 />
@@ -285,7 +285,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 <label className="text-xs font-bold text-slate-700">رقم الإيصال / المعاملة</label>
                 <input
                   type="text"
-                  value={receiptNumber}
+                  data-tour="payment-receipt" value={receiptNumber}
                   onChange={(e) => setReceiptNumber(e.target.value)}
                   className="min-w-0 max-w-full w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 font-mono"
                 />
@@ -316,7 +316,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             إلغاء
           </button>
           <button
-            type="submit"
+            data-tour="payment-save" type="submit"
             disabled={saving}
             className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-md transition active:scale-95 flex items-center gap-1.5"
           >

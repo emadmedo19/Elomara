@@ -211,7 +211,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
         {isManager && (
           <div className="flex flex-wrap items-center gap-2.5">
             <button
-              onClick={() => handleOpenAddPayment()}
+              data-tour="collections-pay" onClick={() => handleOpenAddPayment()}
               className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 transition active:scale-95 shadow-sm"
             >
               <DollarSign className="w-4 h-4" />
@@ -219,7 +219,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
             </button>
 
             <button
-              onClick={() => {
+              data-tour="collections-add" onClick={() => {
                 setEditingApartment(null);
                 setIsAddAptModalOpen(true);
               }}
@@ -276,7 +276,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
       </div>
 
       {/* Tabs Navigation: Apartments | All Payments | Audit Log */}
-      <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-2xs text-xs font-bold">
+      <div data-tour="collections-tabs" className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-2xs text-xs font-bold">
         <button
           onClick={() => setActiveSubTab('apartments')}
           className={`flex-1 py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 ${
@@ -321,7 +321,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
         <div className="relative w-full sm:w-80">
           <input
             type="text"
-            value={searchTerm}
+            data-tour="collections-search" value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder={
               activeSubTab === 'payments'

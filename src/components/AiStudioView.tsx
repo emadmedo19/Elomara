@@ -289,7 +289,7 @@ export const AiStudioView: React.FC<AiStudioViewProps> = ({
                   <textarea
                     id="announcement-text"
                     rows={4}
-                    value={prompt}
+                    data-tour="studio-prompt" value={prompt}
                     onChange={(e) => { setPrompt(e.target.value); resetPreview(); }}
                     disabled={isGenerating}
                     placeholder="اكتب نص الإعلان الذي سيظهر للسكان..."

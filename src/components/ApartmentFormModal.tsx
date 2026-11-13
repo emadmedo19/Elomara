@@ -83,7 +83,7 @@ export const ApartmentFormModal: React.FC<ApartmentFormModalProps> = ({
 
   return createPortal(
     <div role="dialog" aria-modal="true" aria-labelledby="apartment-form-title" dir="rtl" className="fixed inset-0 z-50 bg-[#0f2537]/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-      <form onSubmit={handleSubmit} className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[90dvh] overscroll-contain overflow-y-auto">
+      <form data-tour="apartment-form" onSubmit={handleSubmit} className="bg-white rounded-3xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[90dvh] overscroll-contain overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
@@ -102,7 +102,7 @@ export const ApartmentFormModal: React.FC<ApartmentFormModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            aria-label="إغلاق تعديل الشقة"
+            data-tour="apartment-close" aria-label="إغلاق تعديل الشقة"
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700"
           >
             <X className="w-4 h-4" />
@@ -117,7 +117,7 @@ export const ApartmentFormModal: React.FC<ApartmentFormModalProps> = ({
               <input
                 type="text"
                 required
-                value={unitNumber}
+                data-tour="apartment-unit" value={unitNumber}
                 onChange={(e) => setUnitNumber(e.target.value)}
                 placeholder="مثال: شقة 101 أو روف 501"
                 className="w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 font-bold"
@@ -145,7 +145,7 @@ export const ApartmentFormModal: React.FC<ApartmentFormModalProps> = ({
               <input
                 type="text"
                 required
-                value={residentName}
+                data-tour="apartment-name" value={residentName}
                 onChange={(e) => setResidentName(e.target.value)}
                 placeholder="مثال: أ/ أحمد محمد"
                 className="w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
@@ -172,7 +172,7 @@ export const ApartmentFormModal: React.FC<ApartmentFormModalProps> = ({
                 type="number"
                 min="0"
                 required
-                value={monthlyFee}
+                data-tour="apartment-fee" value={monthlyFee}
                 onChange={(e) => setMonthlyFee(Number(e.target.value))}
                 onFocus={(e) => e.currentTarget.select()}
                 className="w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 font-bold text-teal-800"
@@ -232,7 +232,7 @@ export const ApartmentFormModal: React.FC<ApartmentFormModalProps> = ({
             إلغاء
           </button>
           <button
-            type="submit"
+            data-tour="apartment-save" type="submit"
             className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-md transition active:scale-95 flex items-center gap-1.5"
           >
             <Check className="w-4 h-4" />

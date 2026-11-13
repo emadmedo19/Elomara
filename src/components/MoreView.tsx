@@ -101,7 +101,7 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
     finally { setGenerating(false); }
   };
   const eligible = promoApplied;
-  return <SettingsPage title={ownerOpen ? "إدارة اشتراكات المنصة" : showPlans ? "الاشتراك والباقات" : "المزيد"} onBack={ownerOpen ? () => setOwnerOpen(false) : showPlans ? () => setShowPlans(false) : onBack} subpage={ownerOpen || showPlans}>{!ownerOpen && !showPlans && <div className="px-4 pb-3"><TourHelpButton /></div>}{!ownerOpen && !showPlans && <SettingsList items={[
+  return <SettingsPage tourTarget="more-page" title={ownerOpen ? "إدارة اشتراكات المنصة" : showPlans ? "الاشتراك والباقات" : "المزيد"} onBack={ownerOpen ? () => setOwnerOpen(false) : showPlans ? () => setShowPlans(false) : onBack} subpage={ownerOpen || showPlans}>{!ownerOpen && !showPlans && <div className="px-4 pb-3"><TourHelpButton /></div>}{!ownerOpen && !showPlans && <SettingsList items={[
     ...items,
     ...(ownerSummary ? [{ id: 'platform-subscriptions', label: 'إدارة اشتراكات المنصة', icon: CreditCard, onClick: () => { setShowPlans(false); setOwnerOpen(true); } }] : []),
     { id: 'subscription', label: 'الاشتراك والباقات', icon: CreditCard, onClick: () => { setOwnerOpen(false); setShowPlans(true); } },

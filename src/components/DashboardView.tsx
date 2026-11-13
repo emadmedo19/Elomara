@@ -49,7 +49,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="elomara-light-dashboard space-y-5 pb-5" dir="rtl">
-      <section className="light-welcome" aria-label="ملخص العمارة">
+      <section data-tour="dashboard-welcome" className="light-welcome" aria-label="ملخص العمارة">
         <div className="light-welcome-heading">
           <div><h1>مرحبًا بك</h1><p>في إدارة {building.name || 'العمارة'}</p></div>
           <span className="light-month"><CalendarDays size={15} aria-hidden="true" />{monthName}</span>
@@ -61,12 +61,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </section>
 
       <section className="light-stat-grid" aria-label="المؤشرات المالية">
-        <article className="light-stat light-stat-balance">
+        <article data-tour="dashboard-balance" className="light-stat light-stat-balance">
           <div><span>رصيد الخزينة</span><span className="light-stat-icon settings-icon settings-icon-blue"><Wallet size={21} /></span></div>
           <strong>{money(building.balance)} <small>ج.م</small></strong>
           <p>الرصيد المسجل بالخزينة</p>
         </article>
-        <article className="light-stat light-stat-collected">
+        <article data-tour="dashboard-collected" className="light-stat light-stat-collected">
           <div><span>إجمالي المحصل</span><span className="light-stat-icon settings-icon-teal"><ArrowDownRight size={21} /></span></div>
           <strong>{money(fin.totalCollected)} <small>ج.م</small></strong>
           <p>المبالغ المسجلة كتحصيل</p>
@@ -90,7 +90,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       <section className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
         <div className="mb-4 flex items-center justify-between gap-2"><div><h2 className="text-base font-extrabold text-slate-900">الوصول السريع</h2><p className="mt-1 text-[11px] text-slate-500">أهم العمليات اليومية في مكان واحد</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold text-slate-500">إجراءات سريعة</span></div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <div data-tour="dashboard-actions" className="grid grid-cols-2 gap-3 lg:grid-cols-3">
           {quickActions.map(item => { const Icon=item.icon; return <button key={item.label} onClick={item.action} className="group flex min-w-0 items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-3 text-right transition hover:-translate-y-0.5 hover:border-teal-200 hover:bg-white hover:shadow-md sm:flex-col sm:items-start sm:p-4"><span className={`settings-icon settings-icon-${item.tone} quick-action-icon transition group-hover:scale-105`}><Icon className="h-5 w-5" /></span><span className="min-w-0"><strong className="block text-xs font-extrabold text-slate-800">{item.label}</strong><small className="mt-1 block text-[10px] text-slate-500">{item.hint}</small></span></button>; })}
         </div>
       </section>

@@ -145,7 +145,7 @@ export const AiChatView: React.FC<AiChatViewProps> = ({ buildingName }) => {
         <div className="flex flex-wrap items-center gap-2 text-xs">
           {/* Persona selector */}
           <select
-            value={rolePersona}
+            data-tour="chat-persona" value={rolePersona}
             onChange={(e) => setRolePersona(e.target.value)}
             className="bg-white/10 hover:bg-white/15 text-white text-xs font-medium py-1.5 px-2.5 rounded-xl border border-white/20 focus:outline-none cursor-pointer"
           >
@@ -255,7 +255,7 @@ export const AiChatView: React.FC<AiChatViewProps> = ({ buildingName }) => {
         >
           <input
             type="text"
-            value={inputMessage}
+            data-tour="chat-message" value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             disabled={isLoading}
             placeholder="اكتب استفسارك عن الصيانة، الموازنة، اللائحة، أو نسب كل شقة..."

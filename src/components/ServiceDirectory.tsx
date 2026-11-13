@@ -43,15 +43,15 @@ export function ServiceDirectory({buildingId, canManage}: {buildingId:string;can
     else await load();
     setBusy(false);
   };
-  return <section dir="rtl" className="space-y-4 pb-8">
+  return <section data-tour={category ? 'services-detail' : 'services-page'} dir="rtl" className="space-y-4 pb-8">
     <header className="rounded-2xl bg-teal-700 p-5 text-center text-2xl font-bold text-white">الخدمات</header>
     {!category ? <div className="grid grid-cols-2 gap-3">
-      {categories.map(item=><button type="button" key={item} onClick={()=>{setCategory(item);setEditing(null);setName('');setPhone('');setNotes('');}} className="rounded-3xl bg-white p-5 shadow-sm border border-slate-100 text-center min-h-36 flex flex-col items-center justify-center gap-3">
+      {categories.map(item=><button type="button" key={item} data-tour="services-category" onClick={()=>{setCategory(item);setEditing(null);setName('');setPhone('');setNotes('');}} className="rounded-3xl bg-white p-5 shadow-sm border border-slate-100 text-center min-h-36 flex flex-col items-center justify-center gap-3">
         <span className="rounded-full bg-teal-50 p-4 text-teal-700"><Wrench size={30}/></span>
         <span className="font-bold text-lg">{item}</span><span className="text-xs text-slate-400">{contacts.filter(c=>c.category===item).length} مقدم خدمة</span>
       </button>)}
     </div> : <>
-      <button type="button" onClick={()=>setCategory(null)} className="text-teal-700 font-bold">‹ جميع الأقسام</button>
+      <button type="button" data-tour="services-back" onClick={()=>setCategory(null)} className="text-teal-700 font-bold">‹ جميع الأقسام</button>
       <h3 className="text-xl font-bold">{category}</h3>
       {contacts.filter(c=>c.category===category).map(contact=><div key={contact.id} className="rounded-2xl border bg-white p-4 flex justify-between gap-3">
         <div><h4 className="font-bold">{contact.name}</h4><p dir="ltr" className="text-sm text-slate-600 text-right">{contact.phone}</p>{contact.notes && <p className="text-xs text-slate-500 mt-1">{contact.notes}</p>}</div>
@@ -63,7 +63,7 @@ export function ServiceDirectory({buildingId, canManage}: {buildingId:string;can
       {!contacts.some(c=>c.category===category) && <p className="text-center text-slate-500 py-5">لا يوجد مقدمو خدمة في هذا القسم حتى الآن.</p>}
       {canManage && <form onSubmit={event=>void save(event)} className="space-y-3 rounded-2xl border bg-white p-4">
         <h4 className="font-bold">{editing ? 'تعديل مقدم الخدمة' : 'إضافة مقدم خدمة'}</h4>
-        <input aria-label="اسم مقدم الخدمة" required maxLength={120} value={name} onChange={e=>setName(e.target.value)} placeholder="الاسم" className="w-full rounded-xl border p-3"/>
+        <input data-tour="service-name" aria-label="اسم مقدم الخدمة" required maxLength={120} value={name} onChange={e=>setName(e.target.value)} placeholder="الاسم" className="w-full rounded-xl border p-3"/>
         <input aria-label="رقم الهاتف" required type="tel" maxLength={30} value={phone} onChange={e=>setPhone(e.target.value)} placeholder="رقم الهاتف" className="w-full rounded-xl border p-3"/>
         <textarea aria-label="ملاحظات" maxLength={500} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="ملاحظات اختيارية" className="w-full rounded-xl border p-3"/>
         <button type="submit" disabled={busy} className="rounded-xl bg-teal-700 px-5 py-3 font-bold text-white disabled:opacity-50">{busy ? 'جارٍ الحفظ...' : editing ? 'حفظ التعديل' : 'إضافة مقدم الخدمة'}</button>

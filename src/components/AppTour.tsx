@@ -1,154 +1,192 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BookOpen, Building2, Users, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BookOpen, Building2, Check, Eye, List, Play, Users, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { setupSteps, tourDialogs, tourSteps, type TourDialog, type TourMode } from '../data/appTourSteps';
 
-type Mode = 'setup' | 'empty-manager' | 'manager' | 'resident';
-type Step = { title: string; body: string; target?: string; page?: string };
-const steps: Record<Mode, Step[]> = {
-  setup: [
-    { title: 'أهلاً بيك في العمارة', body: 'هنمشي معاك خطوة بخطوة. أنت هتدير عمارة، ولا هتنضم كساكن أو عضو؟' },
-  ],
-  'empty-manager': [
-    { title: 'ابدأ بأول عمارة', body: 'اضغط «إضافة أول عمارة» بعد الجولة. اكتب اسمها وعنوانها وعدد الشقق والأدوار.', target: 'create-building' },
-    { title: 'جهّز الشقق والخزينة', body: 'الشقق بتتجهز تلقائيًا حسب العدد. الرصيد الافتتاحي هو المبلغ الموجود بالفعل في خزينة العمارة؛ اكتب صفر لو مفيش رصيد.', target: 'create-building' },
-    { title: 'بعد إنشاء العمارة', body: 'أضف أسماء السكان وقيمة الاشتراك من «الشقق والتحصيل»، وشارك كود العمارة مع الأعضاء. هنعرّفك على باقي الشاشات بعد الإنشاء.', target: 'create-building' },
-  ],
-  manager: [
-    { title: 'لوحة إدارة عمارتك', body: 'هنا ملخص الخزينة والتحصيل والمصروفات والتنبيهات. «التالي» هيفتح كل ميزة ويشرحها، من غير تسجيل أي بيانات.', page: 'dashboard' },
-    { title: 'العقارات وكود العمارة', body: 'من أعلى الشاشة تقدر تختار عمارة أو تفتح إدارة العقارات لإضافة عمارة وتعديل بياناتها. شارك كود العمارة مع السكان عشان يقدموا طلب انضمام.', target: 'manager-header' },
-    { title: 'الشقق والتحصيل', body: 'أضف أو عدّل بيانات السكان والاشتراك لكل شقة. سجل دفعات السداد وراجع الإيصالات وكشف الحساب وسجل التعديلات.', page: 'collections' },
-    { title: 'طلبات الانضمام', body: 'راجع طلبات السكان، وحدد الشقة والصفة المناسبة ثم وافق على الطلب. العضو لا يشوف بيانات العمارة قبل اعتماد حسابه.', page: 'approvals' },
-    { title: 'المصروفات', body: 'سجل مصروفات العمارة وصنّفها، وراجع تفاصيل كل بند. المصروفات بتنعكس على رصيد الخزينة والتقارير.', page: 'expenses' },
-    { title: 'التحصيلات الاستثنائية', body: 'للصيانة أو المصروفات الخاصة، أنشئ تحصيلًا استثنائيًا وحدد الشقق والمبالغ المطلوبة، وتابع السداد والمتبقي.', page: 'exceptional-collections' },
-    { title: 'التقارير وكشوف الحساب', body: 'راجع الإيرادات والمصروفات والأرصدة، وجهز كشف حساب أو تقرير PDF من الخيارات المتاحة.', page: 'reports' },
-    { title: 'الصيانة والمرافق', body: 'من بوابة الساكن والمرافق تابع طلبات الصيانة وحجوزات المرافق والخدمات المرتبطة بعمارتك.', page: 'resident' },
-    { title: 'القرارات والتصويت', body: 'اعرض موضوعات الجمعية واستطلاعات الرأي، وتابع التصويت والنتائج داخل العمارة.', page: 'polls' },
-    { title: 'دليل الخدمات', body: 'احفظ أرقام الفنيين ومقدمي الخدمات عشان الأعضاء يلاقوها بسهولة.', page: 'services' },
-    { title: 'المساعد الذكي', body: 'اسأل المساعد عن تنظيم وإدارة العمارة. الجولة بتشرح الشاشة فقط؛ كتابة سؤال وإرساله باختيارك.', page: 'chat' },
-    { title: 'الإعلانات والتصميم', body: 'جهز إعلانات العمارة وتصميماتها من الأدوات المتاحة، وراجع المحتوى قبل نشره للسكان.', page: 'image-studio' },
-    { title: 'كل الخيارات في المزيد', body: 'من هنا تلاقي إدارة العقارات، إعدادات الخزينة والتطبيق والباقات. تقدر تعيد «دليل التطبيق» في أي وقت.', page: 'more' },
-  ],
-  resident: [
-    { title: 'أهلاً بيك في عمارتك', body: 'هنا ملخص حساب شقتك والتنبيهات وآخر الأخبار. هنتنقل معاك بين المميزات المتاحة لحسابك.', page: 'home' },
-    { title: 'مدفوعات وإيصالات شقتك', body: 'راجع الدفعات المسجلة والإيصالات وتفاصيل حساب شقتك. تسجيل الدفعات واعتمادها مسؤولية الإدارة.', page: 'payments' },
-    { title: 'تقارير العمارة', body: 'اطلع على الملخص المالي المتاح للأعضاء. بيانات الشقق الأخرى والتفاصيل الخاصة بالإدارة تظل محمية.', page: 'reports' },
-    { title: 'إعلانات العمارة', body: 'تابع أخبار العمارة والإعلانات المثبتة والتعليمات الجديدة من الإدارة.', page: 'announcements' },
-    { title: 'طلبات الصيانة', body: 'قدم طلب صيانة، واكتب العنوان والتفاصيل ودرجة الاستعجال. تقدر ترجع تتابع حالة طلبك.', page: 'maintenance' },
-    { title: 'حجز المرافق', body: 'اختار المرفق واليوم والوقت من الخيارات المتاحة، ثم تابع حالة الحجز.', page: 'bookings' },
-    { title: 'شارك في قرارات العمارة', body: 'تابع موضوعات الجمعية والاستطلاعات وصوّت في الموضوعات المتاحة.', page: 'polls' },
-    { title: 'أرقام الفنيين والخدمات', body: 'دليل الخدمات بيجمع وسائل التواصل اللي وفرتها الإدارة عشان ترجع لها بسهولة.', page: 'services' },
-    { title: 'بيانات العمارة والتواصل', body: 'اعرف بيانات عمارتك ووسائل التواصل المتاحة مع الإدارة والحارس.', page: 'building' },
-    { title: 'المزيد وإعداداتك', body: 'من هنا تفتح باقي الخدمات وتغير مظهر التطبيق وحجم الخط. «دليل التطبيق» موجود لإعادة الجولة وقت ما تحب.', page: 'more' },
-  ],
-};
-const setupSteps: Record<'manager' | 'resident', Step[]> = {
-  manager: [
-    { title: 'إنشاء عمارة جديدة', body: 'في قسم «أنا مدير عمارة» اكتب اسم العمارة وعنوانها، ثم عدد الشقق والأدوار. الشقق بتتجهز تلقائيًا.', target: 'setup-manager' },
-    { title: 'الرصيد الافتتاحي', body: 'اكتب المبلغ الموجود بالفعل في خزينة العمارة قبل بدء الاستخدام، أو اتركه صفر. المبلغ ده منفصل عن تحصيل الشقق.', target: 'setup-opening-balance' },
-    { title: 'جاهز لإنشاء عمارتك', body: 'بعد الجولة راجع البيانات واضغط «إنشاء العمارة». بعد الإنشاء هنشرح لوحة الإدارة والتحصيل والتقارير وإضافة الأعضاء.', target: 'setup-manager' },
-  ],
-  resident: [
-    { title: 'انضم بكود عمارتك', body: 'اطلب كود العمارة من مديرها، واكتبه في قسم «أنا ساكن». لازم المدير يكون أنشأ العمارة أولاً.', target: 'setup-resident' },
-    { title: 'عرّف الإدارة بنفسك', body: 'اكتب اسمك ورقم الدور والشقة وصفتك، زي مالك أو ساكن. ممكن أكثر من فرد ينضم لنفس الشقة بحساب منفصل.', target: 'setup-resident' },
-    { title: 'أرسل طلب الانضمام', body: 'اضغط «إرسال طلب الانضمام» بعد مراجعة بياناتك، وانتظر موافقة المدير. بعد الموافقة هتظهر شقتك وهنشرح مميزات حساب العضو.', target: 'setup-resident' },
-  ],
-};
-const keyFor = (id: string, mode: Mode) => `elomara:tour:v1:${id}:${mode}`;
-// Existing accounts can replay from More; automatic tours are for newly created accounts.
-const rollout = Date.parse('2026-11-13T00:00:00Z');
-const completedThisSession = new Set<string>();
+type Rect = { left:number; top:number; width:number; height:number };
+const completed = new Set<string>();
+const keyFor = (id:string,mode:TourMode) => `elomara:tour:v1:${id}:${mode}`;
+const find = (name:string) => Array.from(document.querySelectorAll<HTMLElement>(`[data-tour="${name}"]`)).find(node => node.getClientRects().length > 0);
+const sleep = (ms:number) => new Promise<void>(resolve => setTimeout(resolve,ms));
 export function TourHelpButton() {
   return <button type="button" onClick={() => window.dispatchEvent(new Event('elomara:open-tour'))} className="inline-flex items-center justify-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-bold text-teal-800"><BookOpen size={18}/>دليل التطبيق</button>;
 }
-export function AppTour({ mode, onNavigate, currentPage }: { mode: Mode; onNavigate?: (page: string) => void; currentPage?: string }) {
-  const { user } = useAuth();
-  const [open, setOpen] = useState(false);
-  const [index, setIndex] = useState(0);
-  const [journey, setJourney] = useState<'manager' | 'resident' | null>(null);
-  const [spot, setSpot] = useState<React.CSSProperties | null>(null);
+export function AppTour({mode,onNavigate,currentPage}:{mode:TourMode;onNavigate?:(page:string)=>void;currentPage?:string}) {
+  const {user} = useAuth();
+  const [open,setOpen] = useState(false);
+  const [paused,setPaused] = useState(false);
+  const [index,setIndex] = useState(0);
+  const [journey,setJourney] = useState<'manager'|'resident'|null>(null);
+  const [spot,setSpot] = useState<Rect|null>(null);
+  const [position,setPosition] = useState<React.CSSProperties>({bottom:12,left:12,right:12});
+  const [status,setStatus] = useState<'loading'|'ready'|'missing'|'dirty'>('loading');
+  const [menu,setMenu] = useState(false);
   const panel = useRef<HTMLElement>(null);
+  const targetRef = useRef<HTMLElement|null>(null);
+  const owned = useRef<{kind:TourDialog;root:HTMLElement}|null>(null);
+  const dirty = useRef(false);
   const originalPage = useRef(currentPage);
-  const navigation = useRef(onNavigate); navigation.current = onNavigate;
-  const titleId = useId();
-  const allSteps = mode === 'setup' && journey ? [...steps.setup, ...setupSteps[journey]] : steps[mode];
-  const step = allSteps[index] || allSteps[0];
-  useBodyScrollLock(open);
-  useEffect(() => {
-    if (!user) return;
-    const start = () => { originalPage.current = currentPage; setIndex(0); setJourney(null); setOpen(true); };
-    window.addEventListener('elomara:open-tour', start);
-    return () => window.removeEventListener('elomara:open-tour', start);
-  }, [user?.id, currentPage]);
-  useEffect(() => {
-    if (!user || Date.parse(user.created_at) < rollout || !Number.isFinite(Date.parse(user.created_at))) return;
-    if (completedThisSession.has(keyFor(user.id, mode))) return;
-    try { if (localStorage.getItem(keyFor(user.id, mode))) return; } catch { /* optional storage */ }
-    setOpen(true);
-  }, [user?.id, mode]);
-  const close = () => {
-    if (user) { completedThisSession.add(keyFor(user.id, mode)); try { localStorage.setItem(keyFor(user.id, mode), 'done'); } catch { /* optional storage */ } }
-    setOpen(false);
-    if (originalPage.current) navigation.current?.(originalPage.current);
+  const exploring = useRef(paused);exploring.current=paused;
+  const navigation = useRef(onNavigate);navigation.current=onNavigate;
+  const titleId=useId(),maskId=useId().replace(/:/g,'');
+  const steps = mode==='setup'&&journey ? [...tourSteps.setup,...setupSteps[journey]] : tourSteps[mode];
+  const step=steps[index]||steps[0];
+  const choosing=mode==='setup'&&index===0;
+  const chapters=steps.flatMap((item,i)=>i===0||item.section!==steps[i-1].section?[{label:item.section,index:i}]:[]);
+  useBodyScrollLock(open&&!paused);
+  const closeOwned=() => {
+    const active=owned.current;
+    if(!active||!active.root.isConnected){owned.current=null;dirty.current=false;return true;}
+    if(dirty.current)return false;
+    find(tourDialogs[active.kind].close)?.click();
+    owned.current=null;return true;
   };
-  const closeRef = useRef(close); closeRef.current = close;
-  useEffect(() => {
-    if (!open) return;
-    const previousFocus = document.activeElement as HTMLElement | null;
-    const marker = crypto.randomUUID();
-    window.history.pushState({ ...window.history.state, appTour: marker }, '', window.location.href);
-    const back = (event: PopStateEvent) => { event.stopImmediatePropagation(); closeRef.current(); };
-    const key = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { event.preventDefault(); closeRef.current(); }
-      if (event.key !== 'Tab') return;
-      const controls = panel.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)');
-      const first = controls?.[0], last = controls?.[controls.length - 1];
-      if (!panel.current?.contains(document.activeElement) || document.activeElement === panel.current) { event.preventDefault(); (event.shiftKey ? last : first)?.focus(); }
-      else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+  const close=() => {
+    if(user){const key=keyFor(user.id,mode);completed.add(key);try{localStorage.setItem(key,'done');}catch{/* optional */}}
+    const cleaned=dirty.current?false:closeOwned();
+    if(!cleaned){
+      // The user started using the real form. Keep that page and promote the
+      // tour entry to an ordinary page entry instead of going Back over it.
+      const {appTour: _marker,...state}=window.history.state||{};
+      const url=new URL(location.href);
+      if(mode==='manager'&&currentPage)url.searchParams.set('tab',currentPage);
+      window.history.replaceState({...state,...(mode==='resident'?{residentPage:currentPage}:{})},'',url);
+    }
+    setOpen(false);setPaused(false);setMenu(false);setSpot(null);
+    if(cleaned&&originalPage.current)navigation.current?.(originalPage.current);
+  };
+  const closeRef=useRef(close);closeRef.current=close;
+  const move=(next:number) => {
+    if(owned.current?.kind!==steps[next]?.dialog&&!closeOwned()){setStatus('dirty');return;}
+    setMenu(false);setStatus('loading');setIndex(next);
+  };
+  useEffect(()=>{
+    if(!user)return;
+    const start=()=>{if(!owned.current?.root.isConnected){owned.current=null;dirty.current=false;}originalPage.current=currentPage;setIndex(0);setJourney(null);setPaused(false);setOpen(true);setMenu(false);};
+    window.addEventListener('elomara:open-tour',start);
+    return()=>window.removeEventListener('elomara:open-tour',start);
+  },[user?.id,currentPage]);
+  useEffect(()=>{
+    if(!user||!Number.isFinite(Date.parse(user.created_at))||Date.parse(user.created_at)<Date.parse('2026-11-13T00:00:00Z'))return;
+    const key=keyFor(user.id,mode);if(completed.has(key))return;
+    try{if(localStorage.getItem(key))return;}catch{/* optional */}
+    setOpen(true);
+  },[user?.id,mode]);
+  useEffect(()=>{
+    if(!open)return;
+    const previousFocus=document.activeElement as HTMLElement|null;
+    const marker=crypto.randomUUID();
+    window.history.pushState({...window.history.state,appTour:marker},'',location.href);
+    const back=(event:PopStateEvent)=>{event.stopImmediatePropagation();closeRef.current();};
+    const key=(event:KeyboardEvent)=>{
+      if(event.key==='Escape'){event.preventDefault();closeRef.current();}
+      if(event.key!=='Tab'||!panel.current||!panel.current.getClientRects().length)return;
+      const controls=panel.current.querySelectorAll<HTMLElement>('button:not(:disabled),select:not(:disabled),[tabindex="0"]');
+      const first=controls[0],last=controls[controls.length-1];
+      if(!panel.current.contains(document.activeElement)||document.activeElement===panel.current){event.preventDefault();(event.shiftKey?last:first)?.focus();}
+      else if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
+      else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
     };
-    window.addEventListener('popstate', back, true);
-    document.addEventListener('keydown', key, true);
-    panel.current?.focus();
-    return () => {
-      window.removeEventListener('popstate', back, true);
-      document.removeEventListener('keydown', key, true);
-      if (window.history.state?.appTour === marker) window.history.back();
-      previousFocus?.focus({ preventScroll: true });
+    const input=(event:Event)=>{if(owned.current?.root.contains(event.target as Node)||(exploring.current&&event.target instanceof Element&&!event.target.closest('[data-app-tour],.app-tour-resume')))dirty.current=true;};
+    window.addEventListener('popstate',back,true);document.addEventListener('keydown',key,true);document.addEventListener('input',input,true);document.addEventListener('change',input,true);
+    return()=>{
+      window.removeEventListener('popstate',back,true);document.removeEventListener('keydown',key,true);document.removeEventListener('input',input,true);document.removeEventListener('change',input,true);
+      if(window.history.state?.appTour===marker){
+        // Consume only the tour's own history entry, so App does not close a
+        // real form the user edited while exploring the full page.
+        window.addEventListener('popstate',event=>event.stopImmediatePropagation(),{once:true,capture:true});window.history.back();
+      }
+      previousFocus?.focus({preventScroll:true});
     };
-  }, [open]);
-  useEffect(() => {
-    if (!open) return;
-    if (step.page) navigation.current?.(step.page);
-    const measure = () => {
-      const target = document.querySelector<HTMLElement>(`[data-tour="${step.target || (mode === 'resident' ? 'resident-page' : 'manager-page')}"]`);
-      if (!target) { setSpot(null); return; }
-      const rect = target.getBoundingClientRect();
-      const bottom = (panel.current?.getBoundingClientRect().top || innerHeight) - 14;
-      const top = Math.max(8, rect.top - 5);
-      const height = Math.min(rect.bottom + 5, bottom) - top;
-      setSpot(height > 20 ? { left: Math.max(6, rect.left - 5), top, width: Math.min(innerWidth - 12, rect.width + 10), height } : null);
+  },[open]);
+  useEffect(()=>{
+    if(!open||paused)return;
+    let active=true;
+    const measure=()=>{
+      if(!active)return;
+      const node=targetRef.current;
+      if(!node&&!choosing)return;
+      const vw=window.innerWidth,vh=window.innerHeight;
+      const w=Math.min(vw-24,vw>=1024?360:420);
+      const ph=Math.min(panel.current?.offsetHeight||240,vh*.48);
+      const rect=node?.isConnected?node.getBoundingClientRect():null;
+      let left=(vw-w)/2,top=vh-ph-14;
+      if(rect){
+        if(vw>=1024&&rect.left>w+36){left=rect.left-w-22;top=Math.max(16,Math.min(vh-ph-16,rect.top+(rect.height-ph)/2));}
+        else if(vw>=1024&&vw-rect.right>w+36){left=rect.right+22;top=Math.max(16,Math.min(vh-ph-16,rect.top+(rect.height-ph)/2));}
+        else if(rect.top>=ph+32)top=Math.max(12,rect.top-ph-20);
+        else if(vh-rect.bottom>=ph+32)top=Math.min(vh-ph-12,rect.bottom+20);
+        else if(rect.top+rect.height/2>vh/2)top=12;
+        setSpot({left:rect.left-7,top:rect.top-7,width:rect.width+14,height:rect.height+14});
+      }else setSpot(null);
+      setPosition({left:Math.max(12,Math.min(vw-w-12,left)),top:Math.max(12,top),width:w});
     };
-    const target = step.target ? document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`) : null;
-    if (target) target.scrollIntoView({ block: 'start', behavior: 'instant' });
-    else window.scrollTo({ top: 0, behavior: 'instant' });
-    const frame = requestAnimationFrame(measure);
-    const timer = setTimeout(() => { measure(); panel.current?.focus({ preventScroll: true }); }, 350);
-    const resize = new ResizeObserver(measure);
-    if (panel.current) resize.observe(panel.current);
-    window.addEventListener('resize', measure); window.addEventListener('scroll', measure, true);
-    return () => { cancelAnimationFrame(frame); clearTimeout(timer); resize.disconnect(); window.removeEventListener('resize', measure); window.removeEventListener('scroll', measure, true); };
-  }, [open, index, journey, mode, step.page, step.target]);
-  if (!open || !user) return null;
-  const choosing = mode === 'setup' && index === 0;
-  return createPortal(<div data-app-tour dir="rtl" className="fixed inset-0 z-[210] isolate">
-    {spot ? <div aria-hidden="true" className="pointer-events-none fixed rounded-2xl border-2 border-teal-300 shadow-[0_0_0_9999px_rgba(2,6,23,0.72)]" style={spot}/> : <div aria-hidden="true" className="absolute inset-0 bg-slate-950/70"/>}
-    <section ref={panel} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={`${titleId}-body`} className="absolute bottom-3 left-3 right-3 mx-auto max-h-[65dvh] max-w-lg overflow-y-auto rounded-3xl border border-teal-200 bg-white p-5 text-slate-900 shadow-2xl outline-none sm:bottom-6 sm:p-6">
-      <div className="mb-3 flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-xs font-bold text-teal-700"><BookOpen size={18}/>دليل التطبيق{!choosing && ` · ${index + 1} / ${allSteps.length}`}</span><button type="button" onClick={close} aria-label="إغلاق الجولة" className="rounded-xl bg-slate-100 p-2"><X size={18}/></button></div>
-      <div aria-live="polite" aria-atomic="true"><h2 id={titleId} className="text-xl font-black">{step.title}</h2><p id={`${titleId}-body`} className="mt-3 text-sm leading-7 text-slate-600">{step.body}</p></div>
-      {choosing ? <div className="mt-5 grid gap-2 sm:grid-cols-2"><button type="button" className="flex items-center justify-center gap-2 rounded-xl bg-teal-700 p-3 font-bold text-white" onClick={() => { setJourney('manager'); setIndex(1); }}><Building2 size={20}/>أنا مدير عمارة</button><button type="button" className="flex items-center justify-center gap-2 rounded-xl border border-teal-300 bg-teal-50 p-3 font-bold text-teal-800" onClick={() => { setJourney('resident'); setIndex(1); }}><Users size={20}/>أنا ساكن أو عضو</button></div> : <div className="mt-5 flex items-center gap-2"><button type="button" onClick={() => index === allSteps.length - 1 ? close() : setIndex(value => value + 1)} className="flex-1 rounded-xl bg-teal-700 px-5 py-3 text-sm font-bold text-white">{index === allSteps.length - 1 ? 'ابدأ الاستخدام' : 'التالي'}</button><button type="button" disabled={index === 0} onClick={() => setIndex(value => value - 1)} className="rounded-xl bg-slate-100 px-4 py-3 text-sm font-bold disabled:opacity-40">السابق</button></div>}
-      <button type="button" onClick={close} className="mt-3 w-full py-2 text-xs font-bold text-slate-500">تخطي الجولة</button>
+    const waitFor=async(name:string)=>{
+      for(let retry=0;active&&retry<40;retry++){const node=find(name);if(node)return node;await sleep(60);}
+      return undefined;
+    };
+    const show=async()=>{
+      setStatus('loading');targetRef.current=null;
+      if(step.page)navigation.current?.(step.page);
+      await sleep(80);if(!active)return;
+      if(step.dialog){
+        const config=tourDialogs[step.dialog];
+        let root=find(config.root);
+        if(!root){const opener=await waitFor(config.open);if(!active)return;opener?.click();root=await waitFor(config.root);}
+        if(!active)return;
+        if(root&&owned.current?.root!==root){owned.current={kind:step.dialog,root};dirty.current=false;}
+      }
+      const target=step.target?await waitFor(step.target):undefined;
+      if(!active)return;
+      targetRef.current=target||null;
+      if(!target)setSpot(null);
+      if(target){
+        target.dataset.tourActive='true';
+        target.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});
+      }
+      await sleep(80);if(!active)return;
+      if(target && target.getBoundingClientRect().height < innerHeight*.45){
+        // Give the real control room above the coachmark by scrolling its
+        // actual page/form container, instead of clipping a large fake spotlight.
+        const header=document.querySelector<HTMLElement>('header');
+        const headerStyle=header?getComputedStyle(header).position:'';
+        const topGap=!step.dialog&&header&&['sticky','fixed'].includes(headerStyle)
+          ? Math.max(90,header.getBoundingClientRect().bottom+14) : 90;
+        const delta=target.getBoundingClientRect().top-topGap;
+        let parent=target.parentElement;
+        while(parent && parent!==document.body){
+          if(/auto|scroll/.test(getComputedStyle(parent).overflowY)&&parent.scrollHeight>parent.clientHeight){parent.scrollTop+=delta;break;}
+          parent=parent.parentElement;
+        }
+        if(!parent||parent===document.body)window.scrollBy({top:delta,behavior:'instant'});
+      }
+      measure();
+      // Wait for the app's existing page entrance animation before focusing.
+      await sleep(360);if(active){measure();setStatus(step.target&&!target?'missing':'ready');panel.current?.focus({preventScroll:true});}
+    };
+    void show();
+    const observer=new ResizeObserver(measure);if(panel.current)observer.observe(panel.current);
+    window.addEventListener('resize',measure);window.addEventListener('scroll',measure,true);
+    return()=>{active=false;if(targetRef.current)delete targetRef.current.dataset.tourActive;observer.disconnect();window.removeEventListener('resize',measure);window.removeEventListener('scroll',measure,true);};
+  },[open,paused,index,journey,step.page,step.dialog,step.target]);
+  // A role change or navigation may remove this guide while it owns a dialog.
+  useEffect(()=>()=>{if(!dirty.current&&owned.current?.root.isConnected)find(tourDialogs[owned.current.kind].close)?.click();},[]);
+  if(!open||!user)return null;
+  if(paused)return createPortal(<div className="app-tour-resume" dir="rtl"><button type="button" onClick={()=>setPaused(false)}><Play size={17}/>متابعة الجولة</button><button type="button" onClick={close} aria-label="إنهاء الجولة"><X size={18}/></button></div>,document.body);
+  return createPortal(<div data-app-tour data-tour-dialog={owned.current?.kind} data-tour-edited={dirty.current} data-tour-state={status} data-tour-step={index} data-tour-feature={step.section} dir="rtl" className="app-tour-layer">
+    <svg className="app-tour-shade" aria-hidden="true"><defs><mask id={maskId}><rect width="100%" height="100%" fill="white"/>{spot&&<rect x={spot.left} y={spot.top} width={spot.width} height={spot.height} rx="12" fill="black"/>}</mask></defs><rect width="100%" height="100%" fill="#062b35" opacity={spot && spot.width < innerWidth * .9 ? .28 : .12} mask={`url(#${maskId})`}/></svg>
+    {spot&&<div aria-hidden="true" className="app-tour-spot" style={spot}><span/></div>}
+    <section ref={panel} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={`${titleId}-body`} className="app-tour-card" style={position}>
+      <div className="app-tour-header"><span className="app-tour-mark"><BookOpen size={19}/></span><div><b>دليل {mode==='resident'?'العضو':mode==='setup'?'البداية':'المدير'}</b><span>{step.section}</span></div><button type="button" onClick={close} aria-label="إغلاق الجولة"><X size={18}/></button></div>
+      <div className="app-tour-progress" role="progressbar" aria-label="تقدم الجولة" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={index+1}><span style={{width:`${(index+1)/steps.length*100}%`}}/></div>
+      <div key={`${journey}-${index}`} className="app-tour-copy" aria-live="polite" aria-atomic="true"><h2 id={titleId}>{step.title}</h2><p id={`${titleId}-body`}>{step.body}</p></div>
+      {status==='dirty'&&<p role="status" className="app-tour-message">كتبت بيانات في النموذج. احفظها أو ألغِها من الصفحة قبل الانتقال لجزء تاني.</p>}
+      {status==='missing'&&<p role="status" className="app-tour-message">الجزء ده مش ظاهر حاليًا. تقدر تشوف الصفحة كاملة أو تنتقل للخطوة التالية.</p>}
+      {choosing?<div className="app-tour-choices"><button type="button" onClick={()=>{setJourney('manager');move(1);}}><Building2 size={18}/>أنا مدير عمارة</button><button type="button" onClick={()=>{setJourney('resident');move(1);}}><Users size={18}/>أنا ساكن أو عضو</button></div>:<div className="app-tour-controls"><button type="button" disabled={index===0} onClick={()=>move(index-1)} aria-label="السابق"><ArrowRight size={18}/></button><span>{index+1} <small>من {steps.length}</small></span><button type="button" className="app-tour-next" disabled={status==='loading'} onClick={()=>index===steps.length-1?close():move(index+1)}>{index===steps.length-1?'ابدأ الاستخدام':'التالي'}{index===steps.length-1?<Check size={17}/>:<ArrowLeft size={17}/>}</button></div>}
+      <div className="app-tour-tools"><button type="button" onClick={()=>{setPaused(true);setMenu(false);}}><Eye size={14}/>عرض الصفحة كاملة</button>{!choosing&&<button type="button" onClick={()=>setMenu(value=>!value)} aria-expanded={menu}><List size={14}/>فهرس الجولة</button>}<button type="button" onClick={close}>تخطي الجولة</button></div>
+      {menu&&<div className="app-tour-index">{chapters.map(chapter=><button type="button" key={chapter.index} aria-current={step.section===chapter.label?'step':undefined} onClick={()=>move(chapter.index)}>{chapter.label}<ArrowLeft size={14}/></button>)}</div>}
     </section>
-  </div>, document.body);
+  </div>,document.body);
 }

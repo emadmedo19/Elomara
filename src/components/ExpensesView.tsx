@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { Building, Expense } from '../types';
 import { 
   Receipt, Plus, Filter, Search, Calendar, Tag, User, 
@@ -28,6 +30,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
   onCloseAddModal,
   onOpenAddModal,
 }) => {
+  useBodyScrollLock(isOpenAddModal);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
@@ -210,7 +213,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
           </div>
 
           <button
-            onClick={() => {
+            data-tour="expenses-add" onClick={() => {
               setEditingExpense(null);
               onOpenAddModal();
             }}
@@ -359,9 +362,9 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
       </div>
 
       {/* Add / Edit Expense Modal */}
-      {isOpenAddModal && (
+      {isOpenAddModal && createPortal(
         <div className="fixed inset-0 z-50 bg-[#0f2537]/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <form onSubmit={handleSubmit} className="bg-white rounded-3xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+          <form data-tour="expense-form" onSubmit={handleSubmit} className="bg-white rounded-3xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <span className="p-2 rounded-2xl bg-rose-50 text-rose-600">
@@ -378,7 +381,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
               </div>
               <button
                 type="button"
-                onClick={handleCloseModal}
+                data-tour="expense-close" onClick={handleCloseModal}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700"
               >
                 <X className="w-4 h-4" />
@@ -431,7 +434,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                 <input
                   type="text"
                   required
-                  value={title}
+                  data-tour="expense-title" value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="مثال: إصلاح ماتور المياه، راتب حارس، صيانة مصعد..."
                   className="w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-600"
@@ -462,7 +465,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                     type="number"
                     min="1"
                     required
-                    value={amount}
+                    data-tour="expense-amount" value={amount}
                     onChange={(e) => setAmount(Number(e.target.value))}
                 onFocus={(e) => e.currentTarget.select()}
                     className="w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-600 font-bold text-rose-700"
@@ -475,7 +478,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                   <label className="text-xs font-bold text-slate-700">اسم المورد أو الفني</label>
                   <input
                     type="text"
-                    value={vendor}
+                    data-tour="expense-vendor" value={vendor}
                     onChange={(e) => setVendor(e.target.value)}
                     placeholder="اسم الشركة أو الفني"
                     className="w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-600"
@@ -515,7 +518,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                 إلغاء
               </button>
               <button
-                type="submit"
+                data-tour="expense-save" type="submit"
                 className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md transition active:scale-95 flex items-center gap-1.5"
               >
                 <Check className="w-4 h-4" />
@@ -523,7 +526,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
               </button>
             </div>
           </form>
-        </div>
+        </div>, document.body
       )}
     </div>
   );

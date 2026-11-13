@@ -222,27 +222,27 @@ export const LoginView: React.FC = () => {
               <TourHelpButton />
               <form data-tour="setup-manager" onSubmit={createBuilding} className="space-y-3 rounded-2xl border border-slate-200 p-4">
                 <h3 className="font-bold text-slate-800">أنا مدير عمارة — إنشاء عمارة</h3>
-                <label className="fotouh-field"><span>اسم العمارة</span><div><Building2/><input value={buildingName} onChange={e=>setBuildingName(e.target.value)} placeholder="اسم العمارة" required/></div></label>
-                <label className="fotouh-field"><span>العنوان</span><div><Building2/><input value={buildingAddress} onChange={e=>setBuildingAddress(e.target.value)} placeholder="العنوان"/></div></label>
+                <label className="fotouh-field"><span>اسم العمارة</span><div><Building2/><input data-tour="setup-building-name" value={buildingName} onChange={e=>setBuildingName(e.target.value)} placeholder="اسم العمارة" required/></div></label>
+                <label className="fotouh-field"><span>العنوان</span><div><Building2/><input data-tour="setup-building-address" value={buildingAddress} onChange={e=>setBuildingAddress(e.target.value)} placeholder="العنوان"/></div></label>
                 <div className="grid grid-cols-2 gap-3">
-                  <label className="fotouh-field"><span>عدد الشقق</span><div><Users/><input type="number" min="0" value={unitsCount} onChange={e=>setUnitsCount(e.target.value)}/></div></label>
+                  <label className="fotouh-field"><span>عدد الشقق</span><div><Users/><input type="number" min="0" data-tour="setup-units" value={unitsCount} onChange={e=>setUnitsCount(e.target.value)}/></div></label>
                   <label className="fotouh-field"><span>عدد الأدوار</span><div><Building2/><input type="number" min="0" value={floorsCount} onChange={e=>setFloorsCount(e.target.value)} placeholder="اختياري"/></div></label>
                 </div>
                 <label data-tour="setup-opening-balance" className="fotouh-field"><span>الرصيد الافتتاحي للخزينة (ج.م)</span><div><Wallet/><input type="number" inputMode="decimal" min="0" max="9999999999.99" step="0.01" value={openingBalance} onChange={e=>setOpeningBalance(e.target.value)} placeholder="اختياري — 0" aria-describedby="opening-balance-help"/></div></label>
                 <p id="opening-balance-help" className="text-xs leading-6 text-slate-500">المبلغ الموجود في خزينة العمارة قبل بدء استخدام التطبيق. يُحفظ مرة واحدة عند الإنشاء، ولا يُحسب ضمن تحصيل الشقق. اتركه فارغًا لو الخزينة بدون رصيد.</p>
-                <button type="submit" disabled={busy} className="fotouh-primary-button w-full">{busy ? 'جارٍ إنشاء العمارة...' : 'إنشاء العمارة'}</button>
+                <button type="submit" data-tour="setup-create-submit" disabled={busy} className="fotouh-primary-button w-full">{busy ? 'جارٍ إنشاء العمارة...' : 'إنشاء العمارة'}</button>
               </form>
               <form data-tour="setup-resident" onSubmit={submitJoinRequest} className="space-y-3 rounded-2xl border border-teal-200 bg-teal-50/50 p-4">
                 <h3 className="font-bold text-slate-800">أنا ساكن — الانضمام لعمارة</h3>
-                <label className="fotouh-field"><span>كود العمارة العام</span><div><Building2/><input dir="ltr" value={inviteCode} onChange={e=>setInviteCode(e.target.value)} placeholder="أدخل كود العمارة"/></div></label>
-                <label className="fotouh-field"><span>الاسم بالكامل</span><div><Users/><input value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="الاسم بالكامل"/></div></label>
+                <label className="fotouh-field"><span>كود العمارة العام</span><div><Building2/><input dir="ltr" data-tour="setup-join-code" value={inviteCode} onChange={e=>setInviteCode(e.target.value)} placeholder="أدخل كود العمارة"/></div></label>
+                <label className="fotouh-field"><span>الاسم بالكامل</span><div><Users/><input value={fullName} onChange={e=>setFullName(e.target.value)} data-tour="setup-join-name" placeholder="الاسم بالكامل"/></div></label>
                 <div className="grid grid-cols-2 gap-3">
                   <label className="fotouh-field"><span>الدور</span><div><input type="number" min="0" value={requestedFloor} onChange={e=>setRequestedFloor(e.target.value)} placeholder="رقم الدور"/></div></label>
-                  <label className="fotouh-field"><span>رقم الشقة</span><div><input value={requestedUnit} onChange={e=>setRequestedUnit(e.target.value)} placeholder="رقم الشقة"/></div></label>
+                  <label className="fotouh-field"><span>رقم الشقة</span><div><input data-tour="setup-join-unit" value={requestedUnit} onChange={e=>setRequestedUnit(e.target.value)} placeholder="رقم الشقة"/></div></label>
                 </div>
-                <label className="fotouh-field"><span>الصفة المطلوبة</span><div><User/><input value={residentType} onChange={e=>setResidentType(e.target.value)} maxLength={60} required placeholder="مثال: مالك، زوجة، ساكن"/></div></label>
+                <label className="fotouh-field"><span>الصفة المطلوبة</span><div><User/><input data-tour="setup-join-type" value={residentType} onChange={e=>setResidentType(e.target.value)} maxLength={60} required placeholder="مثال: مالك، زوجة، ساكن"/></div></label>
                 <p className="text-xs leading-6 text-slate-500">يمكن لأكثر من فرد التسجيل لنفس الشقة بحسابات منفصلة. المدير يحدد الشقة والصفة النهائية بعد مراجعة الطلب.</p>
-                <button type="submit" disabled={busy} className="fotouh-primary-button w-full">{busy ? 'جارٍ إرسال الطلب...' : 'إرسال طلب الانضمام'}</button>
+                <button type="submit" data-tour="setup-join-submit" disabled={busy} className="fotouh-primary-button w-full">{busy ? 'جارٍ إرسال الطلب...' : 'إرسال طلب الانضمام'}</button>
               </form>
               <p className="text-center text-xs text-slate-400" dir="ltr">{user.email}</p>
               <button onClick={signOut} className="w-full text-sm font-bold text-slate-500">تسجيل الخروج</button>
