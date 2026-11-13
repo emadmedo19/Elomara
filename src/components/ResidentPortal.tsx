@@ -1,3 +1,4 @@
+import { MemberPaymentMethods } from './MemberPaymentMethods';
 import { BrandLogo } from './BrandLogo';
 import { useSuccessFeedback } from './SuccessFeedback';
 import { AppTour } from './AppTour';
@@ -50,6 +51,7 @@ export const ResidentPortal: React.FC = () => {
   const unreadAnnouncementCount = announcements.filter(item => !seenAnnouncementIds.includes(String(item.id))).length;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [paymentMethodsRevision, setPaymentMethodsRevision] = useState(0);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [ticketForm, setTicketForm] = useState({ category: 'سباكة', title: '', description: '', urgency: 'عادي' });
@@ -121,6 +123,7 @@ export const ResidentPortal: React.FC = () => {
       date: p.payment_date, amount: Number(p.amount || 0) }))) : null;
     setApartment(apt.data ? { ...apt.data, paid_amount: totals?.totalPaid || 0,
       remaining: totals?.remaining || 0, payment_status: totals?.status } : null);
+    if (quiet) setPaymentMethodsRevision(value=>value+1);
     setBuilding(bld.data); setPayments(rows.filter((p: any) => !p.is_assessment));
     if (news.error) {
       console.error('[Elomara resident announcements]', news.error);
@@ -306,6 +309,7 @@ export const ResidentPortal: React.FC = () => {
           <div className="rounded-xl bg-slate-50 border p-3 col-span-2 sm:col-span-1"><div className="text-xs text-slate-500">المتأخرات بالشهور</div><b>{Number(apartment?.overdue_months || 0)} شهر</b></div>
           <div className="rounded-xl bg-slate-50 border p-3 col-span-2 sm:col-span-3"><div className="text-xs text-slate-500">المتبقي شامل التحصيل الاستثنائي</div><b>{money(apartment?.remaining)} جنيه</b></div>
         </div>
+        <MemberPaymentMethods buildingId={userProfile.buildingId} revision={paymentMethodsRevision}/>
         {payments.length ? payments.map(p=><div key={p.id} className="flex justify-between gap-3 border-t py-3 text-sm"><div><b>{p.month || dateLabel(p.payment_date)}</b><p className="text-xs text-slate-500">{p.method || 'نقدي'} {p.receipt_number ? '• إيصال '+p.receipt_number : ''}</p>{p.notes && <p className="text-xs text-slate-500 mt-1">{p.notes}</p>}</div><div className="text-left"><b className="whitespace-nowrap">{money(p.amount)} جنيه</b><p className="text-[11px] text-slate-400">{dateLabel(p.payment_date)}</p></div></div>) : <p className="text-sm text-slate-500">لا توجد مدفوعات مسجلة لهذه الشقة حتى الآن.</p>}
       </section>}
 

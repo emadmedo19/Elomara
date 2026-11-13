@@ -1148,6 +1148,7 @@ export default function App() {
     if (error) { showToast('تعذرت مزامنة الإعدادات: ' + error.message, 'error'); return false; }
     setSettings(newSettings);
     saveStoredSettings(newSettings);
+    window.dispatchEvent(new Event('elomara-building-settings-updated'));
     showToast('تم حفظ إعدادات العمارة ومزامنتها مع كل الأجهزة.');
     return true;
   };

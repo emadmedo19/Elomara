@@ -33,7 +33,7 @@ const domains = run(['neon-auth', 'domain', 'list'], true);
 if (!JSON.stringify(domains).includes(JSON.stringify(origin))) run(['neon-auth', 'domain', 'add', origin]);
 const health = await fetch(origin + '/health', { signal: AbortSignal.timeout(30000) });
 if (!health.ok || !(await health.json()).ok) throw new Error('Backend health check failed');
-for (const name of ['gemini-chat', 'send-announcement-push', 'send-poll-push', 'send-exceptional-collection-push']) {
+for (const name of ['gemini-chat', 'send-announcement-push', 'send-poll-push', 'send-exceptional-collection-push', 'get-building-payment-methods']) {
   const response = await fetch(`${origin}/functions/v1/${name}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
   if (response.status !== 401) throw new Error(`Unauthenticated ${name} must return 401`);
 }

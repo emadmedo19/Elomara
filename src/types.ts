@@ -1,3 +1,4 @@
+import type { PaymentAccount } from './services/paymentAccounts';
 export type UserRole = 'manager' | 'owner' | 'resident';
 
 export interface Building {
@@ -135,6 +136,7 @@ export interface AppSettings {
   bankAccountName?: string;
   bankAccountNumber?: string;
   paymentMethods?: string[];
+  paymentAccounts?: PaymentAccount[];
   currency?: string;
   collectionDay?: number;
   autoWhatsAppReceipt?: boolean;

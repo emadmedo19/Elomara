@@ -1,6 +1,7 @@
 import { parseTriggerDelivery } from '@neon/functions/triggers';
 import { createBackendClient } from './database.mjs';
 import { mobileCallback } from './mobile-callback.mjs';
+import paymentMethods from './handlers/get-building-payment-methods';
 import announcement from './handlers/send-announcement-push';
 import poll from './handlers/send-poll-push';
 import exceptional from './handlers/send-exceptional-collection-push';
@@ -10,6 +11,7 @@ import geminiChat from './handlers/gemini-chat';
 import generateAnnouncementImage from './handlers/generate-announcement-image';
 
 const handlers: Record<string, (request: Request) => Promise<Response>> = {
+  'get-building-payment-methods': paymentMethods,
   'send-announcement-push': announcement, 'send-poll-push': poll,
   'send-exceptional-collection-push': exceptional, 'gemini-chat': geminiChat,
   'generate-announcement-image': generateAnnouncementImage,

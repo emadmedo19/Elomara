@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { MAX_PAYMENT_ACCOUNTS, type PaymentAccount } from '../services/paymentAccounts';
 import { AppSettings, Building } from '../types';
 import { 
   Settings, User, Phone, CreditCard, Bell, 
@@ -28,6 +29,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [emergencyPhone, setEmergencyPhone] = useState(settings.emergencyPhone || '');
   const [bankAccountName, setBankAccountName] = useState(settings.bankAccountName || '');
   const [bankAccountNumber, setBankAccountNumber] = useState(settings.bankAccountNumber || '');
+  const [paymentAccounts, setPaymentAccounts] = useState<PaymentAccount[]>(Array.isArray(settings.paymentAccounts) ? settings.paymentAccounts : []);
   const [paymentMethodsText, setPaymentMethodsText] = useState((settings.paymentMethods || ['إنستاباي', 'تحويل بنكي', 'فودافون كاش', 'نقدي', 'أخرى']).join('، '));
   const [currency, setCurrency] = useState(settings.currency || 'ج.م');
   const [collectionDay, setCollectionDay] = useState(settings.collectionDay || 1);
@@ -44,6 +46,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setEmergencyPhone(settings.emergencyPhone || '');
     setBankAccountName(settings.bankAccountName || '');
     setBankAccountNumber(settings.bankAccountNumber || '');
+    setPaymentAccounts(Array.isArray(settings.paymentAccounts) ? settings.paymentAccounts : []);
     setPaymentMethodsText((settings.paymentMethods || ['إنستاباي', 'تحويل بنكي', 'فودافون كاش', 'نقدي', 'أخرى']).join('، '));
     setCurrency(settings.currency || 'ج.م');
     setCollectionDay(settings.collectionDay || 1);
@@ -65,6 +68,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       emergencyPhone: emergencyPhone.trim(),
       bankAccountName: bankAccountName.trim(),
       bankAccountNumber: bankAccountNumber.trim(),
+      paymentAccounts: paymentAccounts.map(item=>({name:item.name.trim(),account:item.account.trim()})).filter(item=>item.name&&item.account),
       paymentMethods: paymentMethodsText.split(/[,،]/).map(method => method.trim()).filter(Boolean),
       currency,
       collectionDay: Number(collectionDay) || 1,
@@ -192,7 +196,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  value={bankAccountName}
+                  aria-label="اسم وسيلة السداد الأساسية" maxLength={80} value={bankAccountName}
                   onChange={(e) => setBankAccountName(e.target.value)}
                   placeholder="مثال: إنستاباي أو فودافون كاش أو بنك مصر"
                   className="w-full text-xs bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
@@ -205,13 +209,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  value={bankAccountNumber}
+                  aria-label="عنوان الدفع أو رقم الحساب الأساسي" maxLength={200} dir="ltr" value={bankAccountNumber}
                   onChange={(e) => setBankAccountNumber(e.target.value)}
                   onFocus={(e) => e.currentTarget.select()}
                   placeholder="مثال: name@instapay أو رقم المحفظة أو IBAN"
                   className="w-full text-xs font-mono bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
                 />
               </div>
+            </div>
+
+            <div data-tour="manager-payment-accounts" className="space-y-3">
+              {paymentAccounts.map((item,index)=><div key={index} className="rounded-xl border border-teal-100 bg-teal-50/40 p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2"><strong className="text-xs text-teal-900">وسيلة دفع إضافية {index+1}</strong><button type="button" aria-label={`حذف وسيلة الدفع الإضافية ${index+1}`} onClick={()=>setPaymentAccounts(items=>items.filter((_,i)=>i!==index))} className="text-xs font-bold text-rose-600">حذف الوسيلة</button></div>
+                <label className="block text-xs text-slate-600"><span>اسم وسيلة الدفع</span><input required maxLength={80} aria-label={`اسم وسيلة الدفع الإضافية ${index+1}`} value={item.name} onChange={event=>setPaymentAccounts(items=>items.map((row,i)=>i===index?{...row,name:event.target.value}:row))} placeholder="إنستا باي، محفظة، تحويل بنكي أو أي وسيلة أخرى" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2"/></label>
+                <label className="block text-xs text-slate-600"><span>عنوان الدفع أو رقم المحفظة / الحساب</span><input required maxLength={200} aria-label={`بيانات وسيلة الدفع الإضافية ${index+1}`} dir="ltr" value={item.account} onChange={event=>setPaymentAccounts(items=>items.map((row,i)=>i===index?{...row,account:event.target.value}:row))} placeholder="name@instapay أو رقم المحفظة أو الحساب" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-mono"/></label>
+              </div>)}
+              <button type="button" disabled={paymentAccounts.length>=MAX_PAYMENT_ACCOUNTS} onClick={()=>setPaymentAccounts(items=>[...items,{name:'',account:''}])} className="w-full rounded-xl border border-dashed border-teal-300 bg-teal-50 px-3 py-2.5 text-xs font-bold text-teal-800 disabled:opacity-40">+ إضافة وسيلة دفع أخرى</button>
+              <p className="text-[10px] leading-5 text-slate-500">كل وسيلة لها اسم ورقم أو عنوان مستقل، وتظهر لأعضاء عمارتك في حسابي المالي بعد حفظ الإعدادات.</p>
             </div>
 
             <div>
