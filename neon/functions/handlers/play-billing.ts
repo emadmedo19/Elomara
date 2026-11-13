@@ -47,8 +47,8 @@ export async function verifyToken(token: string, actor?: { id: string; building:
     const purchase = await play(`purchases/subscriptionsv2/tokens/${encodeURIComponent(token)}`);
     if (purchase.externalAccountIdentifiers?.obfuscatedExternalAccountId !== accountId(user) || purchase.externalAccountIdentifiers?.obfuscatedExternalProfileId !== profileId(building)) throw new Error('Play account binding mismatch');
     const entitlement = verifiedEntitlement(purchase);
-    if (checkRefund) {
-      // A Pub/Sub refund is only a hint. Confirm the order against Google's voided purchases API.
+    if (checkRefund || entitlement.active) {
+      // Check active orders on restore and reconciliation too, so a missed RTDN cannot resurrect a refund.
       const latestOrder = purchase.lineItems?.[0]?.latestSuccessfulOrderId || purchase.latestOrderId;
       let page = '';
       for (let i = 0; i < 10; i++) {
