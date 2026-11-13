@@ -161,6 +161,8 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
       <div className="rounded-xl bg-slate-50 p-3"><div className="font-semibold">سنوي</div><div className="text-xl font-bold">{billing.products.find(p => p.productId === 'elomara_building_annual')?.price || 'السعر متاح عبر Google Play'}</div><div className="text-xs text-slate-500">كل سنة لكل عمارة</div>{billing.products.filter(p => p.productId === 'elomara_building_annual').slice(0,1).map(p => <button key={p.productId} disabled={!billing.ready || billing.busy || subscription?.status === 'vip' || subscription?.status === 'active'} onClick={() => void billing.purchase(p)} className="mt-2 rounded-lg bg-slate-900 px-3 py-2 text-white disabled:opacity-50">اشتراك سنوي</button>)}</div>
     </div>
     {billing.ready && <div className="flex gap-3"><button disabled={billing.busy} onClick={() => void billing.restore()} className="rounded-lg border border-slate-300 px-3 py-2">استعادة المشتريات</button><button onClick={() => void billing.manage()} className="rounded-lg border border-slate-300 px-3 py-2">إدارة أو إلغاء الاشتراك</button></div>}
+    {billing.loading && <p role="status" className="text-sm">جارٍ تحميل أسعار Google Play...</p>}
+    {billing.products.length < 2 && <button type="button" disabled={billing.loading || billing.busy} onClick={billing.reload} className="rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-50">إعادة تحميل الباقات</button>}
     {billing.message && <p role="status" className="text-sm">{billing.message}</p>}
     {buildingId && <div className="space-y-2 rounded-xl border border-slate-200 p-3">
       <label className="block text-sm font-medium" htmlFor="subscription-special-code">كود خاص أو كود خصم</label>

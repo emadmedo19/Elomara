@@ -1,16 +1,22 @@
 import { useEffect, useState } from 'react';
 import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
-import { billingRequest, hasPlayBilling, PlayBilling, type PlayProduct, type PlayPurchase } from '../services/playBilling';
+import { billingRequest, playBillingUnavailableMessage, PlayBilling, type PlayProduct, type PlayPurchase } from '../services/playBilling';
 
 export function usePlayBilling(buildingId: string | undefined, open: boolean, refresh: () => Promise<void>) {
   const [products, setProducts] = useState<PlayProduct[]>([]);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    setProducts([]); setReady(false); setMessage('');
-    if (!buildingId || !open || !hasPlayBilling()) return;
+    setProducts([]); setReady(false); setMessage(''); setLoading(false);
+    if (!open) return;
+    if (!buildingId) { setMessage('اختار العمارة أولًا لعرض باقاتها.'); return; }
+    const unavailable = playBillingUnavailableMessage();
+    if (unavailable) { setMessage(unavailable); return; }
+    setLoading(true);
     let disposed = false;
     const handles: Array<{ remove(): Promise<void> }> = [];
     const verify = async (purchases: PlayPurchase[]) => {
@@ -33,10 +39,13 @@ export function usePlayBilling(buildingId: string | undefined, open: boolean, re
     void (async () => {
       try {
         const context = await billingRequest(buildingId, 'context');
-        if (!context.available || disposed) return;
+        if (disposed) return;
+        if (!context.available) { setMessage('الشراء غير متاح حاليًا. أعد تحميل الباقات بعد إتاحة الخدمة.'); return; }
         const catalog = await PlayBilling.catalog();
         if (disposed) return;
         setProducts(catalog.products); setReady(true);
+        if (catalog.products.length === 0) setMessage('لم يعرض Google Play باقات لهذا الحساب. تأكد من تثبيت آخر نسخة من المتجر والانضمام للاختبار بنفس حساب Google، ثم أعد تحميل الباقات.');
+        else if (catalog.products.length < 2) setMessage('لم تكتمل أسعار الباقات من Google Play. حاول إعادة تحميل الباقات.');
         const purchaseListener = await PlayBilling.addListener('purchasesUpdated', data => { void verify(data.purchases); });
         if (disposed) { await purchaseListener.remove(); return; }
         handles.push(purchaseListener);
@@ -44,10 +53,12 @@ export function usePlayBilling(buildingId: string | undefined, open: boolean, re
         if (disposed) { await resumeListener.remove(); return; }
         handles.push(resumeListener);
         await restore();
-      } catch { if (!disposed) setMessage('الشراء متاح لمدير العمارة من نسخة Google Play بعد تجهيز الخدمة.'); }
+      } catch (error) {
+        if (!disposed) setMessage(error instanceof Error && /[\u0600-\u06FF]/.test(error.message) ? error.message : 'تعذر تحميل الأسعار من Google Play. تأكد من اتصال الإنترنت وحساب المتجر، ثم أعد تحميل الباقات.');
+      } finally { if (!disposed) setLoading(false); }
     })();
     return () => { disposed = true; for (const handle of handles) void handle.remove(); };
-  }, [buildingId, open, refresh]);
+  }, [buildingId, open, refresh, attempt]);
   const purchase = async (product: PlayProduct) => {
     if (!buildingId || busy) return;
     setBusy(true); setMessage('');
@@ -77,6 +88,6 @@ export function usePlayBilling(buildingId: string | undefined, open: boolean, re
     } catch { setMessage('تعذر استعادة المشتريات. حاول مرة أخرى.'); }
     finally { setBusy(false); }
   };
-  return { products, ready, busy, message, purchase, restore,
+  return { products, ready, busy, loading, message, purchase, restore, reload: () => setAttempt(value => value + 1),
     manage: () => Browser.open({ url: 'https://play.google.com/store/account/subscriptions?package=app.bunyan.residential' }) };
 }
