@@ -111,19 +111,33 @@ export default async function handle(request: Request): Promise<Response> {
 }
 const googleKeys = createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));
 export async function playNotification(request: Request): Promise<Response> {
+  let authStage = 'configuration';
   try {
-    if (request.method !== 'POST' || !process.env.GOOGLE_PLAY_RTDN_AUDIENCE || !process.env.GOOGLE_PLAY_RTDN_EMAIL) throw new Error('Not configured');
+    const audience = process.env.GOOGLE_PLAY_RTDN_AUDIENCE?.trim();
+    const email = process.env.GOOGLE_PLAY_RTDN_EMAIL?.trim();
+    if (request.method !== 'POST' || !audience || !email) throw new Error('Not configured');
+    authStage = 'authorization_header';
     const bearer = request.headers.get('authorization') || '';
     if (!bearer.startsWith('Bearer ')) throw new Error('Unauthorized');
-    const { payload } = await jwtVerify(bearer.slice(7), googleKeys, { issuer: ['https://accounts.google.com', 'accounts.google.com'], audience: process.env.GOOGLE_PLAY_RTDN_AUDIENCE, algorithms: ['RS256'] });
-    if (payload.email !== process.env.GOOGLE_PLAY_RTDN_EMAIL || payload.email_verified !== true) throw new Error('Unauthorized');
-  } catch { return Response.json({ error: 'Unauthorized' }, { status: 401 }); }
+    authStage = 'google_token';
+    const { payload } = await jwtVerify(bearer.slice(7), googleKeys, { issuer: ['https://accounts.google.com', 'accounts.google.com'], audience, algorithms: ['RS256'] });
+    authStage = 'push_identity';
+    if (payload.email !== email || payload.email_verified !== true) throw new Error('Unauthorized');
+  } catch (error) {
+    // Operational diagnostics only: never log JWTs, purchase tokens, keys or claim values.
+    const details = error as {code?: unknown; claim?: unknown};
+    const code = typeof details?.code === 'string' && /^[A-Z0-9_]{1,64}$/.test(details.code) ? details.code : 'AUTHENTICATION_FAILED';
+    const claim = typeof details?.claim === 'string' && ['aud', 'iss', 'exp', 'nbf'].includes(details.claim) ? details.claim : undefined;
+    console.warn('google_play_rtdn_auth_rejected ' + JSON.stringify({stage: authStage, code, claim}));
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const body = await request.json();
     const notification = JSON.parse(Buffer.from(body.message.data, 'base64').toString('utf8'));
     if (notification.packageName !== PLAY_PACKAGE) return Response.json({ error: 'Wrong package' }, { status: 400 });
     const token = notification.subscriptionNotification?.purchaseToken || notification.voidedPurchaseNotification?.purchaseToken;
     if (typeof token === 'string' && token.length < 4096) await verifyToken(token, undefined, !!notification.voidedPurchaseNotification);
+    if (notification.testNotification) console.info('google_play_rtdn_test_accepted');
     return Response.json({ ok: true });
   } catch { return Response.json({ error: 'Verification retry required' }, { status: 503 }); }
 }
