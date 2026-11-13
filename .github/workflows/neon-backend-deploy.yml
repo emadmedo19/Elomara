@@ -32,6 +32,10 @@ jobs:
       - name: Deploy backend and verify authentication boundaries
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_PLAY_RTDN_AUDIENCE: ${{ vars.GOOGLE_PLAY_RTDN_AUDIENCE }}
+          GOOGLE_PLAY_RTDN_EMAIL: ${{ vars.GOOGLE_PLAY_RTDN_EMAIL }}
+          GOOGLE_PLAY_BILLING_ENABLED: ${{ vars.GOOGLE_PLAY_BILLING_ENABLED }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           POLLINATIONS_API_KEY: ${{ secrets.POLLINATIONS_API_KEY }}

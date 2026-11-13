@@ -7,6 +7,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void load() {
         registerPlugin(AnnouncementFilesPlugin.class);
+        registerPlugin(PlayBillingPlugin.class);
         NativeBackendBootstrap.attach(this, bridgeBuilder);
         super.load();
     }

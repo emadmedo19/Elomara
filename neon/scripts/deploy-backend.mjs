@@ -20,7 +20,7 @@ const env = ['GEMINI_API_KEY', 'FIREBASE_SERVICE_ACCOUNT_JSON'].flatMap(name => 
   return ['--env', `${name}=${process.env[name]}`];
 });
 // Missing optional values must be omitted: KEY= would erase live Function settings.
-for (const name of ['POLLINATIONS_API_KEY', 'POLLINATIONS_FREE_ONLY']) {
+for (const name of ['POLLINATIONS_API_KEY', 'POLLINATIONS_FREE_ONLY', 'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', 'GOOGLE_PLAY_RTDN_AUDIENCE', 'GOOGLE_PLAY_RTDN_EMAIL', 'GOOGLE_PLAY_BILLING_ENABLED']) {
   if (process.env[name]?.trim()) env.push('--env', `${name}=${process.env[name].trim()}`);
 }
 run(['functions', 'deploy', 'elomara', '--src', 'neon/functions/index.ts', ...env]);
@@ -33,11 +33,11 @@ const domains = run(['neon-auth', 'domain', 'list'], true);
 if (!JSON.stringify(domains).includes(JSON.stringify(origin))) run(['neon-auth', 'domain', 'add', origin]);
 const health = await fetch(origin + '/health', { signal: AbortSignal.timeout(30000) });
 if (!health.ok || !(await health.json()).ok) throw new Error('Backend health check failed');
-for (const name of ['gemini-chat', 'send-announcement-push', 'send-poll-push', 'send-exceptional-collection-push', 'get-building-payment-methods']) {
+for (const name of ['gemini-chat', 'send-announcement-push', 'send-poll-push', 'send-exceptional-collection-push', 'get-building-payment-methods', 'play-billing', 'google-play-rtdn']) {
   const response = await fetch(`${origin}/functions/v1/${name}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
   if (response.status !== 401) throw new Error(`Unauthenticated ${name} must return 401`);
 }
-for (const path of ['/cron/mobile', '/cron/overdue', '/cron/engagement']) {
+for (const path of ['/cron/mobile', '/cron/overdue', '/cron/engagement', '/cron/play-billing']) {
   const response = await fetch(origin + path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-neon-trigger-invocation-id': 'forged-test' }, body: '{}' });
   if (response.status !== 401) throw new Error('Forged public cron request must return 401');
 }

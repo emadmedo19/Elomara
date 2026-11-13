@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { verifiedEntitlement } from '../functions/play-policy.mjs';
+const now = Date.parse('2026-11-13T12:00:00Z');
+const purchase = (state='ACTIVE', overrides={}) => ({subscriptionState:`SUBSCRIPTION_STATE_${state}`,lineItems:[{productId:'elomara_building_monthly',expiryTime:'2026-12-13T12:00:00Z',offerDetails:{basePlanId:'monthly'},autoRenewingPlan:{autoRenewEnabled:true},...overrides}]});
+for (const state of ['ACTIVE','IN_GRACE_PERIOD','CANCELED']) test(`${state} has access until Google expiration`,()=>assert.equal(verifiedEntitlement(purchase(state),now).active,true));
+for (const state of ['EXPIRED','ON_HOLD','PAUSED','PENDING','PENDING_PURCHASE_CANCELED']) test(`${state} grants no entitlement`,()=>assert.equal(verifiedEntitlement(purchase(state),now).active,false));
+test('time expiration wins over an active client or Google state',()=>assert.equal(verifiedEntitlement(purchase('ACTIVE',{expiryTime:'2026-11-13T12:00:00Z'}),now).active,false));
+test('annual plan is verified from the product and base plan',()=>{const result=verifiedEntitlement(purchase('ACTIVE',{productId:'elomara_building_annual',offerDetails:{basePlanId:'annual'}}),now);assert.equal(result.plan,'annual');});
+test('unconfigured products, base plans and discounts cannot activate',()=>{for(const overrides of [{productId:'forged'},{offerDetails:{basePlanId:'different'}},{offerDetails:{basePlanId:'monthly',offerId:'founder'}},{expiryTime:'invalid'}])assert.throws(()=>verifiedEntitlement(purchase('ACTIVE',overrides),now));});
+test('ambiguous or missing line items fail closed',()=>{assert.throws(()=>verifiedEntitlement({}));const p=purchase();p.lineItems.push(p.lineItems[0]);assert.throws(()=>verifiedEntitlement(p,now));});
+test('a pending purchase without expiration never activates',()=>{const result=verifiedEntitlement(purchase('PENDING',{expiryTime:undefined}),now);assert.equal(result.pending,true);assert.equal(result.active,false);assert.equal(result.expiresAt,null);});

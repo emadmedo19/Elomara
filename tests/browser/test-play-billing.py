@@ -1,0 +1,41 @@
+import functools,sys,threading
+from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
+from playwright.sync_api import sync_playwright,expect
+class Quiet(SimpleHTTPRequestHandler):
+    def log_message(self,*args): pass
+server=ThreadingHTTPServer(('127.0.0.1',0),functools.partial(Quiet,directory=sys.argv[1] if len(sys.argv)>1 else '/tmp/elomara-play-billing'))
+threading.Thread(target=server.serve_forever,daemon=True).start()
+with sync_playwright() as p:
+    browser=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+    for width,height in [(390,844),(1280,900)]:
+        page=browser.new_page(viewport={'width':width,'height':height})
+        page.goto(f'http://127.0.0.1:{server.server_port}')
+        page.get_by_role('button',name='الاشتراك والباقات',exact=True).click()
+        expect(page.get_by_role('heading',name='الاشتراك والباقات',exact=True)).to_be_visible()
+        expect(page.get_by_text('٩٩٫٠٠ ج.م.',exact=True)).to_be_visible()
+        expect(page.get_by_text('٩٩٩٫٠٠ ج.م.',exact=True)).to_be_visible()
+        page.get_by_label('كود خاص أو كود خصم').fill('elomara50off')
+        page.get_by_role('button',name='تطبيق الكود',exact=True).click()
+        expect(page.get_by_text('٩٩٫٠٠ ج.م.',exact=True)).to_be_visible()
+        assert '49.50' not in page.locator('body').inner_text()
+        page.get_by_role('button',name='اشتراك شهري',exact=True).click()
+        expect(page.get_by_text('حالة الاشتراك: نشط',exact=True)).to_be_visible()
+        expect(page.get_by_role('button',name='اشتراك سنوي',exact=True)).to_be_disabled()
+        page.get_by_role('button',name='إدارة أو إلغاء الاشتراك',exact=True).click()
+        assert page.evaluate('window.state.manageUrl').startswith('https://play.google.com/store/account/subscriptions')
+        page.get_by_role('button',name='استعادة المشتريات',exact=True).click()
+        expect(page.get_by_text('حالة الاشتراك: نشط',exact=True)).to_be_visible()
+        page.get_by_label('كود خاص أو كود خصم').fill('ELM-VIP-'+'A'*24)
+        page.get_by_role('button',name='تطبيق الكود',exact=True).click()
+        expect(page.get_by_text('حالة الاشتراك: مجاني',exact=True)).to_be_visible()
+        expect(page.get_by_role('button',name='اشتراك شهري',exact=True)).to_be_disabled()
+        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+        page.close()
+    page=browser.new_page(viewport={'width':390,'height':844})
+    page.goto(f'http://127.0.0.1:{server.server_port}?role=resident')
+    page.get_by_role('button',name='الاشتراك والباقات',exact=True).click()
+    expect(page.get_by_role('button',name='اشتراك شهري',exact=True)).to_have_count(0)
+    expect(page.get_by_text('14 يوم تجربة مجانية لكل عمارة جديدة. السكان يستخدمون التطبيق مجانًا.',exact=True)).to_be_visible()
+    browser.close()
+server.shutdown()
+print('PASS: existing plans screen, localized prices, purchase/restore/manage, VIP, provisional founder code, residents, mobile and desktop')

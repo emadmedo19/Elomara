@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
+import { usePlayBilling } from '../hooks/usePlayBilling';
 import { TourHelpButton } from './AppTour';
 import { Settings, LogOut, CreditCard } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -8,6 +9,14 @@ import { AccountDeletionButton } from './AccountDeletionButton';
 export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignOut }: { items: SettingsListItem[]; buildingId?: string; onBack: () => void; onOpenAppSettings: () => void; onSignOut: () => void }) {
   const [showPlans, setShowPlans] = useState(false);
   const [subscription, setSubscription] = useState<{status: string; plan?: string | null; trial_ends_at?: string | null; paid_through?: string | null; days_remaining?: number} | null>(null);
+  const activeBuilding = useRef(buildingId);
+  activeBuilding.current = buildingId;
+  const refreshSubscription = useCallback(async () => {
+    if (!buildingId) return;
+    const {data,error} = await supabase.rpc('get_building_subscription', {p_building_id:buildingId});
+    if (activeBuilding.current === buildingId && !error && data) setSubscription(data as typeof subscription);
+  }, [buildingId]);
+  const billing = usePlayBilling(buildingId, showPlans, refreshSubscription);
   const [platformBuildings, setPlatformBuildings] = useState<Array<{id:string;name:string;status:string;plan?:string|null;trial_ends_at?:string|null;paid_through?:string|null}>>([]);
   useEffect(() => {
     if (!buildingId) { setSubscription(null); return; }
@@ -148,16 +157,18 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
     </div>}
     <p className="text-sm text-slate-500">14 يوم تجربة مجانية لكل عمارة جديدة. السكان يستخدمون التطبيق مجانًا.</p>
     <div className="grid grid-cols-2 gap-3">
-      <div className="rounded-xl bg-slate-50 p-3"><div className="font-semibold">شهري</div><div className="text-xl font-bold">{eligible ? '49.50' : '99'} ج</div><div className="text-xs text-slate-500">كل شهر</div></div>
-      <div className="rounded-xl bg-slate-50 p-3"><div className="font-semibold">سنوي</div><div className="text-xl font-bold">{eligible ? '499.50' : '999'} ج</div><div className="text-xs text-slate-500">كل سنة</div></div>
+      <div className="rounded-xl bg-slate-50 p-3"><div className="font-semibold">شهري</div><div className="text-xl font-bold">{billing.products.find(p => p.productId === 'elomara_building_monthly')?.price || 'السعر متاح عبر Google Play'}</div><div className="text-xs text-slate-500">كل شهر لكل عمارة</div>{billing.products.filter(p => p.productId === 'elomara_building_monthly').slice(0,1).map(p => <button key={p.productId} disabled={!billing.ready || billing.busy || subscription?.status === 'vip' || subscription?.status === 'active'} onClick={() => void billing.purchase(p)} className="mt-2 rounded-lg bg-slate-900 px-3 py-2 text-white disabled:opacity-50">اشتراك شهري</button>)}</div>
+      <div className="rounded-xl bg-slate-50 p-3"><div className="font-semibold">سنوي</div><div className="text-xl font-bold">{billing.products.find(p => p.productId === 'elomara_building_annual')?.price || 'السعر متاح عبر Google Play'}</div><div className="text-xs text-slate-500">كل سنة لكل عمارة</div>{billing.products.filter(p => p.productId === 'elomara_building_annual').slice(0,1).map(p => <button key={p.productId} disabled={!billing.ready || billing.busy || subscription?.status === 'vip' || subscription?.status === 'active'} onClick={() => void billing.purchase(p)} className="mt-2 rounded-lg bg-slate-900 px-3 py-2 text-white disabled:opacity-50">اشتراك سنوي</button>)}</div>
     </div>
+    {billing.ready && <div className="flex gap-3"><button disabled={billing.busy} onClick={() => void billing.restore()} className="rounded-lg border border-slate-300 px-3 py-2">استعادة المشتريات</button><button onClick={() => void billing.manage()} className="rounded-lg border border-slate-300 px-3 py-2">إدارة أو إلغاء الاشتراك</button></div>}
+    {billing.message && <p role="status" className="text-sm">{billing.message}</p>}
     {buildingId && <div className="space-y-2 rounded-xl border border-slate-200 p-3">
       <label className="block text-sm font-medium" htmlFor="subscription-special-code">كود خاص أو كود خصم</label>
       <input id="subscription-special-code" dir="ltr" value={specialCode} onChange={event => { setSpecialCode(event.target.value); setPromoApplied(false); setVipMessage(''); }} placeholder="أدخل الكود هنا" autoComplete="off" className="w-full rounded-xl border border-slate-300 p-3" />
       <button type="button" disabled={!specialCode.trim() || vipRedeeming} onClick={() => void applySpecialCode()} className="rounded-xl bg-slate-900 px-4 py-3 text-white disabled:opacity-50">{vipRedeeming ? 'جارٍ التحقق...' : 'تطبيق الكود'}</button>
       {vipMessage && <p role="status" className="text-sm">{vipMessage}</p>}
-      {eligible && <p className="text-sm text-emerald-700">خصم 50% مبدئيًا. التفعيل النهائي مشروط بتوافر مكان ضمن أول 10 عمارات وإتمام أول دفعة.</p>}
+      {eligible && <p className="text-sm text-emerald-700">عرض المؤسسين لأول 10 عمارات محفوظ. لا يُطبق أي خصم إلا إذا كان مُعدًا ومتحققًا منه عبر Google Play؛ الشراء الحالي بالسعر الظاهر من المتجر.</p>}
     </div>}
-    <p className="text-sm text-slate-500">الدفع الإلكتروني قيد التجهيز. الأسعار المعروضة للتعريف فقط؛ لم يتم تفعيل أي اشتراك أو حجز الخصم.</p>
+    <p className="text-sm text-slate-500">الاشتراك للعمارة كاملة بواسطة مديرها فقط. يتجدد تلقائيًا حتى إلغائه من Google Play. لا توجد قيود دفع على استخدام التطبيق.</p>
   </section>}{!ownerOpen && !showPlans && <AccountDeletionButton/>}</SettingsPage>;
 }

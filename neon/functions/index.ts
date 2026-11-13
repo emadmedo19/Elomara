@@ -1,3 +1,4 @@
+import playBilling, { playNotification, reconcilePlay } from './handlers/play-billing';
 import { parseTriggerDelivery } from '@neon/functions/triggers';
 import { createBackendClient } from './database.mjs';
 import { mobileCallback } from './mobile-callback.mjs';
@@ -11,12 +12,15 @@ import geminiChat from './handlers/gemini-chat';
 import generateAnnouncementImage from './handlers/generate-announcement-image';
 
 const handlers: Record<string, (request: Request) => Promise<Response>> = {
+  'play-billing': playBilling,
+  'google-play-rtdn': playNotification,
   'get-building-payment-methods': paymentMethods,
   'send-announcement-push': announcement, 'send-poll-push': poll,
   'send-exceptional-collection-push': exceptional, 'gemini-chat': geminiChat,
   'generate-announcement-image': generateAnnouncementImage,
 };
 const schedules: Record<string, { name: string; handler: (request: Request) => Promise<Response> }> = {
+  '/cron/play-billing': { name: 'elomara-play-billing', handler: reconcilePlay },
   // Side-effect-free probe for verifying that the platform strips forged headers.
   '/cron/probe': { name: 'elomara-probe', handler: async () => Response.json({ ok: true }) },
   '/cron/overdue': { name: 'elomara-overdue', handler: overdue },

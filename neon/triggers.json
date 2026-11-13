@@ -1,5 +1,6 @@
 [
   {"name":"elomara-overdue","path":"/cron/overdue","cron":"0 7 * * *","enabled":false},
   {"name":"elomara-mobile","path":"/cron/mobile","cron":"* * * * *","enabled":false},
-  {"name":"elomara-engagement","path":"/cron/engagement","cron":"*/5 * * * *","enabled":false}
+  {"name":"elomara-engagement","path":"/cron/engagement","cron":"*/5 * * * *","enabled":false},
+  {"name":"elomara-play-billing","path":"/cron/play-billing","cron":"*/15 * * * *","enabled":false}
 ]
