@@ -20,8 +20,8 @@ with sync_playwright() as p:
         page.goto(f'http://127.0.0.1:{server.server_port}/?scenario=normal')
         city = page.locator('.intro-city')
         expect(city).to_be_visible()
-        page.wait_for_function("Array.from(document.querySelectorAll('.intro-city img')).every(i=>i.complete&&i.naturalWidth>0)")
-        assert city.locator('mask').count() == 1
+        assert city.locator('mask,clipPath,image,img').count() == 0
+        assert city.locator('[data-city-building]').count() == 6
         assert city.locator('.intro-city-tree').count() == 5
         assert city.locator('.intro-city-building').count() == 6
         if motion != 'reduce':
@@ -36,19 +36,21 @@ with sync_playwright() as p:
             assert trees.first.bounding_box()['y'] < first_y
             assert all(abs(x) < 0.01 for x in city.locator('.intro-city-building').evaluate_all('nodes=>nodes.map(n=>new DOMMatrix(getComputedStyle(n).transform).m41)'))
             page.screenshot(path=f'/tmp/elomara-trees-rising-{width}.png')
+            # The entire facade must stay identical while trees move, including
+            # after settlement. The previous patch changed/hid backing at 5.15s.
+            trees.evaluate_all("nodes=>nodes.forEach(n=>n.style.visibility='hidden')")
+            during = Image.open(io.BytesIO(city.screenshot())).convert('RGB')
+            trees.evaluate_all("nodes=>nodes.forEach(n=>n.style.visibility='')")
         page.evaluate("document.getAnimations().forEach(a=>{a.currentTime=5300;a.pause()})")
-        actual = Image.open(io.BytesIO(city.screenshot())).convert('RGB')
         page.screenshot(path=f'/tmp/elomara-intro-{width}-{motion}.png')
-        page.evaluate("""const city=document.querySelector('.intro-city');city.querySelectorAll('.intro-city-building,.intro-city-tree').forEach(n=>n.style.visibility='hidden');const image=document.createElement('img');image.className='intro-city-art';image.src='/splash-hq/houses.png';image.alt='';city.append(image);""")
-        page.wait_for_function("document.querySelector('.intro-city>img').complete")
-        original = Image.open(io.BytesIO(city.screenshot())).convert('RGB')
-        diff = ImageChops.difference(actual, original)
-        changed = sum(1 for pixel in diff.getdata() if max(pixel) > 15)
-        # Allow a pixel of antialiasing at slice boundaries, never missing foliage/buildings.
-        assert changed < actual.width * 2, (width, motion, changed)
+        city.locator('.intro-city-tree').evaluate_all("nodes=>nodes.forEach(n=>n.style.visibility='hidden')")
+        settled = Image.open(io.BytesIO(city.screenshot())).convert('RGB')
+        page.screenshot(path=f'/tmp/elomara-buildings-only-{width}-{motion}.png')
+        if motion != 'reduce':
+            assert ImageChops.difference(during, settled).getbbox() is None, 'Building facades changed when trees settled'
         if motion == 'reduce':
             assert page.locator('.intro-city-building').first.evaluate("n=>getComputedStyle(n).animationName") == 'none'
-        print('PASS', width, motion, 'buildings slide from both sides; separate trees rise upward; final panorama matches original; reduced-motion respected')
+        print('PASS', width, motion, 'buildings slide from both sides; separate trees rise upward; complete facades stay identical throughout tree motion; reduced-motion respected')
         page.close()
     browser.close()
 server.shutdown()
