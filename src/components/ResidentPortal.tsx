@@ -1,4 +1,5 @@
 import { BrandLogo } from './BrandLogo';
+import { AppTour } from './AppTour';
 import { GuardContact } from './GuardContact';
 import React, { useEffect, useRef, useState } from 'react';
 import { NotificationBell } from './NotificationBell';
@@ -252,7 +253,8 @@ export const ResidentPortal: React.FC = () => {
         <button onClick={() => navigateSettings('more')} aria-current={['more', 'app-settings', ...moreNav.map(item => item.id)].includes(activeTab) ? 'page' : undefined} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold ${['more', 'app-settings', ...moreNav.map(item => item.id)].includes(activeTab) ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><span className="settings-icon settings-icon-blue nav-color-icon"><MoreHorizontal className="w-5 h-5"/></span><span>المزيد</span></button>
       </div>
     </nav>
-    <main key={activeTab} className="bunyan-page-enter max-w-6xl mx-auto p-3 sm:p-5 pb-28 space-y-4">
+    <AppTour key={`${user?.id}:resident`} mode="resident" currentPage={activeTab} onNavigate={page => setActiveTab(page as ResidentTab)} />
+    <main data-tour="resident-page" data-tour-page={activeTab} key={activeTab} className="bunyan-page-enter max-w-6xl mx-auto p-3 sm:p-5 pb-28 space-y-4">
       {error && <div className="rounded-xl bg-rose-50 text-rose-800 border border-rose-100 p-3 text-sm flex gap-2"><AlertCircle className="w-5 h-5 shrink-0"/>{error}</div>}
       {notice && <div className="rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-100 p-3 text-sm flex gap-2"><CheckCircle2 className="w-5 h-5 shrink-0"/>{notice}</div>}
 

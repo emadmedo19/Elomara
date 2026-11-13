@@ -44,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
   const activeItem = [...navItems, ...moreItems].find(item => item.id === currentTab);
   return (
     <>
-      <header className="elomara-header sticky top-0 z-40 border-b border-slate-200/70 bg-white/90 text-slate-900 shadow-[0_5px_24px_rgba(15,40,55,.06)] backdrop-blur-xl">
+      <header data-tour="manager-header" className="elomara-header sticky top-0 z-40 border-b border-slate-200/70 bg-white/90 text-slate-900 shadow-[0_5px_24px_rgba(15,40,55,.06)] backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex shrink-0 items-center">
             <BrandLogo className="brand-lockup h-20 w-[72px] object-contain"/>

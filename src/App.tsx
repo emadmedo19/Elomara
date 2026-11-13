@@ -24,6 +24,7 @@ import {
 } from './services/financialAccounting';
 import { Header } from './components/Header';
 import { IntroCity } from './components/IntroCity';
+import { AppTour, TourHelpButton } from './components/AppTour';
 import { DashboardView } from './components/DashboardView';
 import { CollectionsView } from './components/CollectionsView';
 import { ExpensesView } from './components/ExpensesView';
@@ -1172,7 +1173,6 @@ export default function App() {
           @keyframes introBuilding { from { opacity:0; transform:translate(-50%,18px) } to { opacity:1; transform:translate(-50%,0) } }
           @keyframes introLogo { from { opacity:0; transform:translate(-50%,14px) scale(.97) } to { opacity:1; transform:translate(-50%,0) scale(1) } }
           @keyframes introCityBuilding { from { opacity:0; transform:translateX(var(--intro-city-entry)) } to { opacity:1; transform:translateX(0) } }
-          @keyframes introCityTree { from { opacity:0; transform:translateY(100%) } to { opacity:1; transform:translateY(0) } }
           @keyframes introProgress { from { transform:translateX(120%) } to { transform:translateX(-120%) } }
           .elomara-intro { position:fixed; inset:0; z-index:9999; width:100%; height:100vh; height:100dvh; overflow:hidden; isolation:isolate; background:radial-gradient(ellipse at 50% 55%,#f2fbff 0%,#d8f1ff 38%,transparent 75%),linear-gradient(155deg,#078cdd 0%,#83d2fb 35%,#c2eaff 74%,#5ebcf0 100%); }
           .elomara-intro:before { content:""; position:absolute; top:0; left:0; width:min(88vw,600px); height:30%; background:url('/splash-hq/curve.png') left top / 100% auto no-repeat; pointer-events:none; }
@@ -1187,11 +1187,10 @@ export default function App() {
           .intro-ground { position:absolute; z-index:2; left:0; bottom:0; width:100%; height:auto; pointer-events:none; }
           .intro-city-art { position:absolute; left:0; bottom:0; width:100%; max-width:none; height:auto; }
           .intro-city-building { position:absolute; inset:0; animation:introCityBuilding .7s cubic-bezier(.2,.8,.2,1) both; }
-          .intro-city-tree { animation:introCityTree .3s cubic-bezier(.2,.8,.2,1) 3s both; }
           .intro-progress { position:absolute; z-index:5; left:50%; bottom:24%; transform:translateX(-50%); width:72px; height:4px; border-radius:99px; overflow:hidden; background:#77bce5; }
           .intro-progress:after { content:""; display:block; width:42%; height:100%; border-radius:inherit; background:#f4bd20; animation:introProgress 1.15s ease-in-out infinite; }
           @media (max-height:650px) { .intro-building { top:16%; width:min(52vw,30vh); } .intro-title { top:53%; } .intro-city { height:20%; } }
-          @media (prefers-reduced-motion:reduce) { .intro-layer,.intro-city-building,.intro-city-tree,.intro-progress:after { animation:none !important; opacity:1; } .intro-building,.intro-title { transform:translateX(-50%); } }
+          @media (prefers-reduced-motion:reduce) { .intro-layer,.intro-city-building,.intro-progress:after { animation:none !important; opacity:1; } .intro-building,.intro-title { transform:translateX(-50%); } }
         `}</style>
         <div className="intro-layer intro-building">
           <img className="intro-building-art" src="/splash-hq/building.png" alt="مبنى العمارة" />
@@ -1300,13 +1299,16 @@ export default function App() {
             ابدأ بإضافة بيانات أول عمارة وعدد الشقق والأدوار، وسيتم تجهيز الشقق تلقائيًا.
           </p>
           <button
+            data-tour="create-building"
             onClick={() => setIsBuildingModalOpen(true)}
             className="w-full rounded-xl bg-teal-500 hover:bg-teal-400 text-[#07131e] font-bold py-3.5 transition"
           >
             + إضافة أول عمارة
           </button>
           <p className="text-[11px] text-slate-400 mt-4">تُنشأ أرقام الشقق تلقائيًا؛ أضف بيانات السكان والاشتراكات لاحقًا.</p>
+          <div className="mt-4"><TourHelpButton /></div>
         </div>
+        <AppTour key={`${user.id}:empty-manager`} mode="empty-manager" />
         <BuildingManagementModal
           isOpen={isBuildingModalOpen}
           onClose={() => setIsBuildingModalOpen(false)}
@@ -1323,6 +1325,7 @@ export default function App() {
 
   return (
     <div onTouchStart={handlePullStart} onTouchEnd={handlePullEnd} className="min-h-screen bg-slate-50 text-slate-800 flex flex-col items-center w-full">
+      <AppTour key={`${user.id}:manager`} mode="manager" currentPage={currentTab} onNavigate={setCurrentTabState} />
       {/* Toast Notification Floating */}
       {toast && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-[#0f2537] text-white px-4 py-3 rounded-2xl shadow-2xl border border-teal-500/40 flex items-center gap-2.5 animate-in fade-in slide-in-from-top-3 text-xs max-w-md w-full">
@@ -1370,7 +1373,7 @@ export default function App() {
         />
 
         {/* Content Body */}
-        <main className="flex-1 p-3 pb-28 sm:p-6 sm:pb-28 max-w-7xl mx-auto w-full">
+        <main data-tour="manager-page" data-tour-page={currentTab} className="flex-1 p-3 pb-28 sm:p-6 sm:pb-28 max-w-7xl mx-auto w-full">
           {currentTab === 'more' && <MoreView buildingId={isAdmin ? currentBuilding.id : ''} onBack={() => goBack('dashboard')} onOpenAppSettings={() => setCurrentTab('app-settings')} onSignOut={() => void signOut()} items={[
             ...(isAdmin ? [{ id: 'exceptional', label: 'التحصيلات الاستثنائية', icon: Wallet, tone: 'teal' as const, onClick: () => setCurrentTab('exceptional-collections') }] : []),
             { id: 'services', label: 'دليل الخدمات وأرقام الفنيين', icon: Wrench, tone: 'teal', onClick: () => setCurrentTab('services') },

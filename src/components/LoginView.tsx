@@ -1,4 +1,5 @@
 import { PasswordInput } from './PasswordInput';
+import { AppTour, TourHelpButton } from './AppTour';
 import React, { useEffect, useState } from 'react';
 import { AlertCircle, Building2, CheckCircle2, Chrome, LogOut, ShieldCheck, Users, Mail, Lock, User, Wallet } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -217,7 +218,9 @@ export const LoginView: React.FC = () => {
               </div>
               {error && <p className="fotouh-message error"><AlertCircle/>{error}</p>}
               {notice && <p className="fotouh-message success"><CheckCircle2/>{notice}</p>}
-              <form onSubmit={createBuilding} className="space-y-3 rounded-2xl border border-slate-200 p-4">
+              <AppTour key={`${user.id}:setup`} mode="setup" />
+              <TourHelpButton />
+              <form data-tour="setup-manager" onSubmit={createBuilding} className="space-y-3 rounded-2xl border border-slate-200 p-4">
                 <h3 className="font-bold text-slate-800">أنا مدير عمارة — إنشاء عمارة</h3>
                 <label className="fotouh-field"><span>اسم العمارة</span><div><Building2/><input value={buildingName} onChange={e=>setBuildingName(e.target.value)} placeholder="اسم العمارة" required/></div></label>
                 <label className="fotouh-field"><span>العنوان</span><div><Building2/><input value={buildingAddress} onChange={e=>setBuildingAddress(e.target.value)} placeholder="العنوان"/></div></label>
@@ -225,11 +228,11 @@ export const LoginView: React.FC = () => {
                   <label className="fotouh-field"><span>عدد الشقق</span><div><Users/><input type="number" min="0" value={unitsCount} onChange={e=>setUnitsCount(e.target.value)}/></div></label>
                   <label className="fotouh-field"><span>عدد الأدوار</span><div><Building2/><input type="number" min="0" value={floorsCount} onChange={e=>setFloorsCount(e.target.value)} placeholder="اختياري"/></div></label>
                 </div>
-                <label className="fotouh-field"><span>الرصيد الافتتاحي للخزينة (ج.م)</span><div><Wallet/><input type="number" inputMode="decimal" min="0" max="9999999999.99" step="0.01" value={openingBalance} onChange={e=>setOpeningBalance(e.target.value)} placeholder="اختياري — 0" aria-describedby="opening-balance-help"/></div></label>
+                <label data-tour="setup-opening-balance" className="fotouh-field"><span>الرصيد الافتتاحي للخزينة (ج.م)</span><div><Wallet/><input type="number" inputMode="decimal" min="0" max="9999999999.99" step="0.01" value={openingBalance} onChange={e=>setOpeningBalance(e.target.value)} placeholder="اختياري — 0" aria-describedby="opening-balance-help"/></div></label>
                 <p id="opening-balance-help" className="text-xs leading-6 text-slate-500">المبلغ الموجود في خزينة العمارة قبل بدء استخدام التطبيق. يُحفظ مرة واحدة عند الإنشاء، ولا يُحسب ضمن تحصيل الشقق. اتركه فارغًا لو الخزينة بدون رصيد.</p>
                 <button type="submit" disabled={busy} className="fotouh-primary-button w-full">{busy ? 'جارٍ إنشاء العمارة...' : 'إنشاء العمارة'}</button>
               </form>
-              <form onSubmit={submitJoinRequest} className="space-y-3 rounded-2xl border border-teal-200 bg-teal-50/50 p-4">
+              <form data-tour="setup-resident" onSubmit={submitJoinRequest} className="space-y-3 rounded-2xl border border-teal-200 bg-teal-50/50 p-4">
                 <h3 className="font-bold text-slate-800">أنا ساكن — الانضمام لعمارة</h3>
                 <label className="fotouh-field"><span>كود العمارة العام</span><div><Building2/><input dir="ltr" value={inviteCode} onChange={e=>setInviteCode(e.target.value)} placeholder="أدخل كود العمارة"/></div></label>
                 <label className="fotouh-field"><span>الاسم بالكامل</span><div><Users/><input value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="الاسم بالكامل"/></div></label>
