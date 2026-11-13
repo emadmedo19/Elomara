@@ -4,17 +4,6 @@ import { supabase } from '../lib/supabase';
 import { isNeonBackend } from '../lib/neon';
 
 type Choice = 'unknown' | 'subscribed' | 'declined';
-function describeError(value: unknown): string {
-  if (value instanceof Error) return value.message;
-  if (typeof value === 'string') return value;
-  if (value && typeof value === 'object') {
-    const error = value as Record<string, unknown>;
-    const parts = ['message', 'code', 'details', 'hint', 'status'].map(key => error[key] == null ? '' : key + ': ' + String(error[key])).filter(Boolean);
-    if (parts.length) return parts.join(' | ');
-    try { return JSON.stringify(value); } catch { /* ignore */ }
-  }
-  return String(value);
-}
 const pendingKey = (email: string) => 'elomara:marketing-signup:' + email.trim().toLowerCase();
 
 async function readChoice(): Promise<Choice> {
@@ -30,49 +19,27 @@ async function writeChoice(subscribe: boolean): Promise<Choice> {
   return data;
 }
 
-export function MarketingConsentPrompt() {
+// Persist only the explicit choice made during signup; existing accounts are
+// never prompted or subscribed automatically when they sign in.
+export function MarketingSignupConsentSync() {
   const { user, isLoading, isPasswordRecovery } = useAuth();
-  const [choice, setChoice] = useState<Choice | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [checked, setChecked] = useState(false);
-  const [loadError, setLoadError] = useState('');
-  const [retry, setRetry] = useState(0);
   useEffect(() => {
-    setChoice(null); setError(''); setLoadError(''); setChecked(false);
     if (!isNeonBackend || !user?.email || isLoading || isPasswordRecovery) return;
+    const key = pendingKey(user.email);
+    let pending: string | null;
+    try { pending = sessionStorage.getItem(key); } catch { return; }
+    if (pending !== 'yes' && pending !== 'no') return;
     let active = true;
-    const email = user.email;
-    try { setChecked(sessionStorage.getItem(pendingKey(email)) === 'yes'); } catch { /* storage may be disabled */ }
-    void readChoice().then(value => { if (active) setChoice(value); }).catch((failure) => {
-      if (active) { setChoice(null); setLoadError(describeError(failure)); }
-    });
+    void readChoice().then(async choice => {
+      if (!active) return;
+      if (choice === 'unknown') await writeChoice(pending === 'yes');
+      if (active) {
+        try { sessionStorage.removeItem(key); } catch { /* optional */ }
+      }
+    }).catch(() => { /* Retain the signup choice for a later attempt. */ });
     return () => { active = false; };
-  }, [user?.id, user?.email, isLoading, isPasswordRecovery, retry]);
-  if (!user || isLoading || isPasswordRecovery || (choice !== 'unknown' && !loadError)) return null;
-  const save = async (subscribe: boolean) => {
-    setBusy(true); setError('');
-    try {
-      const next = await writeChoice(subscribe);
-      setChoice(next);
-      try { if (user.email) sessionStorage.removeItem(pendingKey(user.email)); } catch { /* optional */ }
-    } catch { setError('تعذر حفظ اختيارك. حاول مرة أخرى.'); }
-    finally { setBusy(false); }
-  };
-  return <div dir="rtl" className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/70 p-4">
-    <section role="dialog" aria-modal="true" aria-labelledby="marketing-consent-title" className="w-full max-w-md rounded-3xl bg-white p-6 text-slate-900 shadow-2xl">
-      <h2 id="marketing-consent-title" className="mb-3 text-xl font-bold">تحب توصلك عروض العمارة؟</h2>
-      <p className="mb-5 text-sm leading-7 text-slate-600">ممكن نبعتلك عروض الاشتراكات والخصومات على بريدك الإلكتروني. القرار اختياري ومش هيأثر على استخدام التطبيق، وتقدر تلغي موافقتك من الإعدادات في أي وقت.</p>
-      {loadError && <p role="alert" className="mb-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-900">تعذر تحميل حالة الموافقة: {loadError}</p>}
-      {!loadError && <label className="mb-5 flex items-start gap-3 text-sm leading-6"><input type="checkbox" className="mt-1 h-5 w-5" checked={checked} onChange={e=>setChecked(e.target.checked)}/><span>أوافق على استقبال العروض والخصومات التسويقية عبر البريد الإلكتروني.</span></label>}
-      {error && <p role="alert" className="mb-3 text-sm text-rose-700">{error}</p>}
-      <div className="flex gap-3">
-        <button type="button" disabled={busy || Boolean(loadError)} onClick={()=>void save(checked)} className="flex-1 rounded-xl bg-teal-700 px-4 py-3 font-bold text-white disabled:opacity-50">حفظ اختياري</button>
-        <button type="button" disabled={busy} onClick={()=>{ if (loadError) { setLoadError(''); setChoice('declined'); } else void save(false); }} className="rounded-xl border border-slate-300 px-4 py-3 font-bold text-slate-700 disabled:opacity-50">ليس الآن</button>
-      </div>
-      {loadError && <button type="button" className="mt-3 text-sm text-teal-700" onClick={()=>setRetry(x=>x+1)}>إعادة المحاولة</button>}
-    </section>
-  </div>;
+  }, [user?.id, user?.email, isLoading, isPasswordRecovery]);
+  return null;
 }
 
 export function MarketingPreferenceSettings() {
