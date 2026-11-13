@@ -101,7 +101,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (page: string) =>
     setOpen(false); onNavigate(isAdmin?notice.manager_target:notice.member_target);
   };
   return <>
-    <button type="button" ref={bell} className="notification-bell" aria-label={`الإشعارات${unread ? `، ${unread} غير مقروء` : ''}`} aria-haspopup="dialog" aria-expanded={open} onClick={()=>{setOpen(true);void refresh();}}><Bell size={21} aria-hidden="true"/>{unread>0 && <span className="notification-badge" aria-hidden="true">{unread>99?'99+':unread}</span>}</button>
+    <button type="button" ref={bell} className={`notification-bell${unread > 0 ? ' notification-bell-unread' : ''}`} aria-label={`الإشعارات${unread ? `، ${unread} غير مقروء` : ''}`} aria-haspopup="dialog" aria-expanded={open} onClick={()=>{setOpen(true);void refresh();}}><Bell size={21} aria-hidden="true"/>{unread>0 && <span className="notification-badge" aria-hidden="true">{unread>99?'99+':unread}</span>}</button>
     {open && createPortal(<div className="notification-overlay" onTouchStart={event=>event.stopPropagation()} onTouchMove={event=>event.stopPropagation()} onTouchEnd={event=>event.stopPropagation()} onClick={event=>{if(event.target===event.currentTarget)setOpen(false);}}>
       <div ref={dialog} dir="rtl" role="dialog" aria-modal="true" aria-labelledby="notification-title" data-notification-dialog className="notification-panel">
         <div className="notification-heading"><span className="settings-icon settings-icon-gold"><Bell size={25}/></span><div><h2 id="notification-title">الإشعارات</h2><p>{unread ? `${unread} إشعار غير مقروء` : 'كل تنبيهات حسابك في مكان واحد'}</p></div><button type="button" aria-label="إغلاق الإشعارات" onClick={()=>setOpen(false)}><X size={21}/></button></div>

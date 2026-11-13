@@ -14,3 +14,8 @@
 .notification-footer { display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;border-top:1px solid var(--settings-line);padding:12px 15px; }.notification-footer small { font-size:.65rem;color:var(--settings-muted); }.notification-footer button { display:flex;align-items:center;gap:5px;font-size:.75rem;font-weight:750;color:#1974a8;min-height:36px; }.notification-footer button:disabled { opacity:.45; }.notification-update { padding:7px 13px;border-radius:10px;background:#156fa4;color:#fff;font-size:.8rem; }.notification-panel .settings-error { margin:0 12px 8px; }.notification-panel button:focus-visible,.notification-bell:focus-visible { outline:3px solid #58a1d7;outline-offset:2px; }
 @media(max-width:360px) { .notification-heading { padding:12px;gap:8px; }.notification-item { gap:9px;padding:12px 8px; }.notification-item .settings-icon { width:33px;height:33px; }.elomara-header .notification-bell { width:38px;height:40px; } }
 .notification-overlay { direction:ltr;justify-content:flex-start; }
+
+/* Shake only the bell glyph; its button and unread counter stay still. */
+.notification-bell-unread>svg{transform-origin:50% 14%;animation:notification-bell-ring 1.8s ease-in-out infinite;}
+@keyframes notification-bell-ring{0%,48%,100%{transform:rotate(0)}8%,24%{transform:rotate(-16deg)}16%,32%{transform:rotate(16deg)}40%{transform:rotate(-8deg)}}
+@media(prefers-reduced-motion:reduce){.notification-bell-unread>svg{animation:none;}}
