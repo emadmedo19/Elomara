@@ -1,4 +1,5 @@
 import { BrandLogo } from './BrandLogo';
+import { useSuccessFeedback } from './SuccessFeedback';
 import { AppTour } from './AppTour';
 import { GuardContact } from './GuardContact';
 import React, { useEffect, useRef, useState } from 'react';
@@ -19,6 +20,7 @@ const dateLabel = (v: string) => { if (!v) return '—'; const d = new Date(v.le
 
 export const ResidentPortal: React.FC = () => {
   const { user, userProfile, signOut } = useAuth();
+  const success = useSuccessFeedback();
   const [apartment, setApartment] = useState<any>(null);
   const [building, setBuilding] = useState<any>(null);
   const [payments, setPayments] = useState<any[]>([]);
@@ -177,6 +179,7 @@ export const ResidentPortal: React.FC = () => {
   const submitTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ticketForm.title.trim() || !ticketForm.description.trim() || !user || !apartment || !building) return;
+    success.prepare();
     setSubmitting(true); setNotice(''); setError('');
     const { error: insertError } = await supabase.from('maintenance_tickets').insert({
       building_id: building.id, apartment_id: apartment.id, unit_number: apartment.unit_number,
@@ -188,6 +191,7 @@ export const ResidentPortal: React.FC = () => {
     if (insertError) { setError('لم نتمكن من إرسال البلاغ: ' + insertError.message); return; }
     setTicketForm({ category: 'سباكة', title: '', description: '', urgency: 'عادي' });
     setNotice('تم إرسال بلاغ الصيانة للإدارة بنجاح.');
+    success.show({ title: 'تم إرسال البلاغ بنجاح', description: 'بلاغك وصل للإدارة. تقدر تتابع حالته من بلاغاتي.' });
     await load(true);
   };
 
@@ -228,6 +232,7 @@ export const ResidentPortal: React.FC = () => {
   const ticketStatus = (s: string) => s === 'مكتمل' ? 'مكتمل' : s === 'قيد التنفيذ' ? 'قيد التنفيذ' : 'جديد';
 
   return <div dir="rtl" onTouchStart={handlePullStart} onTouchMove={handlePullMove} onTouchEnd={handlePullEnd} onTouchCancel={handlePullCancel} className="bunyan-resident fotouh-portal min-h-screen bg-[#f4f7fb] text-slate-800" style={{ overscrollBehaviorY: 'contain', touchAction: 'pan-y' }}>
+    {success.feedback}
     {(pullHint || refreshing) && <div className="fixed top-0 inset-x-0 z-[60] flex justify-center pt-2 pointer-events-none"><div className="rounded-full bg-[#0f2537] text-white text-xs px-4 py-2 shadow-lg flex items-center gap-2"><RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`}/>{refreshing ? 'جارٍ تحديث البيانات...' : 'اترك الشاشة للتحديث'}</div></div>}
     <header className="bg-[#0f2537] text-white sticky top-0 z-40 shadow-lg">
       <div className="max-w-7xl mx-auto px-3 sm:px-5 py-3 flex items-center justify-between gap-2">

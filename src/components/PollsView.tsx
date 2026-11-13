@@ -1,3 +1,4 @@
+import { useSuccessFeedback } from './SuccessFeedback';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BarChart3, CheckCircle2, Clock3, LockKeyhole, Plus, Send, ShieldCheck, Users, XCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -35,6 +36,7 @@ const formatDate = (value: string) => new Intl.DateTimeFormat('ar-EG', { dateSty
 const isEnded = (poll: Poll) => poll.status === 'closed' || new Date(poll.ends_at).getTime() <= Date.now();
 
 export const PollsView: React.FC<Props> = ({ buildingId, canManage }) => {
+  const success = useSuccessFeedback();
   const [polls, setPolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -128,6 +130,7 @@ export const PollsView: React.FC<Props> = ({ buildingId, canManage }) => {
   };
 
   const castVote = async (pollId: string, optionId: string) => {
+    if (!canManage) success.prepare();
     setBusy(true); setError(''); setNotice('');
     const { error: voteError } = await supabase.rpc('cast_building_poll_vote', {
       p_poll_id: pollId, p_option_id: optionId,
@@ -138,6 +141,7 @@ export const PollsView: React.FC<Props> = ({ buildingId, canManage }) => {
       return;
     }
     setNotice('تم تسجيل صوتك بسرية تامة. لا يمكن لأي شخص معرفة اختيارك.');
+    if (!canManage) success.show({ title: 'تم تسجيل صوتك بنجاح', description: 'شكرًا لمشاركتك في قرارات العمارة. اختيارك يظل سريًا.' });
     await loadPolls();
   };
 
@@ -181,6 +185,7 @@ export const PollsView: React.FC<Props> = ({ buildingId, canManage }) => {
 
   return (
     <div data-tour="polls-page" dir="rtl" className="space-y-4">
+      {success.feedback}
       <div className="rounded-3xl border border-teal-100 bg-gradient-to-l from-[#0f2d3d] to-[#164e63] p-5 text-white shadow-lg">
         <div className="flex items-center gap-3">
           <div className="rounded-2xl bg-white/10 p-3"><BarChart3 className="h-6 w-6" /></div>
