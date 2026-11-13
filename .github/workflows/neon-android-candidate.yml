@@ -94,6 +94,28 @@ jobs:
           cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/elomara-upgrade-baseline.apk"
           bash ./gradlew assembleDebug
 
+      - name: Build signed Google Play release bundle
+        working-directory: android
+        run: bash ./gradlew :app:bundleRelease
+
+      - name: Verify Google Play bundle signature and package for review
+        run: |
+          set -euo pipefail
+          BUNDLE="android/app/build/outputs/bundle/release/app-release.aab"
+          jarsigner -verify "$BUNDLE"
+          mkdir -p release-play
+          cp "$BUNDLE" release-play/Elomara.aab
+          sha256sum release-play/Elomara.aab > release-play/SHA256SUMS.txt
+          printf '%s\n' "Source: ${{ github.event.workflow_run.head_sha || github.sha }}" "Package: app.bunyan.residential" "Check this run's Android runtime tests before uploading to Google Play." > release-play/BUILD.txt
+
+      - name: Upload signed Google Play bundle for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: Elomara-Google-Play-AAB
+          path: release-play/
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Enable Android emulator acceleration
         run: sudo chmod 666 /dev/kvm
 
