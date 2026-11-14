@@ -1,7 +1,7 @@
 import {build} from 'esbuild';
 import {mkdirSync,writeFileSync,readdirSync,copyFileSync} from 'node:fs';
 const out=process.argv[2]||'/tmp/elomara-play-billing';mkdirSync(out,{recursive:true});
-await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:`import React from'react';import{createRoot}from'react-dom/client';import{MoreView}from'./src/components/MoreView';window.state={role:new URLSearchParams(location.search).get('role')||'admin',scenario:new URLSearchParams(location.search).get('scenario')||'normal',status:'trial',purchases:[],calls:[]};createRoot(document.getElementById('root')).render(<MoreView items={[]} buildingId="building" onBack={()=>{}} onOpenAppSettings={()=>{}} onSignOut={()=>{}}/>);`},bundle:true,format:'esm',outfile:out+'/check.js',plugins:[{name:'fixture',setup(b){
+await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:`import React from'react';import{createRoot}from'react-dom/client';import{MoreView}from'./src/components/MoreView';window.state={role:new URLSearchParams(location.search).get('role')||'admin',scenario:new URLSearchParams(location.search).get('scenario')||'normal',status:new URLSearchParams(location.search).get('status')||'trial',purchases:[],calls:[]};createRoot(document.getElementById('root')).render(<MoreView items={[]} buildingId="building" onBack={()=>{}} onOpenAppSettings={()=>{}} onSignOut={()=>{}}/>);`},bundle:true,format:'esm',outfile:out+'/check.js',plugins:[{name:'fixture',setup(b){
  b.onResolve({filter:/services\/playBilling$/},()=>({path:'billing',namespace:'fixture'}));
  b.onResolve({filter:/lib\/supabase$/},()=>({path:'api',namespace:'fixture'}));
  b.onResolve({filter:/AppTour$/},()=>({path:'tour',namespace:'fixture'}));

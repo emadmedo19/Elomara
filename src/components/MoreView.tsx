@@ -16,7 +16,7 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
     const {data,error} = await supabase.rpc('get_building_subscription', {p_building_id:buildingId});
     if (activeBuilding.current === buildingId && !error && data) setSubscription(data as typeof subscription);
   }, [buildingId]);
-  const billing = usePlayBilling(buildingId, showPlans, refreshSubscription);
+  const billing = usePlayBilling(buildingId, showPlans && subscription?.status !== 'vip', refreshSubscription);
   const [platformBuildings, setPlatformBuildings] = useState<Array<{id:string;name:string;status:string;plan?:string|null;trial_ends_at?:string|null;paid_through?:string|null}>>([]);
   useEffect(() => {
     if (!buildingId) { setSubscription(null); return; }
@@ -110,6 +110,7 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
     finally { setGenerating(false); }
   };
   const eligible = promoApplied;
+  const isVip = subscription?.status === 'vip';
   return <SettingsPage tourTarget="more-page" title={ownerOpen ? "إدارة اشتراكات المنصة" : showPlans ? "الاشتراك والباقات" : "المزيد"} onBack={ownerOpen ? () => setOwnerOpen(false) : showPlans ? () => setShowPlans(false) : onBack} subpage={ownerOpen || showPlans}>{!ownerOpen && !showPlans && <div className="px-4 pb-3"><TourHelpButton /></div>}{!ownerOpen && !showPlans && <SettingsList items={[
     ...items,
     ...(ownerSummary ? [{ id: 'platform-subscriptions', label: 'إدارة اشتراكات المنصة', icon: CreditCard, onClick: () => { setShowPlans(false); setOwnerOpen(true); } }] : []),
@@ -150,11 +151,16 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
   </section>}{showPlans && <section dir="rtl" className="mx-4 my-4 rounded-2xl border border-slate-200 p-4 space-y-3">
     <h3 className="text-lg font-bold">باقات العمارة</h3>
     {buildingId && subscription && <div className="rounded-xl border border-slate-200 p-3 text-sm">
-      <p className="font-semibold">حالة الاشتراك: {subscription.status === 'vip' ? 'مجاني' : subscription.status === 'active' ? 'نشط' : subscription.status === 'trial' ? 'تجريبي' : 'منتهي'}</p>
+      <p className="font-semibold">حالة الاشتراك: {subscription.status === 'vip' ? 'VIP مجاني مدى الحياة' : subscription.status === 'active' ? 'نشط' : subscription.status === 'trial' ? 'تجريبي' : 'منتهي'}</p>
       {subscription.status === 'trial' && <p>متبقي من التجربة: {subscription.days_remaining ?? 0} يوم · تنتهي {subscription.trial_ends_at ? new Date(subscription.trial_ends_at).toLocaleDateString('ar-EG') : '—'}</p>}
-      {subscription.paid_through && <p>تاريخ التجديد: {new Date(subscription.paid_through).toLocaleDateString('ar-EG')}</p>}
+      {subscription.status !== 'vip' && subscription.paid_through && <p>تاريخ التجديد: {new Date(subscription.paid_through).toLocaleDateString('ar-EG')}</p>}
       {subscription.status === 'expired' && <p>لم يتم تقييد استخدام العمارة؛ الدفع الإلكتروني قيد التجهيز.</p>}
     </div>}
+    {isVip ? <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
+      <p className="font-bold">اشتراك VIP مجاني مدى الحياة</p>
+      <p className="mt-2 text-sm">تم تفعيل الاشتراك المجاني الدائم لهذه العمارة. لن يُطلب منك اشتراك شهري أو سنوي أو تجديد.</p>
+      {subscription?.paid_through && <button type="button" onClick={() => void billing.manage()} className="mt-3 rounded-lg border border-emerald-300 px-3 py-2 text-sm">إدارة اشتراك Google Play السابق</button>}
+    </div> : <>
     <p className="text-sm text-slate-500">14 يوم تجربة مجانية لكل عمارة جديدة. السكان يستخدمون التطبيق مجانًا.</p>
     <div className="grid grid-cols-2 gap-3">
       <div className="rounded-xl bg-slate-50 p-3"><div className="font-semibold">شهري</div><div className="text-xl font-bold">{billing.products.find(p => p.productId === 'elomara_building_monthly')?.price || 'السعر متاح عبر Google Play'}</div><div className="text-xs text-slate-500">كل شهر لكل عمارة</div>{billing.products.filter(p => p.productId === 'elomara_building_monthly').slice(0,1).map(p => <button key={p.productId} disabled={!billing.ready || billing.busy || subscription?.status === 'vip' || subscription?.status === 'active'} onClick={() => void billing.purchase(p)} className="mt-2 rounded-lg bg-slate-900 px-3 py-2 text-white disabled:opacity-50">اشتراك شهري</button>)}</div>
@@ -172,5 +178,6 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
       {eligible && <p className="text-sm text-emerald-700">عرض المؤسسين لأول 10 عمارات محفوظ. لا يُطبق أي خصم إلا إذا كان مُعدًا ومتحققًا منه عبر Google Play؛ الشراء الحالي بالسعر الظاهر من المتجر.</p>}
     </div>}
     <p className="text-sm text-slate-500">الاشتراك للعمارة كاملة بواسطة مديرها فقط. يتجدد تلقائيًا حتى إلغائه من Google Play. لا توجد قيود دفع على استخدام التطبيق.</p>
+    </>}
   </section>}{!ownerOpen && !showPlans && <AccountDeletionButton/>}</SettingsPage>;
 }
