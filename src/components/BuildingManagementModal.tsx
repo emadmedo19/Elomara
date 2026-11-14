@@ -151,9 +151,9 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
               <input type="number" min="0" required data-tour="building-units" value={totalUnits} onChange={e => setTotalUnits(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} />
             </div>
           </div>
-          <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-3">{isNewBuilding ? 'سيتم إنشاء الشقق بأرقام متسلسلة وتوزيعها على الأدوار. يمكنك تعديل أسماء السكان والاشتراكات لاحقًا من شاشة الشقق.' : 'عند زيادة العدد، تُضاف الشقق الناقصة تلقائيًا دون تغيير الشقق الحالية أو مدفوعاتها. تُترك الأدوار الجديدة غير محددة حتى تعدّلها من شاشة الشقق. لا يمكن تقليل العدد عن الشقق المسجلة.'}</p>
+          <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-3">{isNewBuilding ? 'سيتم إنشاء الشقق بأرقام متسلسلة وتوزيعها على الأدوار، وتطبيق الاشتراك الشهري الافتراضي عليها. يمكنك تخصيص اشتراك أي شقة لاحقًا من شاشة الشقق.' : 'عند زيادة العدد، تُضاف الشقق الناقصة تلقائيًا بالاشتراك الشهري الافتراضي. يُطبّق أيضًا على الشقق التي لم يُحدد لها اشتراك (قيمتها صفر)، مع الحفاظ على الاشتراكات المخصصة والمدفوعات الحالية. لا يمكن تقليل العدد عن الشقق المسجلة.'}</p>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className={label}>المستهدف الشهري للتحصيل</label><input type="number" min="0" value={monthlyTarget} onChange={e => setMonthlyTarget(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
+            <div><label className={label}>الاشتراك الشهري الافتراضي للشقة</label><input type="number" min="0" value={monthlyTarget} onChange={e => setMonthlyTarget(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
             <div><label className={label}>صندوق الطوارئ</label><input type="number" min="0" value={reserveFund} onChange={e => setReserveFund(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
           </div>
           <div className="space-y-3">

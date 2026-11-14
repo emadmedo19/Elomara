@@ -88,3 +88,27 @@ test('cancelling one assessment leaves other assessments and monthly advance cre
   assert.equal(fin.creditBalance, 1900);
   assert.equal(fin.totalPaid, 2500);
 });
+
+test('units with no configured fee are not reported as paid automatically', () => {
+  const unsetFee = { ...apartment, monthlyFee: 0 };
+  const one = apartmentTotals(unsetFee, []);
+  assert.equal(one.status, 'pending');
+  assert.equal(one.remaining, 0);
+  const aggregate = buildingTotals('b', [unsetFee, { ...unsetFee, id: 'c' }], []);
+  assert.equal(aggregate.paidCount, 0);
+  assert.equal(aggregate.pendingCount, 2);
+  assert.equal(aggregate.collectionRate, 0);
+});
+
+test('fourteen apartments charged 1000 each show one payer and seven percent collected', () => {
+  const units = Array.from({ length: 14 }, (_, i) => ({ ...apartment, id: 'unit-' + (i + 1), monthlyFee: 1000 }));
+  const payment = { ...receipt, apartmentId: 'unit-4', amount: 1000 };
+  const totals = buildingTotals('b', units, [payment]);
+  assert.equal(totals.totalExpectedDues, 14000);
+  assert.equal(totals.totalCollected, 1000);
+  assert.equal(totals.totalRemaining, 13000);
+  assert.equal(totals.paidCount, 1);
+  assert.equal(totals.pendingCount, 13);
+  assert.equal(totals.collectionRate, 7);
+  assert.equal(apartmentTotals(units[3], [payment]).creditBalance, 0);
+});

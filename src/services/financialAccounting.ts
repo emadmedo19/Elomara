@@ -81,7 +81,7 @@ export function calculateApartmentFinancials(
 
   // Status determination
   let status: PaymentStatus = 'pending';
-  if (remaining === 0) {
+  if (totalDue > 0 && remaining === 0) {
     status = 'paid';
   } else if (totalPaid > 0 && remaining > 0) {
     status = 'pending';
