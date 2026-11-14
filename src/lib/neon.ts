@@ -28,23 +28,57 @@ async function nativeReady() {
   })().catch(error => { ready = undefined; throw error; });
   await ready;
 }
+function refreshNativeSessionOnce(): Promise<NativeSession | null> {
+  readSessionRefresh ??= CapacitorNeon.refreshSession().then(result => result.session).finally(() => {
+    readSessionRefresh = undefined;
+  });
+  return readSessionRefresh;
+}
 async function toAppSession(native: NativeSession | null): Promise<Session | null> {
   if (!native) return null;
+  let effectiveNative = native;
   let id = mappedIds.get(native.user.id);
   if (!id) {
-    const response = await fetch(dataUrl + '/rpc/resolve_app_identity', { method: 'POST',
-      headers: { Authorization: `Bearer ${native.accessToken}`, 'Content-Type': 'application/json' }, body: '{}' });
-    if (!response.ok) throw new Error('أكد بريدك الإلكتروني لإكمال الدخول واستعادة بيانات حسابك.');
+    const resolveIdentity = (session: NativeSession) => fetch(dataUrl + '/rpc/resolve_app_identity', {
+      method: 'POST', cache: 'no-store',
+      headers: { Authorization: `Bearer ${session.accessToken}`, 'Content-Type': 'application/json' }, body: '{}',
+    });
+    let response = await resolveIdentity(effectiveNative);
+    if (response.status === 401) {
+      // Android may restore an expired access token after a long time in background.
+      // Retry identity mapping with a renewed native JWT before showing login.
+      let restored = (await CapacitorNeon.getSession()).session;
+      if (!restored || restored.user.id !== native.user.id || restored.accessToken === native.accessToken) {
+        try { restored = await refreshNativeSessionOnce(); }
+        catch { throw new Error('تعذر تجديد جلسة الدخول. تأكد من الإنترنت وحاول مرة أخرى.'); }
+      }
+      if (!restored || restored.user.id !== native.user.id) {
+        throw new Error('انتهت جلسة الدخول. سجّل الدخول مرة أخرى.');
+      }
+      effectiveNative = restored;
+      response = await resolveIdentity(effectiveNative);
+    }
+    if (!response.ok) {
+      const failure = await response.json().catch(() => null) as { message?: unknown } | null;
+      const serverMessage = typeof failure?.message === 'string' ? failure.message : '';
+      // A rejected token or temporary database failure is NOT email-verification failure.
+      if (/verify.*email|email.*verif/i.test(serverMessage)) {
+        throw new Error('أكد بريدك الإلكتروني لإكمال الدخول واستعادة بيانات حسابك.');
+      }
+      if (response.status === 401) throw new Error('تعذر تجديد جلسة الدخول. سجّل الدخول مرة أخرى.');
+      throw new Error('تعذر التحقق من حسابك حاليًا. حاول مرة أخرى عند توفر الإنترنت.');
+    }
     const value: unknown = await response.json();
     if (typeof value !== 'string') throw new Error('تعذر ربط بيانات الحساب. حاول مرة أخرى.');
     id = value;
     mappedIds.set(native.user.id, id);
   }
-  const user: User = { id, email: native.user.email, app_metadata: {},
-    user_metadata: { full_name: native.user.name || '' }, aud: 'authenticated',
-    created_at: native.user.createdAt || '', email_confirmed_at: native.user.emailVerified ? native.user.createdAt : undefined };
-  return { access_token: native.accessToken, refresh_token: native.refreshToken, token_type: 'bearer',
-    expires_in: native.expiresIn, expires_at: native.expiresAt, user };
+  const user: User = { id, email: effectiveNative.user.email, app_metadata: {},
+    user_metadata: { full_name: effectiveNative.user.name || '' }, aud: 'authenticated',
+    created_at: effectiveNative.user.createdAt || '',
+    email_confirmed_at: effectiveNative.user.emailVerified ? effectiveNative.user.createdAt : undefined };
+  return { access_token: effectiveNative.accessToken, refresh_token: effectiveNative.refreshToken,
+    token_type: 'bearer', expires_in: effectiveNative.expiresIn, expires_at: effectiveNative.expiresAt, user };
 }
 async function currentSession(): Promise<Session | null> {
   await nativeReady();
@@ -70,8 +104,7 @@ const data = new PostgrestClient(dataUrl, { fetch: async (input, init) => {
   try {
     let refreshed = (await CapacitorNeon.getSession()).session;
     if (!refreshed || refreshed.accessToken === session.accessToken) {
-      const refresh = readSessionRefresh ??= CapacitorNeon.refreshSession().then(result => result.session).finally(() => { readSessionRefresh = undefined; });
-      refreshed = await refresh;
+      refreshed = await refreshNativeSessionOnce();
     }
     if (!refreshed || refreshed.user.id !== session.user.id) return response;
     const refreshedHeaders = new Headers(headers);

@@ -17,7 +17,7 @@ function setup() {
   const requests = [];
   let session = { user: { id: nativeId, email: 'fixture@example.invalid', name: 'Fixture', emailVerified: true },
     accessToken: 'jwt-one', refreshToken: 'native-session-secret', tokenType: 'bearer', expiresIn: 900 };
-  const mock = { initializeCount: 0, removals: 0, initializationFails: false, refreshCount: 0, unauthorizedReads: 0, unauthorizedWrites: false, nativeHeaderSerialization: false, resolvedId: appId,
+  const mock = { initializeCount: 0, removals: 0, initializationFails: false, refreshCount: 0, unauthorizedReads: 0, unauthorizedWrites: false, nativeHeaderSerialization: false, resolvedId: appId, identityUnauthorized: 0, identityFailure: null,
     Capacitor: { isNativePlatform: () => true, isPluginAvailable: () => true },
     Native: {
       async initialize() { mock.initializeCount++; if (mock.initializationFails) throw Error('initialization unavailable'); },
@@ -34,7 +34,14 @@ function setup() {
     fetch: async (input, options) => {
       const url = String(input);
       requests.push({ url, options });
-      if (url.endsWith('/rpc/resolve_app_identity')) return Response.json(mock.resolvedId);
+      if (url.endsWith('/rpc/resolve_app_identity')) {
+        if (mock.identityUnauthorized > 0) {
+          mock.identityUnauthorized--;
+          return Response.json({ message: 'JWT expired' }, { status: 401 });
+        }
+        if (mock.identityFailure) return Response.json({ message: mock.identityFailure }, { status: 403 });
+        return Response.json(mock.resolvedId);
+      }
       if (url.endsWith('/rpc/create_manager_building')) {
         // Native transports enumerate header fields; Headers instances expose no own fields.
         const wireHeaders = mock.nativeHeaderSerialization
@@ -197,4 +204,29 @@ test('function failures preserve a readable provider response and its Arabic mes
  assert.equal(result.data,null);
  assert.equal(result.error.message,'حصة الصور غير متاحة');
  assert.equal((await result.error.context.json()).code,'RESOURCE_EXHAUSTED');
+});
+
+test('identity mapping after idle renews an expired native token without logging the user out', async () => {
+  const { api, mock, requests } = setup();
+  mock.identityUnauthorized = 1;
+  const result = await api.neonClient.auth.getSession();
+  assert.equal(result.data.session.user.id, appId);
+  assert.equal(result.data.session.access_token, 'jwt-refreshed');
+  assert.equal(mock.refreshCount, 1);
+  const identityRequests = requests.filter(r => r.url.endsWith('/rpc/resolve_app_identity'));
+  assert.equal(identityRequests.length, 2);
+  assert.equal(new Headers(identityRequests[0].options.headers).get('authorization'), 'Bearer jwt-one');
+  assert.equal(new Headers(identityRequests[1].options.headers).get('authorization'), 'Bearer jwt-refreshed');
+});
+test('only a real email-verification rejection asks to confirm email', async () => {
+  const { api, mock } = setup();
+  mock.identityFailure = 'Verify your email before accessing the application';
+  await assert.rejects(api.neonClient.auth.getSession(), /أكد بريدك الإلكتروني/);
+  assert.equal(mock.refreshCount, 0);
+});
+test('other identity mapping errors do not falsely ask users to reconfirm their email', async () => {
+  const { api, mock } = setup();
+  mock.identityFailure = 'Database unavailable';
+  await assert.rejects(api.neonClient.auth.getSession(), /تعذر التحقق من حسابك/);
+  assert.equal(mock.refreshCount, 0);
 });
