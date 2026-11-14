@@ -19,9 +19,15 @@ async function nativeReady() {
   }
   ready ??= (async () => {
     const listener = await CapacitorNeon.addListener('authStateChange', ({ event, session }) => {
+      // Android reports INITIAL_SESSION=null after a transient restore failure.
+      // Let the explicit getSession() attempt recovery before notifying the app.
+      if (event === 'INITIAL_SESSION' && !session) return;
       void toAppSession(session).then(mapped => {
         for (const listener of listeners) listener(event as AuthChangeEvent, mapped);
-      }).catch(() => {});
+      }).catch(error => {
+        // An identity lookup failure is not a sign-out.
+        console.warn('Neon session event could not be verified:', error instanceof Error ? error.message : 'temporary error');
+      });
     });
     try { await CapacitorNeon.initialize({ authUrl: neonAuthUrl, dataApiUrl: dataUrl }); }
     catch (error) { await listener.remove(); throw error; }
@@ -39,39 +45,63 @@ async function toAppSession(native: NativeSession | null): Promise<Session | nul
   let effectiveNative = native;
   let id = mappedIds.get(native.user.id);
   if (!id) {
+    // This RPC reuses the same user mapping on retry; never replay financial writes.
     const resolveIdentity = (session: NativeSession) => fetch(dataUrl + '/rpc/resolve_app_identity', {
       method: 'POST', cache: 'no-store',
       headers: { Authorization: `Bearer ${session.accessToken}`, 'Content-Type': 'application/json' }, body: '{}',
     });
-    let response = await resolveIdentity(effectiveNative);
-    if (response.status === 401) {
-      // Android may restore an expired access token after a long time in background.
-      // Retry identity mapping with a renewed native JWT before showing login.
-      let restored = (await CapacitorNeon.getSession()).session;
-      if (!restored || restored.user.id !== native.user.id || restored.accessToken === native.accessToken) {
-        try { restored = await refreshNativeSessionOnce(); }
-        catch { throw new Error('تعذر تجديد جلسة الدخول. تأكد من الإنترنت وحاول مرة أخرى.'); }
+    let renewed = false;
+    for (let attempt = 0; attempt < 4 && !id; attempt++) {
+      let response: Response;
+      try {
+        response = await resolveIdentity(effectiveNative);
+      } catch {
+        if (attempt < 3) {
+          await new Promise(resolve => setTimeout(resolve, 350 * (attempt + 1)));
+          continue;
+        }
+        throw new Error('تعذر استعادة جلسة الدخول بسبب الاتصال. تأكد من الإنترنت واضغط إعادة المحاولة.');
       }
-      if (!restored || restored.user.id !== native.user.id) {
-        throw new Error('انتهت جلسة الدخول. سجّل الدخول مرة أخرى.');
+      if (response.ok) {
+        const value: unknown = await response.json();
+        if (typeof value !== 'string') throw new Error('تعذر ربط بيانات الحساب. حاول مرة أخرى.');
+        id = value;
+        mappedIds.set(native.user.id, id);
+        break;
       }
-      effectiveNative = restored;
-      response = await resolveIdentity(effectiveNative);
-    }
-    if (!response.ok) {
-      const failure = await response.json().catch(() => null) as { message?: unknown } | null;
+      const failure = await response.json().catch(() => null) as { message?: unknown; code?: unknown } | null;
       const serverMessage = typeof failure?.message === 'string' ? failure.message : '';
-      // A rejected token or temporary database failure is NOT email-verification failure.
-      if (/verify.*email|email.*verif/i.test(serverMessage)) {
-        throw new Error('أكد بريدك الإلكتروني لإكمال الدخول واستعادة بيانات حسابك.');
+      const code = typeof failure?.code === 'string' ? failure.code : '';
+      const actualEmailVerification = /verify.*email|email.*verif/i.test(serverMessage);
+      const invalidToken = response.status === 401 ||
+        (response.status === 403 && (['PGRST301', 'PGRST303'].includes(code) ||
+          /jwt|token expired|authentication required|invalid token/i.test(serverMessage)));
+      if (invalidToken && !renewed && attempt < 3) {
+        let restored: NativeSession | null = null;
+        try {
+          restored = (await CapacitorNeon.getSession()).session;
+          if (!restored || restored.user.id !== native.user.id || restored.accessToken === effectiveNative.accessToken) {
+            restored = await refreshNativeSessionOnce();
+          }
+        } catch {
+          throw new Error('تعذر تجديد جلسة الدخول. تأكد من الإنترنت واضغط إعادة المحاولة.');
+        }
+        if (!restored || restored.user.id !== native.user.id) {
+          throw new Error('انتهت جلسة الدخول. سجّل الدخول مرة أخرى.');
+        }
+        effectiveNative = restored;
+        renewed = true;
+        continue;
       }
-      if (response.status === 401) throw new Error('تعذر تجديد جلسة الدخول. سجّل الدخول مرة أخرى.');
-      throw new Error('تعذر التحقق من حسابك حاليًا. حاول مرة أخرى عند توفر الإنترنت.');
+      if ((response.status === 408 || response.status === 429 || response.status >= 500) && attempt < 3) {
+        await new Promise(resolve => setTimeout(resolve, 350 * (attempt + 1)));
+        continue;
+      }
+      if (actualEmailVerification) throw new Error('أكد بريدك الإلكتروني لإكمال الدخول واستعادة بيانات حسابك.');
+      console.warn('Neon identity lookup rejected:', response.status, code || 'no-code');
+      throw new Error(`تعذر استعادة جلسة الدخول (رمز ${response.status}${code ? '-' + code : ''}). اضغط إعادة المحاولة.`);
     }
-    const value: unknown = await response.json();
-    if (typeof value !== 'string') throw new Error('تعذر ربط بيانات الحساب. حاول مرة أخرى.');
-    id = value;
-    mappedIds.set(native.user.id, id);
+    if (!id) throw new Error('تعذر استعادة جلسة الدخول. اضغط إعادة المحاولة.');
   }
   const user: User = { id, email: effectiveNative.user.email, app_metadata: {},
     user_metadata: { full_name: effectiveNative.user.name || '' }, aud: 'authenticated',
@@ -82,7 +112,17 @@ async function toAppSession(native: NativeSession | null): Promise<Session | nul
 }
 async function currentSession(): Promise<Session | null> {
   await nativeReady();
-  return toAppSession((await CapacitorNeon.getSession()).session);
+  const initial = (await CapacitorNeon.getSession()).session;
+  if (initial) return toAppSession(initial);
+  // The native plugin returns null for both "no account" and a recoverable
+  // networking error. Forced refresh distinguishes these situations.
+  try {
+    const restored = await refreshNativeSessionOnce();
+    return toAppSession(restored);
+  } catch (error) {
+    if (/no active session/i.test(error instanceof Error ? error.message : String(error))) return null;
+    throw new Error('تعذر استعادة جلسة الدخول تلقائيًا. تأكد من الإنترنت واضغط إعادة المحاولة.');
+  }
 }
 const data = new PostgrestClient(dataUrl, { fetch: async (input, init) => {
   await nativeReady();

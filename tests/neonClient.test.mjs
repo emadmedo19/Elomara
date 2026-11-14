@@ -17,7 +17,7 @@ function setup() {
   const requests = [];
   let session = { user: { id: nativeId, email: 'fixture@example.invalid', name: 'Fixture', emailVerified: true },
     accessToken: 'jwt-one', refreshToken: 'native-session-secret', tokenType: 'bearer', expiresIn: 900 };
-  const mock = { initializeCount: 0, removals: 0, initializationFails: false, refreshCount: 0, unauthorizedReads: 0, unauthorizedWrites: false, nativeHeaderSerialization: false, resolvedId: appId, identityUnauthorized: 0, identityFailure: null,
+  const mock = { initializeCount: 0, removals: 0, initializationFails: false, refreshCount: 0, unauthorizedReads: 0, unauthorizedWrites: false, nativeHeaderSerialization: false, resolvedId: appId, identityUnauthorized: 0, identityForbiddenOnce: 0, identityUnavailable: 0, identityFailure: null,
     Capacitor: { isNativePlatform: () => true, isPluginAvailable: () => true },
     Native: {
       async initialize() { mock.initializeCount++; if (mock.initializationFails) throw Error('initialization unavailable'); },
@@ -39,6 +39,8 @@ function setup() {
           mock.identityUnauthorized--;
           return Response.json({ message: 'JWT expired' }, { status: 401 });
         }
+        if (mock.identityForbiddenOnce > 0) { mock.identityForbiddenOnce--; return Response.json({message:'Authentication required',code:'42501'},{status:403}); }
+        if (mock.identityUnavailable > 0) { mock.identityUnavailable--; return Response.json({message:'Service temporarily unavailable'},{status:503}); }
         if (mock.identityFailure) return Response.json({ message: mock.identityFailure }, { status: 403 });
         return Response.json(mock.resolvedId);
       }
@@ -227,6 +229,63 @@ test('only a real email-verification rejection asks to confirm email', async () 
 test('other identity mapping errors do not falsely ask users to reconfirm their email', async () => {
   const { api, mock } = setup();
   mock.identityFailure = 'Database unavailable';
-  await assert.rejects(api.neonClient.auth.getSession(), /تعذر التحقق من حسابك/);
+  await assert.rejects(api.neonClient.auth.getSession(), /تعذر استعادة جلسة الدخول.*403/);
   assert.equal(mock.refreshCount, 0);
+});
+
+test('native INITIAL_SESSION null does not override a recoverable persisted session', async () => {
+  const {api,mock}=setup();
+  const events=[];
+  const subscription=api.neonClient.auth.onAuthStateChange((event,session)=>events.push([event,session?.user?.id || null]));
+  await api.neonClient.auth.getSession();
+  mock.listener({event:'INITIAL_SESSION',session:null});
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.deepEqual(events,[]);
+  mock.listener({event:'SIGNED_OUT',session:null});
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.deepEqual(events,[['SIGNED_OUT',null]]);
+  subscription.data.subscription.unsubscribe();
+});
+
+test('a transient null native getSession is recovered using the still-stored native session', async () => {
+  const {api,mock}=setup();
+  mock.Native.getSession=async()=>({session:null});
+  const result=await api.neonClient.auth.getSession();
+  assert.equal(result.data.session.user.id,appId);
+  assert.equal(result.data.session.access_token,'jwt-refreshed');
+  assert.equal(mock.refreshCount,1);
+});
+
+test('a genuinely signed-out native device remains signed out', async () => {
+  const {api,mock}=setup();
+  mock.Native.getSession=async()=>({session:null});
+  mock.Native.refreshSession=async()=>{throw Error('Session refresh failed: no active session')};
+  const result=await api.neonClient.auth.getSession();
+  assert.equal(result.data.session,null);
+});
+
+test('a temporary native auth outage does not masquerade as a sign-out', async () => {
+  const {api,mock}=setup();
+  mock.Native.getSession=async()=>({session:null});
+  mock.Native.refreshSession=async()=>{throw Error('Network timed out')};
+  await assert.rejects(api.neonClient.auth.getSession(),/تعذر استعادة جلسة الدخول تلقائيًا/);
+});
+
+test('identity mapping renews a native token on authentication-required 403', async () => {
+  const {api,mock,requests}=setup();
+  mock.identityForbiddenOnce=1;
+  const result=await api.neonClient.auth.getSession();
+  assert.equal(result.data.session.user.id,appId);
+  assert.equal(result.data.session.access_token,'jwt-refreshed');
+  assert.equal(mock.refreshCount,1);
+  assert.equal(requests.filter(x=>x.url.endsWith('/rpc/resolve_app_identity')).length,2);
+});
+
+test('idempotent identity mapping retries a temporary upstream 503', async () => {
+  const {api,mock,requests}=setup();
+  mock.identityUnavailable=1;
+  const result=await api.neonClient.auth.getSession();
+  assert.equal(result.data.session.user.id,appId);
+  assert.equal(mock.refreshCount,0);
+  assert.equal(requests.filter(x=>x.url.endsWith('/rpc/resolve_app_identity')).length,2);
 });

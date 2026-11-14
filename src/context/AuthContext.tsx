@@ -36,6 +36,7 @@ interface AuthContextType {
   clearPasswordRecovery: () => void;
   signOut: () => Promise<void>;
   clearError: () => void;
+  restoreSession: () => Promise<void>;
   refreshProfile: (expectedBuildingId?: string, renewSession?: boolean) => Promise<void>;
   profileRecoveryError: string | null;
   holdMembership: () => () => void;
@@ -211,6 +212,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const restoreSession = async () => {
+    if (!isNeonBackend) return;
+    setAuthError(null); setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      await loadProfile(data.session?.user ?? null);
+    } catch (error) {
+      setAuthError(friendlyError(error));
+      setIsLoading(false);
+    }
+  };
+
+  // Retest the native session when the network comes back or Android resumes.
+  useEffect(() => {
+    if (!isNeonBackend || user || !authError || !/جلسة الدخول|التحقق من حسابك/.test(authError)) return;
+    const resume = () => { void restoreSession(); };
+    const nativeResume = Capacitor.isNativePlatform()
+      ? CapacitorApp.addListener('appStateChange', state => { if (state.isActive) resume(); })
+      : null;
+    window.addEventListener('online', resume);
+    return () => {
+      window.removeEventListener('online', resume);
+      if (nativeResume) void nativeResume.then(listener => listener.remove());
+    };
+  }, [user?.id, authError]);
+
   useEffect(() => {
     let active = true;
     let authEventSeen = false;
@@ -295,6 +323,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Google OAuth callback with a stale null session (which sent the app back to login).
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') setIsPasswordRecovery(true);
+      if (isNeonBackend && event === 'INITIAL_SESSION' && !session) return;
       authEventSeen = true;
       // The current profile read already uses the renewed token. Starting
       // another one here can feed back into repeated 401/session refreshes.
@@ -478,7 +507,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isPasswordRecovery, clearPasswordRecovery: () => setIsPasswordRecovery(false),
     needsEmailVerification, verifyEmail,
     cancelEmailVerification: () => { setNeedsEmailVerification(false); setAuthError(null); },
-    signOut, clearError: () => setAuthError(null),
+    signOut, clearError: () => setAuthError(null), restoreSession,
     refreshProfile, holdMembership, membershipSyncError, profileRecoveryError }}>
     {children}
   </AuthContext.Provider>;

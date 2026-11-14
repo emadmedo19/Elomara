@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 type JoinRequestStatus = 'pending' | 'approved' | 'rejected' | null;
 
 export const LoginView: React.FC = () => {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, updatePassword, isPasswordRecovery, clearPasswordRecovery, needsEmailVerification, verifyEmail, cancelEmailVerification, authError, isLoading, clearError, user, userProfile, isAdmin, signOut, refreshProfile, holdMembership } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, updatePassword, isPasswordRecovery, clearPasswordRecovery, needsEmailVerification, verifyEmail, cancelEmailVerification, authError, isLoading, clearError, user, userProfile, isAdmin, signOut, refreshProfile, holdMembership, restoreSession } = useAuth();
   const [buildingName, setBuildingName] = useState('');
   const [buildingAddress, setBuildingAddress] = useState('');
   const [unitsCount, setUnitsCount] = useState('0');
@@ -150,6 +150,11 @@ export const LoginView: React.FC = () => {
                 <p className="text-sm leading-7 text-slate-500">سجّل الدخول أو أنشئ حسابًا جديدًا.</p>
               </div>
               {(authError || error) && <p className="fotouh-message error"><AlertCircle/>{error || authError}</p>}
+              {isNeonBackend && !error && authError && /جلسة الدخول|التحقق من حسابك/.test(authError) &&
+                <button type="button" disabled={isLoading} onClick={() => void restoreSession()}
+                  className="w-full rounded-xl border border-teal-300 bg-teal-50 px-4 py-3 font-bold text-teal-900 disabled:opacity-50">
+                  {isLoading ? 'جارٍ استعادة الحساب...' : 'إعادة محاولة استعادة الدخول تلقائيًا'}
+                </button>}
               {notice && <p className="fotouh-message success"><CheckCircle2/>{notice}</p>}
               {authMode === 'signup' && <label className="fotouh-field"><span>الاسم بالكامل</span><div><User/><input form="auth-form" value={fullName} onChange={e=>setFullName(e.target.value)} autoComplete="name" required placeholder="اسمك بالكامل"/></div></label>}
               <label className="fotouh-field"><span>البريد الإلكتروني</span><div><Mail/><input form="auth-form" type="email" dir="ltr" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email" required placeholder="name@example.com"/></div></label>
