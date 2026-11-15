@@ -215,7 +215,7 @@ export default function App() {
             if (cancelled || timedOut) return;
             if (paymentError) throw paymentError;
             const {data:historicalRows,error:historicalError}=await supabase.from('historical_monthly_allocations').select('building_id,apartment_id,month,amount').in('building_id',rows.map(b=>b.id)).abortSignal(requestController.signal);
-            if(historicalError) throw historicalError;
+            if(historicalError && historicalError.code !== 'PGRST205' && historicalError.code !== '42P01') throw historicalError;
             const historicalPayments=(historicalRows||[]).map((r: any) => ({
               id:'historical:'+r.apartment_id+':'+r.month, apartmentId:r.apartment_id, buildingId:r.building_id,
               unitNumber: String(r.unit_number || ''), residentName: String(r.resident_name || ''),
@@ -473,7 +473,7 @@ export default function App() {
           paymentType:r.payment_type || 'monthly', isAssessment:r.is_assessment, assessmentCancelled:r.assessment_cancelled, exceptionalChargeId:r.exceptional_charge_id || undefined,
         }));
         const {data:historicalRows,error:historicalError}=await supabase.from('historical_monthly_allocations').select('building_id,apartment_id,month,amount').in('building_id',refreshedBuildings.map(b=>b.id));
-        if(historicalError) throw historicalError;
+        if(historicalError && historicalError.code !== 'PGRST205' && historicalError.code !== '42P01') throw historicalError;
         const historicalPayments=(historicalRows||[]).map((r: any) => ({
               id:'historical:'+r.apartment_id+':'+r.month, apartmentId:r.apartment_id, buildingId:r.building_id,
               unitNumber: String(r.unit_number || ''), residentName: String(r.resident_name || ''),
