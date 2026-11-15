@@ -12,6 +12,7 @@ export interface Building {
   reserveFund: number;
   collectionStartMonth?: string;
   historicalExpensesTotal?: number;
+  historicalExceptionalExpensesTotal?: number;
   managerName: string;
   managerPhone: string;
   manager2Name?: string;
