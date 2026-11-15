@@ -38,6 +38,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const openingBalance = building.balance - allInflow + allOutflow + actualPayments.filter(p => p.date.slice(0, 10) < startDate).reduce((sum, p) => sum + (Number(p.amount) || 0), 0) - expenses.filter(e => e.date.slice(0, 10) < startDate).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   const closingBalance = openingBalance + netMonthlySurplus;
 
+  const historicalMonthlyCollections = payments.filter(p=>p.isHistorical).reduce((sum,p)=>sum+Number(p.amount||0),0);
   const historicalExpenses = Number(building.historicalExpensesTotal || 0);
   const historicalExceptionalCollections = Number(building.historicalExceptionalCollectionsTotal || 0);
   const categories = [
@@ -106,7 +107,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 text-xs text-slate-700" aria-label="الأرصدة الافتتاحية السابقة">
         <h2 className="mb-2 text-sm font-bold text-slate-900">الأرصدة الافتتاحية السابقة (خارج حركة الفترة المختارة)</h2>
-        <div className="flex flex-wrap gap-x-6 gap-y-2"><span>التحصيلات الاستثنائية السابقة: <strong>{historicalExceptionalCollections.toLocaleString()} ج.م</strong></span><span>المصروفات السابقة: <strong>{historicalExpenses.toLocaleString()} ج.م</strong></span><span>صافي التسوية الافتتاحية: <strong>{(historicalExceptionalCollections - historicalExpenses).toLocaleString()} ج.م</strong></span></div>
+        <div className="flex flex-wrap gap-x-6 gap-y-2"><span>التحصيلات الشهرية السابقة الموزعة: <strong>{historicalMonthlyCollections.toLocaleString()} ج.م</strong></span><span>التحصيلات الاستثنائية السابقة: <strong>{historicalExceptionalCollections.toLocaleString()} ج.م</strong></span><span>المصروفات السابقة: <strong>{historicalExpenses.toLocaleString()} ج.م</strong></span><span>صافي التسوية الافتتاحية: <strong>{(historicalMonthlyCollections + historicalExceptionalCollections - historicalExpenses).toLocaleString()} ج.م</strong></span></div>
       </section>
       {/* Financial Summary Bento Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">

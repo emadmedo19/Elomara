@@ -1,3 +1,10 @@
+const historicalDueMonths = (start?: string): number => {
+  if (!start || !/^\d{4}-(0[1-9]|1[0-2])$/.test(start)) return 0;
+  const now = new Date();
+  const [year, month] = start.split('-').map(Number);
+  return Math.max(0, (now.getFullYear() - year) * 12 + now.getMonth() + 2 - month);
+};
+
 import { isNeonBackend, updateNeonBuilding } from './lib/neon';
 import { IntroWindowLights } from './components/IntroWindowLights';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
@@ -193,7 +200,7 @@ export default function App() {
             setApartments((apartmentRows || []).map((r: any) => ({
               id:r.id, buildingId:r.building_id, unitNumber:r.unit_number, floor:r.floor,
               residentName:r.resident_name, residentPhone:r.resident_phone, isOwner:r.is_owner,
-              monthlyFee:Number(r.monthly_fee || 0), status:r.payment_status, overdueMonths:r.overdue_months,
+              monthlyFee:Number(r.monthly_fee || 0), status:r.payment_status, overdueMonths:Math.max(Number(r.overdue_months||0), historicalDueMonths(rows.find(b=>b.id===r.building_id)?.collectionStartMonth)),
               lastPaymentDate:r.last_payment_date || undefined, paidAmount:Number(r.paid_amount || 0),
               creditBalance:Number(r.credit_balance || 0),
             })));
@@ -614,7 +621,7 @@ export default function App() {
       id:r.id, buildingId:r.building_id, unitNumber:r.unit_number, floor:r.floor,
       residentName:r.resident_name || '', residentPhone:r.resident_phone || '',
       isOwner:Boolean(r.is_owner), monthlyFee:Number(r.monthly_fee || 0),
-      status:r.payment_status, overdueMonths:Number(r.overdue_months || 0),
+      status:r.payment_status, overdueMonths:Math.max(Number(r.overdue_months || 0),historicalDueMonths(next.collectionStartMonth)),
       lastPaymentDate:r.last_payment_date || undefined, paidAmount:Number(r.paid_amount || 0),
       creditBalance:Number(r.credit_balance || 0),
     }));
