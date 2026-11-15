@@ -56,7 +56,7 @@ button:not(:disabled):active { transform: scale(.975); }
   0%, 100% { box-shadow: 0 8px 24px rgba(15, 37, 55, .06); }
   50% { box-shadow: 0 12px 30px rgba(15, 139, 131, .11); }
 }
-.bunyan-page-enter { animation: none; }
+.bunyan-page-enter { animation: bunyan-rise .26s cubic-bezier(.2,.75,.25,1) both; }
 .bunyan-resident main section > div,
 .bunyan-resident main section > article,
 .bunyan-resident main section > button,
@@ -542,7 +542,7 @@ body { background: var(--fotouh-page); color: #263c43; }
   to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 .bunyan-manager-shell > main > * {
-  animation: none;
+  animation: fotouh-screen-arrive .28s cubic-bezier(.2,.75,.25,1) both;
   will-change: auto;
 }
 .bunyan-manager-shell > main > *:nth-child(2) { animation-delay: .035s; }
