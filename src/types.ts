@@ -54,6 +54,7 @@ export interface PaymentAuditLog {
 }
 
 export interface Payment {
+  isHistorical?: boolean;
   requestId?: string;
   id: string;
   apartmentId: string;

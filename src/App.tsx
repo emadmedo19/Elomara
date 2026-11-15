@@ -207,13 +207,24 @@ export default function App() {
               .order('payment_date', { ascending: false }).abortSignal(requestController.signal);
             if (cancelled || timedOut) return;
             if (paymentError) throw paymentError;
-            setPayments((paymentRows || []).map((r: any) => ({
+            const {data:historicalRows,error:historicalError}=await supabase.from('historical_monthly_allocations').select('building_id,apartment_id,month,amount').in('building_id',rows.map(b=>b.id)).abortSignal(requestController.signal);
+            if(historicalError) throw historicalError;
+            const historicalPayments=(historicalRows||[]).map((r: any) => ({
+              id:'historical:'+r.apartment_id+':'+r.month, apartmentId:r.apartment_id, buildingId:r.building_id,
+              unitNumber: String(r.unit_number || ''), residentName: String(r.resident_name || ''),
+              amount:Number(r.amount), date:r.month, month:String(r.month).slice(0,7),
+              method:'رصيد افتتاحي سابق', notes:'توزيع رصيد سابق — التعديل من بيانات العمارة فقط',
+              recordedAt:r.month, paymentType:'monthly' as const, isHistorical:true,
+            }));
+            const apartmentById=new Map((apartmentRows||[]).map((apt:any)=>[apt.id,apt]));
+            for(const p of historicalPayments){const apt:any=apartmentById.get(p.apartmentId);p.unitNumber=String(apt?.unit_number||'');p.residentName=String(apt?.resident_name||'');}
+            setPayments([...((paymentRows || []).map((r: any) => ({
               id:r.id, apartmentId:r.apartment_id, buildingId:r.building_id,
               unitNumber:r.unit_number, residentName:r.resident_name || '',
               amount:Number(r.amount || 0), date:r.payment_date, month:r.month,
               method:r.method, notes:r.notes || undefined,
               receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined, paymentType:r.payment_type || 'monthly', isAssessment:r.is_assessment, assessmentCancelled:r.assessment_cancelled, exceptionalChargeId:r.exceptional_charge_id || undefined,
-            })));
+            }))),...historicalPayments]);
 
             const [ticketResult, announcementResult, expenseResult, settingsResult] = await Promise.all([
               supabase.from('maintenance_tickets').select('id,building_id,apartment_id,unit_number,resident_name,category,title,description,urgency,status,created_at,manager_note,updated_at').in('building_id', rows.map(b => b.id)).order('created_at', { ascending: false }).abortSignal(requestController.signal),
@@ -408,7 +419,7 @@ export default function App() {
       // Refresh the entities currently connected to Supabase.
       const { data: buildingRows, error: buildingError } = await supabase
         .from('buildings')
-        .select('id,name,address,total_units,total_floors,balance,monthly_target,reserve_fund,manager_name,manager_phone,manager2_name,manager2_phone,manager3_name,manager3_phone')
+        .select('id,name,address,total_units,total_floors,balance,collection_start_month,historical_expenses_total,historical_exceptional_collections_total,monthly_target,reserve_fund,manager_name,manager_phone,manager2_name,manager2_phone,manager3_name,manager3_phone')
         .order('created_at');
       if (managerScopeRef.current !== refreshScope) return;
       if (buildingError) throw buildingError;
@@ -421,6 +432,7 @@ export default function App() {
       const refreshedBuildings: Building[] = (buildingRows || []).map((r: any) => ({
         id:r.id, name:r.name, address:r.address || '', totalUnits:Number(r.total_units || 0),
         totalFloors:r.total_floors ?? undefined, balance:Number(r.balance || 0),
+        collectionStartMonth:r.collection_start_month?.slice(0,7), historicalExpensesTotal:Number(r.historical_expenses_total||0), historicalExceptionalCollectionsTotal:Number(r.historical_exceptional_collections_total||0),
         monthlyTarget:Number(r.monthly_target || 0), reserveFund:Number(r.reserve_fund || 0),
         managerName:r.manager_name || '', managerPhone:r.manager_phone || '', manager2Name:r.manager2_name || '', manager2Phone:r.manager2_phone || '', manager3Name:r.manager3_name || '', manager3Phone:r.manager3_phone || '',
       }));
@@ -453,6 +465,19 @@ export default function App() {
           receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined,
           paymentType:r.payment_type || 'monthly', isAssessment:r.is_assessment, assessmentCancelled:r.assessment_cancelled, exceptionalChargeId:r.exceptional_charge_id || undefined,
         }));
+        const {data:historicalRows,error:historicalError}=await supabase.from('historical_monthly_allocations').select('building_id,apartment_id,month,amount').in('building_id',refreshedBuildings.map(b=>b.id));
+        if(historicalError) throw historicalError;
+        const historicalPayments=(historicalRows||[]).map((r: any) => ({
+              id:'historical:'+r.apartment_id+':'+r.month, apartmentId:r.apartment_id, buildingId:r.building_id,
+              unitNumber: String(r.unit_number || ''), residentName: String(r.resident_name || ''),
+              amount:Number(r.amount), date:r.month, month:String(r.month).slice(0,7),
+              method:'رصيد افتتاحي سابق', notes:'توزيع رصيد سابق — التعديل من بيانات العمارة فقط',
+              recordedAt:r.month, paymentType:'monthly' as const, isHistorical:true,
+            }));
+        const apartmentById=new Map((apartmentRows||[]).map((apt:any)=>[apt.id,apt]));
+        for(const p of historicalPayments){const apt:any=apartmentById.get(p.apartmentId);p.unitNumber=String(apt?.unit_number||'');p.residentName=String(apt?.resident_name||'');}
+        refreshedPayments.push(...historicalPayments);
+
       }
       if (managerScopeRef.current !== refreshScope) return;
       setBuildings(refreshedBuildings);
