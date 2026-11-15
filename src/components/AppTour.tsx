@@ -65,7 +65,7 @@ export function AppTour({mode,onNavigate,currentPage}:{mode:TourMode;onNavigate?
   };
   useEffect(()=>{
     if(!user)return;
-    const start=()=>{setFullGuide(true);if(!owned.current?.root.isConnected){owned.current=null;dirty.current=false;}originalPage.current=currentPage;setIndex(0);setJourney(null);setPaused(false);setOpen(true);setMenu(false);};
+    const start=()=>{setFullGuide(false);if(!owned.current?.root.isConnected){owned.current=null;dirty.current=false;}originalPage.current=currentPage;setIndex(0);setJourney(null);setPaused(false);setOpen(true);setMenu(false);};
     window.addEventListener('elomara:open-tour',start);
     return()=>window.removeEventListener('elomara:open-tour',start);
   },[user?.id,currentPage]);
@@ -186,7 +186,7 @@ export function AppTour({mode,onNavigate,currentPage}:{mode:TourMode;onNavigate?
       {status==='dirty'&&<p role="status" className="app-tour-message">كتبت بيانات في النموذج. احفظها أو ألغِها من الصفحة قبل الانتقال لجزء تاني.</p>}
       {status==='missing'&&<p role="status" className="app-tour-message">الجزء ده مش ظاهر حاليًا. تقدر تشوف الصفحة كاملة أو تنتقل للخطوة التالية.</p>}
       {choosing?<div className="app-tour-choices"><button type="button" onClick={()=>{setJourney('manager');move(1);}}><Building2 size={18}/>أنا مدير عمارة</button><button type="button" onClick={()=>{setJourney('resident');move(1);}}><Users size={18}/>أنا ساكن أو عضو</button></div>:<div className="app-tour-controls"><button type="button" disabled={index===0} onClick={()=>move(index-1)} aria-label="السابق"><ArrowRight size={18}/></button><span>{index+1} <small>من {steps.length}</small></span><button type="button" className="app-tour-next" disabled={status==='loading'} onClick={()=>index===steps.length-1?close():move(index+1)}>{index===steps.length-1?'ابدأ الاستخدام':'التالي'}{index===steps.length-1?<Check size={17}/>:<ArrowLeft size={17}/>}</button></div>}
-      <div className="app-tour-tools"><button type="button" onClick={()=>{setPaused(true);setMenu(false);}}><Eye size={14}/>عرض الصفحة كاملة</button>{!choosing&&<button type="button" onClick={()=>setMenu(value=>!value)} aria-expanded={menu}><List size={14}/>فهرس الجولة</button>}<button type="button" onClick={close}>تخطي الجولة</button></div>
+      <div className="app-tour-tools">{!choosing&&quickTourSteps[mode]&&<button type="button" onClick={()=>{setFullGuide(value=>!value);setIndex(0);setMenu(false);setStatus('loading');}}>{fullGuide?'الجولة المختصرة':'الدليل التفصيلي'}</button>}<button type="button" onClick={()=>{setPaused(true);setMenu(false);}}><Eye size={14}/>عرض الصفحة كاملة</button>{!choosing&&<button type="button" onClick={()=>setMenu(value=>!value)} aria-expanded={menu}><List size={14}/>فهرس الجولة</button>}<button type="button" onClick={close}>تخطي الجولة</button></div>
       {menu&&<div className="app-tour-index">{chapters.map(chapter=><button type="button" key={chapter.index} aria-current={step.section===chapter.label?'step':undefined} onClick={()=>move(chapter.index)}>{chapter.label}<ArrowLeft size={14}/></button>)}</div>}
     </section>
   </div>,document.body);
