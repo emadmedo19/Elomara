@@ -51,6 +51,7 @@ export interface PaymentAuditLog {
 }
 
 export interface Payment {
+  requestId?: string;
   id: string;
   apartmentId: string;
   buildingId: string;
@@ -70,6 +71,7 @@ export interface Payment {
 }
 
 export interface Expense {
+  requestId?: string;
   id: string;
   buildingId?: string;
   title: string;
@@ -83,6 +85,8 @@ export interface Expense {
 }
 
 export interface MaintenanceTicket {
+  managerNote?: string;
+  updatedAt?: string;
   id: string;
   buildingId?: string;
   unitNumber: string;
@@ -96,6 +100,8 @@ export interface MaintenanceTicket {
 }
 
 export interface FacilityBooking {
+  managerNote?: string;
+  updatedAt?: string;
   id: string;
   buildingId?: string;
   facility: 'روف العمارة' | 'غرفة الاجتماعات بالبدروم' | 'موقف الزوار' | 'شاحن السيارة الكهربائية';

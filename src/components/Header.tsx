@@ -37,8 +37,8 @@ export const Header: React.FC<HeaderProps> = ({
     ...(isAdmin ? [{ id: 'exceptional-collections', label: 'التحصيلات الاستثنائية', icon: Wallet }] : []),
     { id: 'polls', label: 'استطلاعات الرأي', icon: BarChart3 },
     { id: 'reports', label: 'التقارير', icon: FileText },
-    { id: 'resident', label: 'بوابة الساكن والمرافق', icon: Wrench },
-    { id: 'chat', label: 'المساعد الذكي Gemini', icon: Sparkles },
+    { id: 'resident', label: 'طلبات السكان والمرافق', icon: Wrench },
+    { id: 'chat', label: 'المساعد الذكي', icon: Sparkles },
     { id: 'image-studio', label: 'الإعلانات والتصميم', icon: Palette },
   ];
   const activeItem = [...navItems, ...moreItems].find(item => item.id === currentTab);

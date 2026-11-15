@@ -1,5 +1,5 @@
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Apartment, Payment } from '../types';
 import { DollarSign, Calendar, Check, X, AlertTriangle, CreditCard, Tag } from 'lucide-react';
@@ -23,6 +23,7 @@ interface PaymentModalProps {
     method: Payment['method'];
     notes?: string;
     receiptNumber?: string;
+    requestId?: string;
   }) => Promise<boolean>;
   existingPayments: Payment[];
   paymentMethods?: string[];
@@ -46,6 +47,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [notes, setNotes] = useState<string>('سداد اشتراك الصيانة الشهري');
   const [receiptNumber, setReceiptNumber] = useState<string>(`REC-${Date.now().toString().slice(-5)}`);
 
+  const mutation = useRef({ signature: '', id: '' });
   const [chargeId, setChargeId] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -109,7 +111,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
     setSaving(true);
     try {
+      const signature = JSON.stringify({ apartmentId, chargeId, amount, date, month, method, notes, receiptNumber, id: editingPayment?.id });
+      if (mutation.current.signature !== signature) mutation.current = { signature, id: crypto.randomUUID() };
       const saved = await onSavePayment({
+        requestId: mutation.current.id,
         apartmentId,
         exceptionalChargeId: chargeId || undefined,
         amount: Number(amount),
@@ -146,7 +151,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => { if (!saving) onClose(); }}
             data-tour="payment-close" aria-label="إغلاق نافذة السداد"
             className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-700"
           >
@@ -310,7 +315,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         <div className="flex shrink-0 items-center justify-end gap-2 pt-3 border-t border-slate-100">
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => { if (!saving) onClose(); }}
             className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
           >
             إلغاء

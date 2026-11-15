@@ -59,10 +59,10 @@ with sync_playwright() as p:
    box=dialog.bounding_box()
    assert box['y']>=0 and box['y']+box['height']<=height,box
    assert abs(box['y']+box['height']/2-height/2)<2,box
-   expect(dialog.get_by_role('button',name='إلغاء التراجع')).to_be_focused()
+   expect(dialog.get_by_role('button',name='إلغاء')).to_be_focused()
    assert details.locator('[inert]').count()==1
    if action=='escape': page.keyboard.press('Escape')
-   else: dialog.get_by_role('button',name='إلغاء التراجع' if action=='cancel' else 'تأكيد حذف الدفعة نهائياً',exact=True).click()
+   else: dialog.get_by_role('button',name='إلغاء' if action=='cancel' else 'تأكيد حذف الدفعة نهائياً',exact=True).click()
    expect(dialog).to_have_count(0)
    assert page.evaluate('document.body.style.overflow')=='hidden'
    if action!='confirm': expect(trigger).to_be_focused()

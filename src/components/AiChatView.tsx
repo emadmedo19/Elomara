@@ -22,7 +22,7 @@ export const AiChatView: React.FC<AiChatViewProps> = ({ buildingName }) => {
   const personaInstructions: Record<string, { title: string; instruction: string }> = {
     'legal-finance': {
       title: 'مستشار مالي وقانوني لاتحادات الشاغلين',
-      instruction: `أنت المستشار المالي والقانوني الرسمي لاتحاد شاغلي عمارة ${buildingName}. أنت خبير بالقانون المصري رقم 119 لسنة 2008 (قانون البناء الموحد - باب اتحادات الشاغلين)، واللوائح التنفيذية لحساب نسب الشقق في المصروفات المشتركة، غرامات التأخير، صندوق الطوارئ والاحتياطي، وإجراءات الجمعية العمومية. أجب بدقة مهنية، ونصوص قانونية عملية موجزة باللغة العربية.`,
+      instruction: `أنت مساعد لتوضيح المعلومات المالية والقانونية العامة لاتحاد شاغلي عمارة ${buildingName}. أنت خبير بالقانون المصري رقم 119 لسنة 2008 (قانون البناء الموحد - باب اتحادات الشاغلين)، واللوائح التنفيذية لحساب نسب الشقق في المصروفات المشتركة، غرامات التأخير، صندوق الطوارئ والاحتياطي، وإجراءات الجمعية العمومية. أجب بالعربية، ووضح حدود المعلومات وما يحتاج مراجعة محامٍ أو محاسب، ولا تقدم نفسك كجهة اعتماد أو تذكر نصوصًا غير متحقق منها.`,
     },
     'maintenance-engineer': {
       title: 'خبير الصيانة الوقائية والمرافق السكنية',
@@ -45,7 +45,7 @@ export const AiChatView: React.FC<AiChatViewProps> = ({ buildingName }) => {
 • جداول الصيانة الوقائية للمصاعد ومضخات المياه وخزانات الأسطح.
 • تخطيط الموازنات السنوية وتوزيع تكاليف الأعطال الطارئة.
 
-اكتب استفسارك وسأجيبك مباشرة!`,
+اكتب استفسارك. راجع المعلومات القانونية والمالية مع مختص قبل اتخاذ قرار.`,
       timestamp: 'الآن',
     },
   ]);
@@ -121,7 +121,7 @@ export const AiChatView: React.FC<AiChatViewProps> = ({ buildingName }) => {
   ];
 
   return (
-    <div dir="rtl" className="fotouh-ai bg-white rounded-3xl border border-slate-200/80 shadow-sm flex flex-col h-[750px] overflow-hidden">
+    <div dir="rtl" className="fotouh-ai bg-white rounded-3xl border border-slate-200/80 shadow-sm flex flex-col h-[calc(100dvh-15rem)] min-h-[360px] max-h-[750px] overflow-hidden">
       {/* Top Controls Bar */}
       <div className="bg-[#0f2537] text-white p-3.5 sm:p-4 border-b border-slate-700/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
@@ -130,9 +130,9 @@ export const AiChatView: React.FC<AiChatViewProps> = ({ buildingName }) => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-bold text-sm text-white">مساعد العمارة الذكي (Gemini)</h2>
+              <h2 className="font-bold text-sm text-white">مساعد العمارة الذكي</h2>
               <span className="text-[10px] bg-teal-400/20 text-teal-300 px-2 py-0.5 rounded-full font-medium">
-                النموذج المجاني: Gemini 3.1 Flash-Lite
+                للمساعدة في الصياغة والمعلومات
               </span>
             </div>
             <p className="text-[11px] text-slate-300">

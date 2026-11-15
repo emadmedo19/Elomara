@@ -14,6 +14,7 @@ export function ServiceDirectory({buildingId, canManage}: {buildingId:string;can
   const [customCategory,setCustomCategory] = useState('');
   const [error,setError] = useState('');
   const [busy,setBusy] = useState(false);
+  const [newCategory,setNewCategory] = useState('كهرباء');
   const [loading,setLoading] = useState(true);
   const load = async () => {
     if (!buildingId) return;
@@ -25,6 +26,7 @@ export function ServiceDirectory({buildingId, canManage}: {buildingId:string;can
   };
   useEffect(() => {setContacts([]);setCategory(null);void load();},[buildingId]);
   const categories = [...new Set([...DEFAULT_CATEGORIES,...contacts.map(c=>c.category)])];
+  const visibleCategories = categories.filter(item => contacts.some(c => c.category === item));
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!canManage || !category || !name.trim() || !/^[+0-9 ()-]{5,30}$/.test(phone.trim())) {setError('اكتب الاسم ورقم هاتف صحيح.');return;}
@@ -45,8 +47,10 @@ export function ServiceDirectory({buildingId, canManage}: {buildingId:string;can
   };
   return <section data-tour={category ? 'services-detail' : 'services-page'} dir="rtl" className="space-y-4 pb-8">
     <header className="rounded-2xl bg-teal-700 p-5 text-center text-2xl font-bold text-white">الخدمات</header>
+    {!loading && !category && contacts.length === 0 && <div className="rounded-2xl border border-dashed bg-white p-6 text-center"><h2 className="font-bold">لم تُضف أرقام فنيين بعد</h2><p className="mt-2 text-sm text-slate-500">{canManage ? 'ابدأ باختيار القسم وإضافة أول فني لخدمة السكان.' : 'ستظهر أرقام الفنيين هنا بعد إضافتها من الإدارة.'}</p></div>}
+    {!category && canManage && <div className="flex flex-wrap items-end gap-2 rounded-2xl border bg-white p-3"><label className="min-w-0 flex-1 text-xs font-bold">قسم الفني<select aria-label="اختيار قسم الفني" value={newCategory} onChange={e => setNewCategory(e.target.value)} className="mt-1 w-full rounded-xl border bg-white p-3">{categories.map(value => <option key={value}>{value}</option>)}</select></label><button type="button" data-tour="services-category" onClick={() => { setCategory(newCategory); setEditing(null); setName(''); setPhone(''); setNotes(''); }} className="min-h-11 rounded-xl bg-teal-700 px-4 text-sm font-bold text-white">إضافة فني</button></div>}
     {!category ? <div className="grid grid-cols-2 gap-3">
-      {categories.map(item=><button type="button" key={item} data-tour="services-category" onClick={()=>{setCategory(item);setEditing(null);setName('');setPhone('');setNotes('');}} className="rounded-3xl bg-white p-5 shadow-sm border border-slate-100 text-center min-h-36 flex flex-col items-center justify-center gap-3">
+      {visibleCategories.map(item=><button type="button" key={item} data-tour="services-category" onClick={()=>{setCategory(item);setEditing(null);setName('');setPhone('');setNotes('');}} className="rounded-3xl bg-white p-5 shadow-sm border border-slate-100 text-center min-h-36 flex flex-col items-center justify-center gap-3">
         <span className="rounded-full bg-teal-50 p-4 text-teal-700"><Wrench size={30}/></span>
         <span className="font-bold text-lg">{item}</span><span className="text-xs text-slate-400">{contacts.filter(c=>c.category===item).length} مقدم خدمة</span>
       </button>)}

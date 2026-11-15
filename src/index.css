@@ -640,3 +640,9 @@ body { background: var(--fotouh-page); color: #263c43; }
 @keyframes success-card-in{from{opacity:0;transform:translateY(12px) scale(.94)}to{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes success-circle{to{stroke-dashoffset:0}}@keyframes success-check{to{stroke-dashoffset:0}}
 @media(prefers-reduced-motion:reduce){.success-feedback-card,.success-feedback-icon circle,.success-feedback-icon path{animation:none;stroke-dashoffset:0;}}
+
+/* Touch targets for small icon actions in the existing financial screens. */
+:is(.fotouh-expenses,.fotouh-collections) button[title],
+[aria-label="تحديث الأعضاء والطلبات"] { min-width:44px; min-height:44px; }
+.apartment-compact-card { min-width:0; }
+.apartment-compact-card summary::marker { color:#64748b; }

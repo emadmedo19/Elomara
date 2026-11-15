@@ -45,11 +45,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     { name: 'نظافة', color: 'bg-emerald-500' },
     { name: 'أمن وحراسة', color: 'bg-slate-700' },
     { name: 'صيانة عامة', color: 'bg-rose-500' },
+    { name: 'أخرى', color: 'bg-slate-400' },
   ];
 
   const categoryTotals = categories.map((cat) => {
     const sum = periodExpenses
-      .filter((e) => e.category === cat.name)
+      .filter((e) => cat.name === 'أخرى' ? !categories.filter(c => c.name !== 'أخرى').some(c => c.name === e.category) : e.category === cat.name)
       .reduce((acc, e) => acc + e.amount, 0);
     return {
       ...cat,
@@ -72,10 +73,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <h1 className="text-lg sm:text-xl font-bold text-slate-900">التقارير المالية والختامية</h1>
                 <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3" />
-                  <span>دورة معتمدة</span>
+                  <span>حسب السجلات</span>
                 </span>
               </div>
-              <p className="text-xs text-slate-500">كشوف الحسابات المعتمدة والتدقيق المالي لعمارة {building.name}</p>
+              <p className="text-xs text-slate-500">كشوف الحسابات ومراجعة السجلات المالية لعمارة {building.name}</p>
             </div>
           </div>
         </div>
@@ -235,7 +236,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               className="bg-teal-500 hover:bg-teal-400 text-[#0f2537] text-xs font-bold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow-sm"
             >
               <Printer className="w-4 h-4" />
-              <span>معاينة الكشف المعتمد</span>
+              <span>معاينة كشف الحساب</span>
             </button>
           </div>
         </div>

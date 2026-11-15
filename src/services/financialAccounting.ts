@@ -99,7 +99,7 @@ export function calculateApartmentFinancials(
   let advanceCreditOrigin;
   if (creditBalance > 0) {
     advanceCreditOrigin = {
-      month: lastPayment?.month || periodMonth || 'أكتوبر 2024',
+      month: lastPayment?.month || periodMonth || 'دورة سداد سابقة',
       amount: creditBalance,
       paymentId: lastPayment?.id,
       receiptNumber: lastPayment?.receiptNumber,
@@ -141,6 +141,7 @@ export function calculateBuildingFinancials(
   let totalCollected = 0;
   let totalRemaining = 0;
   let totalCreditBalance = 0;
+  let settledDues = 0;
   let paidCount = 0;
   let pendingCount = 0;
   let overdueCount = 0;
@@ -148,6 +149,7 @@ export function calculateBuildingFinancials(
   buildingApts.forEach((apt) => {
     const fin = calculateApartmentFinancials(apt, payments, periodMonth);
     totalExpectedDues += fin.totalDue;
+    settledDues += Math.max(0, fin.totalDue - fin.remaining);
     totalCollected += fin.totalPaid;
     totalRemaining += fin.remaining;
     totalCreditBalance += fin.creditBalance;
@@ -163,7 +165,7 @@ export function calculateBuildingFinancials(
 
   const totalUnits = buildingApts.length;
   const collectionRate = totalExpectedDues > 0
-    ? Math.min(100, Math.round((totalCollected / totalExpectedDues) * 100))
+    ? Math.min(100, Math.round((settledDues / totalExpectedDues) * 100))
     : 0;
 
   return {
@@ -195,6 +197,6 @@ export function reconcileApartment(
     creditBalance: fin.creditBalance,
     status: fin.status,
     lastPaymentDate: fin.lastPaymentDate,
-    overdueMonths: fin.remaining === 0 ? 0 : apartment.overdueMonths,
+    overdueMonths: apartment.overdueMonths,
   };
 }

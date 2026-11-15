@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { Building, Apartment, Payment, PaymentStatus, UserRole, PaymentAuditLog } from '../types';
@@ -32,10 +32,12 @@ interface CollectionsViewProps {
     method: Payment['method'];
     notes?: string;
     receiptNumber?: string;
+    requestId?: string;
   }) => Promise<boolean>;
   onEditPayment: (payment: Payment) => Promise<boolean> | boolean;
   paymentMethods?: string[];
-  onDeletePayment: (paymentId: string) => void;
+  onDeletePayment: (paymentId: string) => Promise<boolean | void> | void;
+  paymentRequest?: number;
 }
 
 export const CollectionsView: React.FC<CollectionsViewProps> = ({
@@ -50,8 +52,9 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
   onSavePayment,
   onEditPayment,
   paymentMethods,
-  onDeletePayment,
+  onDeletePayment, paymentRequest = 0,
 }) => {
+  const [deletingPayment, setDeletingPayment] = useState(false);
   const isManager = role === 'manager';
 
   // Active view tab: 'apartments' | 'payments' | 'audit'
@@ -135,6 +138,10 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
     setIsPaymentModalOpen(true);
   };
 
+  useEffect(() => {
+    if (paymentRequest > 0) handleOpenAddPayment();
+  }, [paymentRequest]);
+
   const handleOpenEditPayment = (p: Payment) => {
     setDetailsApartment(null);
     setEditingPayment(p);
@@ -178,11 +185,11 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
     }
   };
 
-  const handleConfirmDeletePayment = () => {
-    if (paymentToDelete) {
-      onDeletePayment(paymentToDelete.id);
-      setPaymentToDelete(null);
-    }
+  const handleConfirmDeletePayment = async () => {
+    if (!paymentToDelete || deletingPayment) return;
+    setDeletingPayment(true);
+    try { if (await onDeletePayment(paymentToDelete.id) !== false) setPaymentToDelete(null); }
+    finally { setDeletingPayment(false); }
   };
 
   return (
@@ -447,7 +454,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
               </button>
               <button
                 type="button"
-                onClick={handleConfirmDeletePayment}
+                disabled={deletingPayment} onClick={handleConfirmDeletePayment}
                 className="px-4 py-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm"
               >
                 تأكيد حذف الدفعة
@@ -472,134 +479,26 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
               const isOverdue = fin.status === 'overdue';
 
               return (
-                <div
-                  key={apt.id}
-                  className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs hover:shadow-sm transition flex flex-col md:flex-row md:items-center justify-between gap-3"
-                >
-                  {/* Right Side: Unit, Resident Info */}
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center font-bold shrink-0 mt-0.5 shadow-2xs ${
-                        isPaid
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : isOverdue
-                          ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                          : 'bg-amber-50 text-amber-700 border border-amber-200'
-                      }`}
-                    >
-                      <span className="text-xs">{apt.unitNumber.replace('شقة ', '').replace('روف ', '')}</span>
-                      <span className="text-[9px] font-normal opacity-80">د.{apt.floor}</span>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-bold text-sm text-slate-900">{apt.unitNumber}</h3>
-                        <span className="text-xs font-semibold text-slate-700">• {apt.residentName}</span>
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            apt.isOwner
-                              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                              : 'bg-amber-50 text-amber-700 border border-amber-200'
-                          }`}
-                        >
-                          {apt.isOwner ? 'مالك' : 'مستأجر'}
-                        </span>
-                      </div>
-
-                      {/* Financial Metrics Strip */}
-                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
-                        <span className="text-slate-500">
-                          المستحق: <strong className="text-slate-800">{fin.totalDue.toLocaleString()} ج.م</strong>
-                        </span>
-                        <span className="text-slate-300">•</span>
-                        <span className="text-teal-700 font-medium">
-                          المسدد: <strong>{fin.totalPaid.toLocaleString()} ج.م</strong>
-                        </span>
-                        <span className="text-slate-300">•</span>
-                        <span className={`font-bold ${fin.remaining > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
-                          المتبقي: {fin.remaining.toLocaleString()} ج.م
-                        </span>
-                        {fin.creditBalance > 0 && (
-                          <>
-                            <span className="text-slate-300">•</span>
-                            <span className="text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
-                              رصيد دائن: +{fin.creditBalance.toLocaleString()} ج.م
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
+                <article key={apt.id} className="apartment-compact-card rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <button type="button" onClick={() => setDetailsApartment(apt)} title="عرض كشف حساب وتفاصيل الشقة والإيصالات" className="min-h-11 min-w-0 flex-1 text-right">
+                      <span className="block truncate text-sm font-bold text-slate-900">شقة {apt.unitNumber.replace('شقة ', '')} · {apt.residentName || 'بيانات الساكن غير مسجلة'}</span>
+                      <span className={`mt-1 block text-xs ${isPaid ? 'text-emerald-700' : isOverdue ? 'text-rose-700' : 'text-slate-600'}`}>
+                        {isPaid ? 'خالص السداد' : `متبقي ${fin.remaining.toLocaleString()} ج.م`}
+                        {fin.creditBalance > 0 && ` · مقدم ${fin.creditBalance.toLocaleString()} ج.م`}
+                        {' · '}عرض التفاصيل ({fin.allPayments.length})
+                      </span>
+                    </button>
+                    {isManager && <button type="button" onClick={() => handleOpenAddPayment(apt)} title="قيد دفعة سداد جديدة لهذه الشقة" className="min-h-11 shrink-0 rounded-xl bg-teal-700 px-4 text-sm font-bold text-white">سداد</button>}
                   </div>
-
-                  {/* Left Side: Status & Actions */}
-                  <div className="flex flex-wrap items-center justify-between md:justify-end gap-2.5 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
-                    {/* Status Badge */}
-                    <div className="flex items-center gap-1.5">
-                      {isPaid && (
-                        <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>خالص السداد ✓</span>
-                        </span>
-                      )}
-                      {isOverdue && (
-                        <span className="bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1">
-                          <AlertCircle className="w-3.5 h-3.5" />
-                          <span>متأخر ({apt.overdueMonths || 1} شهر)</span>
-                        </span>
-                      )}
-                      {!isPaid && !isOverdue && (
-                        <span className="bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>سداد جزئي ({fin.remaining.toLocaleString()} متبقي)</span>
-                        </span>
-                      )}
+                  {isManager && <details className="mt-1 border-t border-slate-100 pt-1">
+                    <summary className="min-h-11 cursor-pointer py-3 text-xs text-slate-500">خيارات الشقة</summary>
+                    <div className="flex flex-wrap gap-2 pb-1">
+                      <button type="button" onClick={() => { setEditingApartment(apt); setIsAddAptModalOpen(true); }} title="تعديل بيانات الشقة" className="min-h-11 rounded-xl bg-slate-100 px-4 text-sm font-bold">تعديل بيانات الشقة</button>
+                      <button type="button" onClick={() => setApartmentToDelete(apt)} title="حذف الشقة" className="min-h-11 rounded-xl border border-rose-200 px-4 text-sm font-bold text-rose-700">حذف الشقة</button>
                     </div>
-
-                    {/* Actions buttons */}
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => setDetailsApartment(apt)}
-                        className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1 transition"
-                        title="عرض كشف حساب وتفاصيل الشقة والإيصالات"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>تفاصيل ({fin.allPayments.length})</span>
-                      </button>
-
-                      {isManager && (
-                        <>
-                          <button
-                            onClick={() => handleOpenAddPayment(apt)}
-                            className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1 shadow-2xs transition active:scale-95"
-                            title="قيد دفعة سداد جديدة لهذه الشقة"
-                          >
-                            <DollarSign className="w-3.5 h-3.5" />
-                            <span>سداد</span>
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              setEditingApartment(apt);
-                              setIsAddAptModalOpen(true);
-                            }}
-                            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
-                            title="تعديل بيانات الشقة"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            onClick={() => setApartmentToDelete(apt)}
-                            className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition"
-                            title="حذف الشقة"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                  </details>}
+                </article>
               );
             })
           )}
@@ -710,10 +609,10 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
           <div className="p-4 border-b border-slate-100">
             <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
               <History className="w-4 h-4 text-teal-600" />
-              <span>سجل تدقيق وتعديل الحسابات والمدفوعات (Audit Log)</span>
+              <span>سجل العمليات المالية</span>
             </h3>
             <p className="text-xs text-slate-500">
-              سجل تدقيق غير قابل للتلاعب يوثق كافة عمليات الإضافة والتعديل والحذف وتاريخها والبيانات السابقة
+              سجل مركزي من الخادم يوثق السداد والمصروفات والبيانات السابقة والجديدة. أحدث ٥٠٠ عملية.
             </p>
           </div>
 
@@ -752,7 +651,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
                                 : 'bg-rose-50 text-rose-700 border border-rose-200'
                             }`}
                           >
-                            {isCreate ? 'قيد جديد' : isUpdate ? 'تعديل دفعة' : 'حذف دفعة'}
+                            {isCreate ? 'إضافة' : isUpdate ? 'تعديل' : 'حذف'}
                           </span>
                         </td>
                         <td className="p-3 font-bold text-slate-800">{log.unitNumber}</td>

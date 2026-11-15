@@ -94,7 +94,7 @@ export const LoginView: React.FC = () => {
           </div>
           <div className="fotouh-login-intro">
             <h2>إدارة العمارة بسهولة وأمان</h2>
-            <p>حساب Google واحد للدخول، مع صلاحيات مستقلة لكل عمارة.</p>
+            <p>سجّل بالبريد الإلكتروني أو Google، مع صلاحيات مستقلة لكل عمارة.</p>
           </div>
         </div>
         <div className="fotouh-feature-grid">

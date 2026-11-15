@@ -1,11 +1,10 @@
 import React, { useCallback, useRef } from 'react';
 import { usePlayBilling } from '../hooks/usePlayBilling';
 import { TourHelpButton } from './AppTour';
-import { Settings, LogOut, CreditCard } from 'lucide-react';
+import { Settings, CreditCard } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { SettingsList, SettingsPage, type SettingsListItem } from './SettingsList';
-import { AccountDeletionButton } from './AccountDeletionButton';
 export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignOut }: { items: SettingsListItem[]; buildingId?: string; onBack: () => void; onOpenAppSettings: () => void; onSignOut: () => void }) {
   const [showPlans, setShowPlans] = useState(false);
   const [subscription, setSubscription] = useState<{status: string; plan?: string | null; trial_ends_at?: string | null; paid_through?: string | null; days_remaining?: number} | null>(null);
@@ -111,13 +110,20 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
   };
   const eligible = promoApplied;
   const isVip = subscription?.status === 'vip';
-  return <SettingsPage tourTarget="more-page" title={ownerOpen ? "إدارة اشتراكات المنصة" : showPlans ? "الاشتراك والباقات" : "المزيد"} onBack={ownerOpen ? () => setOwnerOpen(false) : showPlans ? () => setShowPlans(false) : onBack} subpage={ownerOpen || showPlans}>{!ownerOpen && !showPlans && <div className="px-4 pb-3"><TourHelpButton /></div>}{!ownerOpen && !showPlans && <SettingsList items={[
-    ...items,
-    ...(ownerSummary ? [{ id: 'platform-subscriptions', label: 'إدارة اشتراكات المنصة', icon: CreditCard, onClick: () => { setShowPlans(false); setOwnerOpen(true); } }] : []),
-    { id: 'subscription', label: 'الاشتراك والباقات', icon: CreditCard, onClick: () => { setOwnerOpen(false); setShowPlans(true); } },
-    { id: 'app-settings', label: 'إعدادات التطبيق', icon: Settings, onClick: onOpenAppSettings },
-    { id: 'logout', label: 'تسجيل الخروج', icon: LogOut, tone: 'rose', onClick: onSignOut },
-  ]}/>}{ownerSummary && ownerOpen && <section dir="rtl" className="mx-4 my-4 rounded-2xl border border-slate-200 p-4 space-y-3">
+  return <SettingsPage tourTarget="more-page" title={ownerOpen ? "إدارة اشتراكات المنصة" : showPlans ? "الاشتراك والباقات" : "المزيد"} onBack={ownerOpen ? () => setOwnerOpen(false) : showPlans ? () => setShowPlans(false) : onBack} subpage={ownerOpen || showPlans}>{!ownerOpen && !showPlans && <div className="px-4 pb-3"><TourHelpButton /></div>}{!ownerOpen && !showPlans && <div className="space-y-4">
+    {[
+      { title: 'الحسابات والتقارير', ids: ['exceptional','reports','treasury'] },
+      { title: 'خدمات السكان', ids: ['services','polls','maintenance','bookings','announcements','building'] },
+      { title: 'أدوات مساعدة', ids: ['chat','studio'] },
+      { title: 'إدارة العمارة', ids: ['buildings','building-settings'] },
+    ].map(group => { const rows = items.filter(item => group.ids.includes(item.id)); return rows.length ? <section key={group.title}><h2 className="px-4 py-2 text-sm font-bold text-slate-600">{group.title}</h2><SettingsList items={rows}/></section> : null; })}
+    <section><h2 className="px-4 py-2 text-sm font-bold text-slate-600">الإعدادات والحساب</h2><SettingsList items={[
+      ...items.filter(item => !['exceptional','reports','treasury','services','polls','maintenance','bookings','announcements','building','chat','studio','buildings','building-settings'].includes(item.id)),
+      ...(ownerSummary ? [{ id: 'platform-subscriptions', label: 'إدارة اشتراكات المنصة', icon: CreditCard, onClick: () => { setShowPlans(false); setOwnerOpen(true); } }] : []),
+      ...(buildingId ? [{ id: 'subscription', label: 'الاشتراك والباقات', icon: CreditCard, onClick: () => { setOwnerOpen(false); setShowPlans(true); } }] : []),
+      { id: 'app-settings', label: 'إعدادات التطبيق والحساب', icon: Settings, onClick: onOpenAppSettings },
+    ]}/></section>
+  </div>}{ownerSummary && ownerOpen && <section dir="rtl" className="mx-4 my-4 rounded-2xl border border-slate-200 p-4 space-y-3">
     <h3 className="text-lg font-bold">إدارة اشتراكات المنصة</h3>
     <p className="text-sm">العمارات: {ownerSummary.buildings} · تجريبي: {ownerSummary.trial} · نشط: {ownerSummary.active} · مجاني VIP: {ownerSummary.vip}</p>
     <p className="text-sm">أكواد متاحة: {ownerSummary.codes_available} · مستخدمة: {ownerSummary.codes_used}</p>
@@ -179,5 +185,5 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
     </div>}
     <p className="text-sm text-slate-500">الاشتراك للعمارة كاملة بواسطة مديرها فقط. يتجدد تلقائيًا حتى إلغائه من Google Play. لا توجد قيود دفع على استخدام التطبيق.</p>
     </>}
-  </section>}{!ownerOpen && !showPlans && <AccountDeletionButton/>}</SettingsPage>;
+  </section>}</SettingsPage>;
 }

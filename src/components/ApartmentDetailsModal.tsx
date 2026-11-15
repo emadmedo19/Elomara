@@ -20,7 +20,7 @@ interface ApartmentDetailsModalProps {
   onDeleteApartment: (apartmentId: string) => void;
   onOpenAddPaymentForApt: (apartment: Apartment) => void;
   onEditPayment: (payment: Payment) => void;
-  onDeletePayment: (paymentId: string) => void;
+  onDeletePayment: (paymentId: string) => Promise<boolean | void> | void;
 }
 
 export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
@@ -37,6 +37,8 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
   onDeletePayment,
 }) => {
   const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [deletingPayment, setDeletingPayment] = useState(false);
   const [isDeletingApartment, setIsDeletingApartment] = useState(false);
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
   useLayoutEffect(() => {
@@ -146,7 +148,7 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
         {/* Delete Payment Confirmation Alert Modal */}
         {paymentToDelete && createPortal(
           <div dir="rtl" className="fixed inset-0 z-[80] bg-[#0f2537]/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4" onKeyDown={(event) => {
-            if (event.key === 'Escape') {
+            if (event.key === 'Escape' && !deletingPayment) {
               event.stopPropagation();
               setPaymentToDelete(null);
             }
@@ -194,20 +196,25 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
                 </p>
               </div>
             </div>
+            {deleteError && <p role="alert" className="text-sm text-rose-800">{deleteError}</p>}
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-rose-200">
               <button
                 type="button"
                 ref={cancelDeleteRef}
-                onClick={() => setPaymentToDelete(null)}
+                disabled={deletingPayment} onClick={() => setPaymentToDelete(null)}
                 className="px-4 py-2 rounded-xl bg-white text-slate-700 text-xs font-bold border border-slate-300 hover:bg-slate-50"
               >
-                إلغاء التراجع
+                إلغاء
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  onDeletePayment(paymentToDelete.id);
-                  setPaymentToDelete(null);
+                disabled={deletingPayment}
+                onClick={async () => {
+                  if (deletingPayment) return;
+                  setDeletingPayment(true); setDeleteError('');
+                  try { if (await onDeletePayment(paymentToDelete.id) !== false) setPaymentToDelete(null); else setDeleteError('تعذر حذف الدفعة. حاول مرة أخرى.'); }
+                  catch { setDeleteError('تعذر الاتصال. لم يتم تأكيد الحذف.'); }
+                  finally { setDeletingPayment(false); }
                 }}
                 className="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 shadow-sm"
               >
@@ -290,10 +297,10 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
               <div>
-                <span className="font-bold">رصيد دائن مرحل للشهر التالي: </span>
+                <span className="font-bold">رصيد دائن (مقدم): </span>
                 <span className="font-mono font-bold text-indigo-700">+{fin.creditBalance.toLocaleString()} ج.م</span>
                 <span className="block text-[11px] text-indigo-600">
-                  نشأ هذا الرصيد كدفعة زائدة عن دورة {fin.advanceCreditOrigin?.month || 'أكتوبر 2024'} ويتم ترحيله تلقائياً.
+                  مبلغ زائد عن المستحقات المسجلة، مصدره دورة {fin.advanceCreditOrigin?.month || 'سداد سابق'}.
                 </span>
               </div>
             </div>
@@ -419,7 +426,7 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
                         <span>تعديل</span>
                       </button>
                       <button
-                        onClick={() => setPaymentToDelete(p)}
+                        onClick={() => { setDeleteError(''); setPaymentToDelete(p); }}
                         className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
                         title="حذف هذه الدفعة"
                       >

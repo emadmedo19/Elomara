@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { Building, Expense } from '../types';
@@ -12,9 +12,9 @@ import { analyzeReceiptWithGemini } from '../services/geminiService';
 interface ExpensesViewProps {
   currentBuilding: Building;
   expenses: Expense[];
-  onAddExpense: (expense: Omit<Expense, 'id'>) => void;
-  onUpdateExpense: (id: string, updatedData: Partial<Expense>) => void;
-  onDeleteExpense: (id: string) => void;
+  onAddExpense: (expense: Omit<Expense, 'id'>) => Promise<boolean | void> | void;
+  onUpdateExpense: (id: string, updatedData: Partial<Expense>) => Promise<boolean | void> | void;
+  onDeleteExpense: (id: string) => Promise<boolean | void> | void;
   isOpenAddModal: boolean;
   onCloseAddModal: () => void;
   onOpenAddModal: () => void;
@@ -31,6 +31,10 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
   onOpenAddModal,
 }) => {
   useBodyScrollLock(isOpenAddModal);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const scanRevision = useRef(0);
+  const mutation = useRef({ signature: '', id: '' });
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
@@ -41,7 +45,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
   // Form states for new/edit expense
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<Expense['category']>('صيانة عامة');
-  const [amount, setAmount] = useState<number>(500);
+  const [amount, setAmount] = useState<number>(0);
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [vendor, setVendor] = useState('');
   const [notes, setNotes] = useState('');
@@ -82,9 +86,13 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
   };
 
   const handleCloseModal = () => {
+    scanRevision.current += 1;
+    setIsScanningReceipt(false);
     setEditingExpense(null);
     setTitle('');
-    setAmount(500);
+    setAmount(0);
+    setSaveError('');
+    mutation.current = { signature: '', id: '' };
     setVendor('');
     setNotes('');
     setReceiptUrl('');
@@ -92,52 +100,42 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
     onCloseAddModal();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || amount <= 0) return;
-
-    if (editingExpense) {
-      onUpdateExpense(editingExpense.id, {
-        title: title.trim(),
-        category,
-        amount: Number(amount),
-        date,
-        vendor: vendor.trim() || 'مورد محلي',
-        notes: notes.trim(),
-        receiptUrl,
-      });
-    } else {
-      onAddExpense({
-        buildingId: currentBuilding.id,
-        title: title.trim(),
-        category,
-        amount: Number(amount),
-        date,
-        vendor: vendor.trim() || 'مورد محلي معتمد',
-        notes: notes.trim(),
-        receiptUrl,
-        approvedBy: currentBuilding.managerName || 'مدير العقار',
-      });
-    }
-
-    handleCloseModal();
+    if (saving || isScanningReceipt || !title.trim() || amount <= 0) return;
+    const data = { buildingId: currentBuilding.id, title: title.trim(), category, amount: Number(amount), date,
+      vendor: vendor.trim(), notes: notes.trim(), receiptUrl, approvedBy: currentBuilding.managerName || 'مدير العمارة' };
+    const signature = JSON.stringify({ ...data, id: editingExpense?.id });
+    if (mutation.current.signature !== signature) mutation.current = { signature, id: crypto.randomUUID() };
+    setSaving(true); setSaveError('');
+    try {
+      const saved = editingExpense
+        ? await onUpdateExpense(editingExpense.id, { ...data, requestId: mutation.current.id })
+        : await onAddExpense({ ...data, requestId: mutation.current.id });
+      if (saved === false) setSaveError('لم يتم تأكيد الحفظ. البيانات موجودة؛ راجع الاتصال وحاول مرة أخرى.');
+      else handleCloseModal();
+    } catch { setSaveError('تعذر حفظ المصروف. البيانات موجودة للمحاولة مرة أخرى.'); }
+    finally { setSaving(false); }
   };
 
   const handleSimulateOrUploadReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const revision = ++scanRevision.current;
     setIsScanningReceipt(true);
     setScanMessage('جاري تحليل الفاتورة واستخراج البنود والمبالغ بواسطة Gemini...');
 
     try {
       const reader = new FileReader();
       reader.onload = async () => {
+        if (scanRevision.current !== revision) return;
         const fullBase64 = reader.result as string;
         setReceiptUrl(fullBase64);
 
         try {
           const result = await analyzeReceiptWithGemini(fullBase64, file.type || 'image/jpeg');
+          if (scanRevision.current !== revision) return;
           if (result) {
             if (result.vendor) setVendor(result.vendor);
             if (result.amount) setAmount(Number(result.amount));
@@ -148,13 +146,10 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
             setScanMessage('✓ تم استخراج بيانات الفاتورة بنجاح بواسطة الذكاء الاصطناعي!');
           }
         } catch {
-          // Pre-fill fallback if offline
-          setTitle('فاتورة صيانة وكهرباء معتمدة');
-          setVendor('مؤسسة الصفا للصيانة المنزلية');
-          setAmount(850);
-          setScanMessage('تم التعرف على الفاتورة وتعبئة البنود المقترحة.');
+          if (scanRevision.current !== revision) return;
+          setScanMessage('تعذر قراءة الصورة. أرفق صورة أوضح أو اكتب بيانات الفاتورة يدويًا؛ لم يتم تغيير بياناتك.');
         } finally {
-          setIsScanningReceipt(false);
+          if (scanRevision.current === revision) setIsScanningReceipt(false);
         }
       };
       reader.readAsDataURL(file);
@@ -163,26 +158,12 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
     }
   };
 
-  const handleUseSampleReceipt = () => {
-    setIsScanningReceipt(true);
-    setScanMessage('جاري فحص نموذج إيصال الصيانة...');
-    setTimeout(() => {
-      setTitle('صيانة كروت تحكم الأسانسير وتبديل البكرات');
-      setCategory('مصاعد');
-      setAmount(2100);
-      setVendor('شركة أوتيس للمصاعد (مصر)');
-      setDate(new Date().toISOString().split('T')[0]);
-      setNotes('صيانة طارئة لعطل في باب الدور الثالث مع تغيير طقم بكرات الكابينة');
-      setIsScanningReceipt(false);
-      setScanMessage('✓ تم استخراج بنود إيصال المصاعد بنجاح!');
-    }, 800);
-  };
-
-  const handleConfirmDelete = () => {
-    if (expenseToDelete) {
-      onDeleteExpense(expenseToDelete.id);
-      setExpenseToDelete(null);
-    }
+  const handleConfirmDelete = async () => {
+    if (!expenseToDelete || saving) return;
+    setSaving(true); setSaveError('');
+    try { if (await onDeleteExpense(expenseToDelete.id) !== false) setExpenseToDelete(null); else setSaveError('تعذر حذف المصروف. حاول مرة أخرى.'); }
+    catch { setSaveError('تعذر حذف المصروف. حاول مرة أخرى.'); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -238,6 +219,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                 </p>
               </div>
             </div>
+            {saveError && <p role="alert" className="text-sm text-rose-800">{saveError}</p>}
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
               <button
                 type="button"
@@ -248,10 +230,10 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
               </button>
               <button
                 type="button"
-                onClick={handleConfirmDelete}
+                disabled={saving} onClick={handleConfirmDelete}
                 className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm"
               >
-                تأكيد الحذف
+                {saving ? 'جارٍ الحذف...' : 'تأكيد الحذف'}
               </button>
             </div>
           </div>
@@ -381,7 +363,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
               </div>
               <button
                 type="button"
-                data-tour="expense-close" onClick={handleCloseModal}
+                data-tour="expense-close" onClick={() => { if (!saving) handleCloseModal(); }}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700"
               >
                 <X className="w-4 h-4" />
@@ -397,13 +379,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                     <span className="text-xs font-bold text-slate-800">قارئ الفواتير الذكي (Gemini OCR)</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleUseSampleReceipt}
-                      className="text-[11px] bg-white hover:bg-slate-50 text-slate-700 px-2.5 py-1 rounded-xl border border-slate-200 font-medium transition"
-                    >
-                      نموذج تجريبي
-                    </button>
+
                     <label className="text-[11px] bg-teal-600 hover:bg-teal-700 text-white px-2.5 py-1 rounded-xl font-bold cursor-pointer transition flex items-center gap-1">
                       <Camera className="w-3.5 h-3.5" />
                       <span>تصوير فاتورة</span>
@@ -423,11 +399,12 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                   </div>
                 )}
                 {!isScanningReceipt && scanMessage && (
-                  <p className="mt-1.5 text-xs text-emerald-700 font-medium">{scanMessage}</p>
+                  <p className="mt-1.5 text-xs text-slate-700 font-medium" role="status">{scanMessage}</p>
                 )}
               </div>
             )}
 
+            {saveError && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{saveError}</p>}
             <div className="space-y-3.5 my-3">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700">عنوان البند أو المصروف *</label>
@@ -463,9 +440,9 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                   <label className="text-xs font-bold text-slate-700">المبلغ بالجنيه (ج.م) *</label>
                   <input
                     type="number"
-                    min="1"
+                    min="0.01" step="0.01"
                     required
-                    data-tour="expense-amount" value={amount}
+                    data-tour="expense-amount" value={amount || ''}
                     onChange={(e) => setAmount(Number(e.target.value))}
                 onFocus={(e) => e.currentTarget.select()}
                     className="w-full text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-600 font-bold text-rose-700"
@@ -512,17 +489,17 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
               <button
                 type="button"
-                onClick={handleCloseModal}
+                onClick={() => { if (!saving) handleCloseModal(); }}
                 className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
               >
                 إلغاء
               </button>
               <button
-                data-tour="expense-save" type="submit"
+                data-tour="expense-save" type="submit" disabled={saving || isScanningReceipt}
                 className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md transition active:scale-95 flex items-center gap-1.5"
               >
                 <Check className="w-4 h-4" />
-                <span>{editingExpense ? 'حفظ تعديلات المصروف' : 'توثيق وخصم من الخزينة'}</span>
+                <span>{saving ? 'جارٍ الحفظ...' : editingExpense ? 'حفظ تعديلات المصروف' : 'توثيق وخصم من الخزينة'}</span>
               </button>
             </div>
           </form>

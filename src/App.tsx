@@ -48,6 +48,7 @@ import { CheckCircle2, AlertCircle, X, Wallet, BarChart3, FileText, Wrench, Spar
 import { useAuth } from './context/AuthContext';
 import { LoginView } from './components/LoginView';
 import { supabase } from './lib/supabase';
+import { mapPayment, mapExpense, mapAudit, mergeFinancialApartment, mutateFinancialEntry, type FinancialMutationResult } from './services/financialMutations';
 import { checkForOtaUpdate } from './services/otaUpdates';
 
 const managerTabs = ['dashboard', 'collections', 'expenses', 'reports', 'resident', 'chat', 'image-studio', 'approvals', 'polls', 'exceptional-collections', 'services', 'more', 'app-settings', 'treasury-settings'];
@@ -81,6 +82,7 @@ export default function App() {
   const [role, setRole] = useState<UserRole>('manager');
   
   const [apartments, setApartments] = useState<Apartment[]>([]);
+  const [paymentRequest, setPaymentRequest] = useState(0);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [auditLogs, setAuditLogs] = useState<PaymentAuditLog[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -88,6 +90,24 @@ export default function App() {
   const [bookings, setBookings] = useState<FacilityBooking[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [settings, setSettings] = useState<AppSettings>({ customGeminiApiKey: '', backendUrl: '' });
+
+  const loadSharedWorkflows = async (buildingIds: string[]) => {
+    if (!buildingIds.length) { setBookings([]); setAuditLogs([]); return; }
+    const scope = managerScopeRef.current;
+    const [bookingResult, auditResult] = await Promise.all([
+      supabase.from('facility_bookings').select('id,building_id,apartment_id,facility,unit_number,resident_name,booking_date,time_slot,status,manager_note,updated_at').in('building_id', buildingIds).order('booking_date', { ascending: false }),
+      ...(isNeonBackend ? [supabase.from('financial_audit_log').select('id,building_id,entity_type,entity_id,action,apartment_id,unit_number,performed_by_name,previous_data,new_data,created_at').in('building_id', buildingIds).order('created_at', { ascending: false }).limit(500)] : [Promise.resolve({ data: [], error: null })]),
+    ]);
+    if (scope !== managerScopeRef.current) return;
+    if (bookingResult.error || auditResult.error) throw new Error('تعذر تحميل الحجوزات أو سجل العمليات. حاول تحديث البيانات.');
+    setBookings((bookingResult.data || []).map((r: Record<string, unknown>) => ({ id: String(r.id), buildingId: String(r.building_id), facility: r.facility as FacilityBooking['facility'], unitNumber: String(r.unit_number), residentName: String(r.resident_name || ''), date: String(r.booking_date), timeSlot: String(r.time_slot), managerNote: String(r.manager_note || ''), updatedAt: String(r.updated_at || ''), status: r.status as FacilityBooking['status'] })));
+    setAuditLogs((auditResult.data || []).map((row: Record<string, unknown>) => mapAudit(row)));
+  };
+  const applyFinancialResult = (buildingId: string, result: FinancialMutationResult) => {
+    setBuildings(rows => rows.map(b => b.id === buildingId ? { ...b, balance: Number(result.balance) } : b));
+    if (result.apartment) setApartments(rows => rows.map(a => a.id === result.apartment?.id ? mergeFinancialApartment(a, result.apartment) : a));
+    void loadSharedWorkflows(buildings.map(b => b.id)).catch(() => showToast('تم حفظ العملية. تعذر تحديث سجل العمليات؛ اسحب لتحديث البيانات.', 'info'));
+  };
 
   // 2. Active Building Resolver (Safe against deleted or missing IDs)
   const currentBuilding = useMemo(() => {
@@ -157,6 +177,7 @@ export default function App() {
           const rows: Building[] = (data || []).map((r: any) => ({ id:r.id,name:r.name,address:r.address || '',totalUnits:Number(r.total_units || 0),totalFloors:r.total_floors ?? undefined,balance:Number(r.balance || 0),monthlyTarget:Number(r.monthly_target || 0),reserveFund:Number(r.reserve_fund || 0),managerName:r.manager_name || '',managerPhone:r.manager_phone || '',manager2Name:r.manager2_name || '',manager2Phone:r.manager2_phone || '',manager3Name:r.manager3_name || '',manager3Phone:r.manager3_phone || '' }));
           setBuildings(rows); setCurrentBuildingIdState(rows[0]?.id || '');
           if (rows.length) {
+            await loadSharedWorkflows(rows.map(b => b.id));
             const { data: apartmentRows, error: apartmentError } = await supabase.from('apartments')
               .select('id,building_id,unit_number,floor,resident_name,resident_phone,is_owner,monthly_fee,payment_status,overdue_months,last_payment_date,paid_amount,credit_balance')
               .in('building_id', rows.map(b => b.id)).abortSignal(requestController.signal);
@@ -188,7 +209,7 @@ export default function App() {
             })));
 
             const [ticketResult, announcementResult, expenseResult, settingsResult] = await Promise.all([
-              supabase.from('maintenance_tickets').select('id,building_id,apartment_id,unit_number,resident_name,category,title,description,urgency,status,created_at').in('building_id', rows.map(b => b.id)).order('created_at', { ascending: false }).abortSignal(requestController.signal),
+              supabase.from('maintenance_tickets').select('id,building_id,apartment_id,unit_number,resident_name,category,title,description,urgency,status,created_at,manager_note,updated_at').in('building_id', rows.map(b => b.id)).order('created_at', { ascending: false }).abortSignal(requestController.signal),
               supabase.from('announcements').select('id,building_id,title,content,announcement_type,pinned,created_at').in('building_id', rows.map(b => b.id)).order('created_at', { ascending: false }).abortSignal(requestController.signal),
               supabase.from('expenses').select('id,building_id,title,category,amount,expense_date,vendor,notes,receipt_url,approved_by').in('building_id', rows.map(b => b.id)).order('expense_date', { ascending: false }).abortSignal(requestController.signal),
               supabase.from('app_settings').select('setting_value').eq('building_id', rows[0].id).eq('setting_key', 'general').abortSignal(requestController.signal).maybeSingle(),
@@ -198,7 +219,7 @@ export default function App() {
             setTickets((ticketResult.data || []).map((r: any) => ({
               id:r.id, buildingId:r.building_id, unitNumber:r.unit_number, residentName:r.resident_name,
               category:r.category, title:r.title, description:r.description, urgency:r.urgency,
-              status:r.status, date:r.created_at,
+              status:r.status, date:r.created_at, managerNote:r.manager_note || '', updatedAt:r.updated_at,
             })));
             if (cancelled || timedOut) return;
             if (announcementResult.error) throw announcementResult.error;
@@ -272,6 +293,7 @@ export default function App() {
 
   // 3. Navigation State (Defaults directly to 'dashboard')
   const [currentTab, setCurrentTabState] = useState<string>(() => typeof window === 'undefined' ? 'dashboard' : tabFromLocation());
+  useEffect(() => { if (currentTab !== 'collections') setPaymentRequest(0); }, [currentTab]);
 
   const notificationStorageKey = (kind: 'tickets' | 'announcements') => `bunyan-seen-${kind}-${user?.id || 'guest'}-${currentBuildingId || 'all'}`;
   const getSeenNotificationIds = (kind: 'tickets' | 'announcements'): string[] => {
@@ -343,7 +365,7 @@ export default function App() {
   const persistTreasuryDelta = async (buildingId: string, delta: number) => {
     const building = buildings.find(b => b.id === buildingId);
     if (!building || !delta) return;
-    const nextBalance = Math.max(0, building.balance + delta);
+    const nextBalance = building.balance + delta;
     const { error } = await supabase.from('buildings').update({ balance: nextBalance }).eq('id', buildingId);
     if (error) {
       showToast('تم حفظ العملية لكن تعذر تحديث رصيد الخزينة على الخادم: ' + error.message, 'error');
@@ -433,11 +455,10 @@ export default function App() {
       }
 
       // Expenses and settings are shared Supabase records, not device-local data.
-      setBookings(getStoredBookings());
-      setAuditLogs(getStoredAuditLogs());
+      await loadSharedWorkflows(refreshedBuildings.map(b => b.id));
 
       const [ticketResult, announcementResult, expenseResult, settingsResult] = await Promise.all([
-        supabase.from('maintenance_tickets').select('id,building_id,apartment_id,unit_number,resident_name,category,title,description,urgency,status,created_at').in('building_id', refreshedBuildings.map(b => b.id)).order('created_at', { ascending: false }),
+        supabase.from('maintenance_tickets').select('id,building_id,apartment_id,unit_number,resident_name,category,title,description,urgency,status,created_at,manager_note,updated_at').in('building_id', refreshedBuildings.map(b => b.id)).order('created_at', { ascending: false }),
         supabase.from('announcements').select('id,building_id,title,content,announcement_type,pinned,created_at').in('building_id', refreshedBuildings.map(b => b.id)).order('created_at', { ascending: false }),
         supabase.from('expenses').select('id,building_id,title,category,amount,expense_date,vendor,notes,receipt_url,approved_by').in('building_id', refreshedBuildings.map(b => b.id)).order('expense_date', { ascending: false }),
         supabase.from('app_settings').select('setting_value').eq('building_id', refreshedBuildings[0]?.id || '').eq('setting_key', 'general').maybeSingle(),
@@ -448,7 +469,7 @@ export default function App() {
       setTickets((ticketResult.data || []).map((r: any) => ({
         id:r.id, buildingId:r.building_id, unitNumber:r.unit_number, residentName:r.resident_name,
         category:r.category, title:r.title, description:r.description, urgency:r.urgency,
-        status:r.status, date:r.created_at,
+        status:r.status, date:r.created_at, managerNote:r.manager_note || '', updatedAt:r.updated_at,
       })));
       setAnnouncements((announcementResult.data || []).map((r: any) => ({
         id:r.id, buildingId:r.building_id, title:r.title, content:r.content,
@@ -708,6 +729,7 @@ export default function App() {
     method: Payment['method'];
     notes?: string;
     receiptNumber?: string;
+    requestId?: string;
   }): Promise<boolean> => {
     if (!user || !isAdmin || userProfile?.role !== 'building_admin') {
       showToast('عذراً، تسجيل المدفوعات متاح فقط لمدير العمارة المعتمد.', 'error');
@@ -718,6 +740,18 @@ export default function App() {
     if (!apt) { showToast('لم يتم العثور على الشقة المطلوبة.', 'error'); return false; }
 
     const buildingId = apt.buildingId || currentBuilding.id;
+    if (isNeonBackend) {
+      try {
+        const result = await mutateFinancialEntry('payment', 'create', buildingId, null, paymentData, paymentData.requestId);
+        if (managerScopeRef.current !== managerScope) return false;
+        const receipt = mapPayment(result.entry!);
+        setPayments(rows => [receipt, ...rows.filter(p => p.id !== receipt.id)]);
+        applyFinancialResult(buildingId, result);
+        announcePaymentSuccess(String(apt.unitNumber), paymentData.month, paymentData.amount);
+        showToast('تم تسجيل السداد وتحديث حساب الشقة والخزينة.');
+        return true;
+      } catch (error) { showToast(error instanceof Error ? error.message : 'تعذر حفظ السداد. حاول مرة أخرى.', 'error'); return false; }
+    }
     if (paymentData.exceptionalChargeId) {
       const { error } = await supabase.rpc('record_exceptional_payment', {
         p_charge_id: paymentData.exceptionalChargeId, p_amount: paymentData.amount,
@@ -772,7 +806,7 @@ export default function App() {
           paidAmount: fin.totalPaid,
           creditBalance: fin.creditBalance,
           status: fin.status,
-          overdueMonths: fin.remaining === 0 ? 0 : a.overdueMonths,
+          overdueMonths: a.overdueMonths,
           lastPaymentDate: fin.lastPaymentDate,
         };
       }
@@ -786,7 +820,7 @@ export default function App() {
       paid_amount: fin.totalPaid,
       credit_balance: fin.creditBalance,
       payment_status: fin.status,
-      overdue_months: fin.remaining === 0 ? 0 : apt.overdueMonths,
+      overdue_months: apt.overdueMonths,
       last_payment_date: fin.lastPaymentDate || null,
     }).eq('id', apt.id);
     if (apartmentSyncError) showToast('تم حفظ الإيصال، لكن تعذر تحديث ملخص الشقة على الخادم: ' + apartmentSyncError.message, 'error');
@@ -816,6 +850,16 @@ export default function App() {
     const oldPayment = payments.find((p) => p.id === updatedPayment.id);
     if (!oldPayment) return false;
 
+    if (isNeonBackend) {
+      try {
+        const result = await mutateFinancialEntry('payment', 'update', oldPayment.buildingId, oldPayment.id, updatedPayment, updatedPayment.requestId);
+        if (managerScopeRef.current !== managerScope) return false;
+        const receipt = mapPayment(result.entry!);
+        setPayments(rows => rows.map(p => p.id === receipt.id ? receipt : p));
+        applyFinancialResult(oldPayment.buildingId, result);
+        showToast('تم تعديل السداد وتسوية حساب الشقة والخزينة.'); return true;
+      } catch (error) { showToast(error instanceof Error ? error.message : 'تعذر تعديل السداد.', 'error'); return false; }
+    }
     const { error: paymentUpdateError } = await supabase.from('payments').update({
       amount: updatedPayment.amount, payment_date: updatedPayment.date, month: updatedPayment.month,
       method: updatedPayment.method, notes: updatedPayment.notes || null, receipt_number: updatedPayment.receiptNumber || null,
@@ -841,7 +885,7 @@ export default function App() {
             paidAmount: fin.totalPaid,
             creditBalance: fin.creditBalance,
             status: fin.status,
-            overdueMonths: fin.remaining === 0 ? 0 : a.overdueMonths,
+            overdueMonths: a.overdueMonths,
             lastPaymentDate: fin.lastPaymentDate,
           };
         }
@@ -853,7 +897,7 @@ export default function App() {
         paid_amount: fin.totalPaid,
         credit_balance: fin.creditBalance,
         payment_status: fin.status,
-        overdue_months: fin.remaining === 0 ? 0 : apt.overdueMonths,
+        overdue_months: apt.overdueMonths,
         last_payment_date: fin.lastPaymentDate || null,
       }).eq('id', apt.id);
       if (apartmentSyncError) showToast('تم تعديل الإيصال، لكن تعذر تحديث ملخص الشقة على الخادم: ' + apartmentSyncError.message, 'error');
@@ -879,14 +923,22 @@ export default function App() {
   const handleDeletePayment = async (paymentId: string) => {
     if (role !== 'manager') {
       showToast('عذراً، حذف المدفوعات متاح فقط لمدير العمارة (أمين الصندوق).', 'error');
-      return;
+      return false;
     }
 
     const pToDelete = payments.find((p) => p.id === paymentId);
-    if (!pToDelete) return;
+    if (!pToDelete) return false;
 
+    if (isNeonBackend) {
+      try {
+        const result = await mutateFinancialEntry('payment', 'delete', pToDelete.buildingId, paymentId);
+        if (managerScopeRef.current !== managerScope) return false;
+        setPayments(rows => rows.filter(p => p.id !== paymentId)); applyFinancialResult(pToDelete.buildingId, result);
+        showToast('تم حذف الإيصال وتسوية حساب الشقة والخزينة.'); return true;
+      } catch (error) { showToast(error instanceof Error ? error.message : 'تعذر حذف السداد.', 'error'); return false; }
+    }
     const { error: paymentDeleteError } = await supabase.from('payments').delete().eq('id', paymentId);
-    if (paymentDeleteError) { showToast('تعذر حذف الدفعة: ' + paymentDeleteError.message, 'error'); return; }
+    if (paymentDeleteError) { showToast('تعذر حذف الدفعة: ' + paymentDeleteError.message, 'error'); return false; }
     const updatedPayments = payments.filter((p) => p.id !== paymentId);
     setPayments(updatedPayments);
     saveStoredPayments(updatedPayments);
@@ -914,7 +966,7 @@ export default function App() {
         paid_amount: fin.totalPaid,
         credit_balance: fin.creditBalance,
         payment_status: fin.status,
-        overdue_months: fin.remaining === 0 ? 0 : apt.overdueMonths,
+        overdue_months: apt.overdueMonths,
         last_payment_date: fin.lastPaymentDate || null,
       }).eq('id', apt.id);
       if (apartmentSyncError) showToast('تم حذف الإيصال، لكن تعذر تحديث ملخص الشقة على الخادم: ' + apartmentSyncError.message, 'error');
@@ -934,17 +986,27 @@ export default function App() {
     );
 
     showToast(`تم حذف الدفعة بمبلغ ${pToDelete.amount.toLocaleString()} ج.م وخصمها من الخزينة بنجاح!${finSummary}`);
+    return true;
   };
 
   // 10. EXPENSES CRUD
   const handleAddExpense = async (newExpData: Omit<Expense, 'id'>) => {
-    if (!user || !isAdmin || !currentBuilding.id) { showToast('لا توجد صلاحية لتسجيل المصروف.', 'error'); return; }
+    if (!user || !isAdmin || !currentBuilding.id) { showToast('لا توجد صلاحية لتسجيل المصروف.', 'error'); return false; }
+    if (isNeonBackend) {
+      try {
+        const buildingId = currentBuilding.id;
+        const result = await mutateFinancialEntry('expense', 'create', buildingId, null, newExpData, newExpData.requestId);
+        if (managerScopeRef.current !== managerScope) return false;
+        setExpenses(rows => [mapExpense(result.entry!), ...rows.filter(e => e.id !== result.entry?.id)]);
+        applyFinancialResult(buildingId, result); showToast('تم حفظ العملية وتسوية الخزينة.'); return true;
+      } catch (error) { showToast(error instanceof Error ? error.message : 'تعذر حفظ المصروف.', 'error'); return false; }
+    }
     const { data, error } = await supabase.from('expenses').insert({
       building_id: currentBuilding.id, title: newExpData.title, category: newExpData.category,
       amount: newExpData.amount, expense_date: newExpData.date, vendor: newExpData.vendor || '',
       notes: newExpData.notes || null, receipt_url: newExpData.receiptUrl || null, approved_by: user.id,
     }).select('id,building_id,title,category,amount,expense_date,vendor,notes,receipt_url,approved_by').single();
-    if (error || !data) { showToast('تعذر حفظ المصروف: ' + (error?.message || 'لم يتم تأكيد الحفظ'), 'error'); return; }
+    if (error || !data) { showToast('تعذر حفظ المصروف: ' + (error?.message || 'لم يتم تأكيد الحفظ'), 'error'); return false; }
     const exp: Expense = {
       id:data.id, buildingId:data.building_id, title:data.title, category:data.category,
       amount:Number(data.amount), date:data.expense_date, vendor:data.vendor || '',
@@ -959,20 +1021,30 @@ export default function App() {
 
     showToast(`تم توثيق مصروف "${exp.title}" بمبلغ ${exp.amount.toLocaleString()} ج.م وخصمه من الخزينة!`);
     void sendBuildingPush({ event_type: 'expense', building_id: currentBuilding.id, title: exp.title, category: exp.category, amount: exp.amount, reason: exp.notes || exp.title });
+    return true;
   };
 
   const handleUpdateExpense = async (id: string, updatedData: Partial<Expense>) => {
     const oldExp = expenses.find((e) => e.id === id);
-    if (!oldExp) return;
+    if (!oldExp) return false;
 
     const amountDiff = (updatedData.amount ?? oldExp.amount) - oldExp.amount;
     const nextExpense = { ...oldExp, ...updatedData };
+    if (isNeonBackend) {
+      try {
+        const buildingId = oldExp.buildingId || currentBuilding.id;
+        const result = await mutateFinancialEntry('expense', 'update', buildingId, id, nextExpense, nextExpense.requestId);
+        if (managerScopeRef.current !== managerScope) return false;
+        setExpenses(rows => rows.map(e => e.id === id ? mapExpense(result.entry!) : e));
+        applyFinancialResult(buildingId, result); showToast('تم حفظ العملية وتسوية الخزينة.'); return true;
+      } catch (error) { showToast(error instanceof Error ? error.message : 'تعذر حفظ المصروف.', 'error'); return false; }
+    }
     const { error } = await supabase.from('expenses').update({
       title: nextExpense.title, category: nextExpense.category, amount: nextExpense.amount,
       expense_date: nextExpense.date, vendor: nextExpense.vendor || '', notes: nextExpense.notes || null,
       receipt_url: nextExpense.receiptUrl || null,
     }).eq('id', id);
-    if (error) { showToast('تعذر تعديل المصروف: ' + error.message, 'error'); return; }
+    if (error) { showToast('تعذر تعديل المصروف: ' + error.message, 'error'); return false; }
 
     const updated = expenses.map((e) => (e.id === id ? nextExpense : e));
     setExpenses(updated);
@@ -982,13 +1054,23 @@ export default function App() {
     if (amountDiff !== 0) await persistTreasuryDelta(oldExp.buildingId || currentBuilding.id, -amountDiff);
 
     showToast('تم حفظ تعديل المصروف وتسوية الخزينة بنجاح!');
+    return true;
   };
 
   const handleDeleteExpense = async (id: string) => {
     const expToDelete = expenses.find((e) => e.id === id);
-    if (!expToDelete) return;
+    if (!expToDelete) return false;
+    if (isNeonBackend) {
+      try {
+        const buildingId = expToDelete.buildingId || currentBuilding.id;
+        const result = await mutateFinancialEntry('expense', 'delete', buildingId, id, {}, undefined);
+        if (managerScopeRef.current !== managerScope) return false;
+        setExpenses(rows => rows.filter(e => e.id !== id));
+        applyFinancialResult(buildingId, result); showToast('تم حفظ العملية وتسوية الخزينة.'); return true;
+      } catch (error) { showToast(error instanceof Error ? error.message : 'تعذر حفظ المصروف.', 'error'); return false; }
+    }
     const { error } = await supabase.from('expenses').delete().eq('id', id);
-    if (error) { showToast('تعذر حذف المصروف: ' + error.message, 'error'); return; }
+    if (error) { showToast('تعذر حذف المصروف: ' + error.message, 'error'); return false; }
 
     const updated = expenses.filter((e) => e.id !== id);
     setExpenses(updated);
@@ -998,13 +1080,14 @@ export default function App() {
     await persistTreasuryDelta(expToDelete.buildingId || currentBuilding.id, expToDelete.amount);
 
     showToast(`تم حذف المصروف واسترجاع ${expToDelete.amount.toLocaleString()} ج.م لرصيد الخزينة.`);
+    return true;
   };
 
   // 11. TICKETS, BOOKINGS, ANNOUNCEMENTS
-  const handleAddTicket = async (newTkt: Omit<MaintenanceTicket, 'id'>) => {
+  const handleAddTicket = async (newTkt: Omit<MaintenanceTicket, 'id'>): Promise<boolean> => {
     if (!user || !isAdmin || !currentBuilding.id) {
       showToast('لا توجد صلاحية لتسجيل بلاغ الصيانة.', 'error');
-      return;
+      return false;
     }
     const matchingApartment = apartments.find(a => String(a.unitNumber) === String(newTkt.unitNumber) && a.buildingId === currentBuilding.id);
     const { data, error } = await supabase.from('maintenance_tickets').insert({
@@ -1018,10 +1101,10 @@ export default function App() {
       urgency: newTkt.urgency,
       status: newTkt.status || 'جديد',
       created_by: user.id,
-    }).select('id,building_id,unit_number,resident_name,category,title,description,urgency,status,created_at').single();
+    }).select('id,building_id,unit_number,resident_name,category,title,description,urgency,status,created_at,manager_note,updated_at').single();
     if (error || !data) {
       showToast('تعذر حفظ بلاغ الصيانة: ' + (error?.message || 'لم يتم تأكيد الحفظ'), 'error');
-      return;
+      return false;
     }
     const savedTicket: MaintenanceTicket = {
       id:data.id, buildingId:data.building_id, unitNumber:data.unit_number, residentName:data.resident_name,
@@ -1030,6 +1113,7 @@ export default function App() {
     };
     setTickets(rows => [savedTicket, ...rows]);
     showToast('تم حفظ بلاغ الصيانة وإرساله لقاعدة بيانات العمارة.');
+    return true;
   };
 
   const handleDeleteTicket = async (ticketId: string): Promise<void> => {
@@ -1056,16 +1140,23 @@ export default function App() {
     setTickets(rows => rows.filter(item => item.id !== ticketId));
     showToast('تم حذف طلب الصيانة بنجاح.');
   };
-  const handleAddBooking = (newBk: Omit<FacilityBooking, 'id'>) => {
-    const bk: FacilityBooking = {
-      ...newBk,
-      id: `bk-${Date.now()}`,
-      buildingId: currentBuilding.id,
-    };
-    const updated = [bk, ...bookings];
-    setBookings(updated);
-    saveStoredBookings(updated);
-    showToast(`تم تأكيد حجز ${newBk.facility} بتاريخ ${newBk.date}.`);
+  const handleAddBooking = async (newBk: Omit<FacilityBooking, 'id'>): Promise<boolean> => {
+    if (!user || !isAdmin) return false;
+    const apt = apartments.find(a => a.buildingId === currentBuilding.id && a.unitNumber === newBk.unitNumber);
+    if (!apt || newBk.date < new Date().toLocaleDateString('en-CA')) { showToast('اختر شقة وتاريخ حجز صحيحين.', 'error'); return false; }
+    const { data, error } = await supabase.from('facility_bookings').insert({ building_id: currentBuilding.id,
+      apartment_id: apt.id, unit_number: apt.unitNumber, resident_name: apt.residentName, facility: newBk.facility,
+      booking_date: newBk.date, time_slot: newBk.timeSlot, status: 'قيد المراجعة', created_by: user.id,
+    }).select('id').single();
+    if (error || !data) { showToast('تعذر حفظ الحجز. البيانات موجودة للمحاولة مرة أخرى.', 'error'); return false; }
+    await loadSharedWorkflows([currentBuilding.id]); showToast('تم تسجيل طلب الحجز. يمكنك تأكيده من قائمة الحجوزات.'); return true;
+  };
+  const handleUpdateServiceRequest = async (kind: 'ticket' | 'booking', id: string, status: string, note: string): Promise<boolean> => {
+    const { data, error } = await supabase.rpc('update_service_request', { p_kind: kind, p_id: id, p_building_id: currentBuilding.id, p_status: status, p_note: note });
+    if (error || !data) { showToast('تعذر حفظ حالة الطلب. حاول مرة أخرى.', 'error'); return false; }
+    if (kind === 'ticket') setTickets(rows => rows.map(t => t.id === id ? { ...t, status: data.status, managerNote: data.manager_note, updatedAt: data.updated_at } : t));
+    else setBookings(rows => rows.map(b => b.id === id ? { ...b, status: data.status, managerNote: data.manager_note, updatedAt: data.updated_at } : b));
+    showToast('تم تحديث حالة الطلب والملاحظة للساكن.'); return true;
   };
 
   const handlePinAnnouncement = async (newAnn: Omit<Announcement, 'id'>): Promise<boolean> => {
@@ -1160,7 +1251,7 @@ export default function App() {
     setPayments(getStoredPayments());
     setExpenses(getStoredExpenses());
     setTickets(getStoredTickets());
-    setBookings(getStoredBookings());
+    if (!isNeonBackend) setBookings(getStoredBookings());
     setAnnouncements(getStoredAnnouncements());
     setSettings(getStoredSettings());
     showToast('تمت استعادة كافة البيانات وتحديث الواجهة بنجاح!');
@@ -1382,8 +1473,8 @@ export default function App() {
             { id: 'services', label: 'دليل الخدمات وأرقام الفنيين', icon: Wrench, tone: 'teal', onClick: () => setCurrentTab('services') },
             { id: 'polls', label: 'استطلاعات الرأي', icon: BarChart3, tone: 'violet', onClick: () => setCurrentTab('polls') },
             { id: 'reports', label: 'التقارير', icon: FileText, onClick: () => setCurrentTab('reports') },
-            { id: 'maintenance', label: 'بوابة الساكن والمرافق', icon: Wrench, tone: 'gold', count: unreadTicketCount, onClick: () => setCurrentTab('resident') },
-            { id: 'chat', label: 'المساعد الذكي Gemini', icon: Sparkles, tone: 'violet', onClick: () => setCurrentTab('chat') },
+            { id: 'maintenance', label: 'طلبات السكان والمرافق', icon: Wrench, tone: 'gold', count: unreadTicketCount, onClick: () => setCurrentTab('resident') },
+            { id: 'chat', label: 'المساعد الذكي', icon: Sparkles, tone: 'violet', onClick: () => setCurrentTab('chat') },
             { id: 'studio', label: 'الإعلانات والتصميم', icon: Palette, tone: 'gold', count: unreadAnnouncementCount, onClick: () => setCurrentTab('image-studio') },
             ...(isAdmin ? [
               { id: 'treasury', label: 'الرصيد الافتتاحي ووديعة الصيانة', icon: Wallet, tone: 'teal' as const, onClick: () => setCurrentTab('treasury-settings') },
@@ -1415,7 +1506,7 @@ export default function App() {
               onNavigate={setCurrentTab}
               onOpenAddExpense={() => { setCurrentTab('expenses'); setIsAddExpenseModalOpen(true); }}
               onOpenPdf={() => setIsPdfModalOpen(true)}
-              onOpenAddPayment={() => setCurrentTab('collections')}
+              onOpenAddPayment={() => { setPaymentRequest(value => value + 1); setCurrentTab('collections'); }}
             />
           )}
 
@@ -1430,6 +1521,7 @@ export default function App() {
               onAddApartment={handleAddApartment}
               onUpdateApartment={handleUpdateApartment}
               onDeleteApartment={handleDeleteApartment}
+              paymentRequest={paymentRequest}
               onSavePayment={handleSavePayment}
               onEditPayment={handleEditPayment}
               onDeletePayment={handleDeletePayment}
@@ -1471,6 +1563,8 @@ export default function App() {
               onDeleteTicket={handleDeleteTicket}
               isAdmin={isAdmin}
               onAddBooking={handleAddBooking}
+              onUpdateTicket={(id, status, note) => handleUpdateServiceRequest('ticket', id, status, note)}
+              onUpdateBooking={(id, status, note) => handleUpdateServiceRequest('booking', id, status, note)}
             />
           )}
 

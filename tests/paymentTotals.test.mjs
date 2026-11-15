@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { transform } from 'esbuild';
 
 const { code } = await transform(await readFile('src/services/financialAccounting.ts', 'utf8'), { loader: 'ts', format: 'esm' });
-const { calculateApartmentFinancials: apartmentTotals, calculateBuildingFinancials: buildingTotals } =
+const { calculateApartmentFinancials: apartmentTotals, calculateBuildingFinancials: buildingTotals, reconcileApartment } =
   await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
 const apartment = { id: 'a', buildingId: 'b', monthlyFee: 100, overdueMonths: 0, paidAmount: 2000, creditBalance: 1900, lastPaymentDate: '2026-11-09' };
 const receipt = { id: 'p', apartmentId: 'a', amount: 2000, date: '2026-11-09', month: '2026-11' };
@@ -111,4 +111,22 @@ test('fourteen apartments charged 1000 each show one payer and seven percent col
   assert.equal(totals.pendingCount, 13);
   assert.equal(totals.collectionRate, 7);
   assert.equal(apartmentTotals(units[3], [payment]).creditBalance, 0);
+});
+
+
+test('settling arrears preserves their due basis across reconciliation and deletion', () => {
+  const unit = { ...apartment, monthlyFee: 1000, overdueMonths: 3 };
+  const cash = [{ ...receipt, amount: 3000 }];
+  const reconciled = reconcileApartment(unit, cash);
+  assert.equal(reconciled.overdueMonths, 3);
+  assert.equal(apartmentTotals(reconciled, cash).creditBalance, 0);
+  assert.equal(apartmentTotals(reconciled, []).remaining, 3000);
+});
+
+test('advance cash never reports complete collection while another unit owes money', () => {
+  const units = [{ ...apartment, monthlyFee: 1000 }, { ...apartment, id: 'unpaid', monthlyFee: 1000 }];
+  const totals = buildingTotals('b', units, [{ ...receipt, amount: 2000 }]);
+  assert.equal(totals.totalCollected, 2000);
+  assert.equal(totals.totalRemaining, 1000);
+  assert.equal(totals.collectionRate, 50);
 });

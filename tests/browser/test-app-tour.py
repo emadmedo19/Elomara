@@ -90,6 +90,10 @@ with sync_playwright() as p:
         page.get_by_role('button',name='إضافة العمارة',exact=True).click()
         expect(page.locator('[data-app-tour]')).to_be_visible(timeout=12000)
         total=walk(page,width,height)
+        assert total==5,total
+        page.get_by_role('button',name='المزيد',exact=True).click()
+        page.get_by_role('button',name='دليل التطبيق',exact=True).click()
+        total=walk(page,width,height)
         assert total>=35,total
         assert page.evaluate('window.mock.calls')==1
         assert not page.evaluate("window.mock.rpcCalls.some(c=>/^(set_|delete_|update_|submit_|vote_)/.test(c.name))")
@@ -127,6 +131,10 @@ with sync_playwright() as p:
         print('PASS',width,'manager:',total,'detailed steps; actual forms open/close; fields unobscured; no writes; chapter jump; full-page view; focus trap')
         page=open_page(browser,width,height,'tour-resident')
         expect(page.locator('[data-app-tour]')).to_be_visible(timeout=12000)
+        total=walk(page,width,height)
+        assert total==4,total
+        page.get_by_role('button',name='المزيد',exact=True).click()
+        page.get_by_role('button',name='دليل التطبيق',exact=True).click()
         total=walk(page,width,height)
         assert total>=20
         assert page.evaluate('window.mock.calls')==0

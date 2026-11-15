@@ -1,3 +1,4 @@
+import { ServiceRequestActions } from './ServiceRequestActions';
 import { PollsView } from './PollsView';
 import React, { useState } from 'react';
 
@@ -21,10 +22,12 @@ interface ResidentViewProps {
   settings?: AppSettings;
   tickets: MaintenanceTicket[];
   bookings: FacilityBooking[];
-  onAddTicket: (ticket: Omit<MaintenanceTicket, 'id'>) => Promise<void>;
+  onAddTicket: (ticket: Omit<MaintenanceTicket, 'id'>) => Promise<boolean | void>;
   onDeleteTicket: (ticketId: string) => Promise<void>;
   isAdmin: boolean;
-  onAddBooking: (booking: Omit<FacilityBooking, 'id'>) => void;
+  onAddBooking: (booking: Omit<FacilityBooking, 'id'>) => Promise<boolean | void> | void;
+  onUpdateTicket?: (id: string, status: string, note: string) => Promise<boolean>;
+  onUpdateBooking?: (id: string, status: string, note: string) => Promise<boolean>;
 }
 
 export const ResidentView: React.FC<ResidentViewProps> = ({
@@ -37,10 +40,10 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
   onAddTicket,
   onDeleteTicket,
   isAdmin,
-  onAddBooking,
+  onAddBooking, onUpdateTicket, onUpdateBooking,
 }) => {
   // Current logged in resident unit (defaults to شقة 301)
-  const [selectedUnitId, setSelectedUnitId] = useState('apt-301');
+  const [selectedUnitId, setSelectedUnitId] = useState(apartments[0]?.id || '');
   const currentResident = apartments.find((a) => a.id === selectedUnitId) || apartments[0];
 
   const [activeTab, setActiveTab] = useState<'overview' | 'tickets' | 'booking' | 'voting'>('overview');
@@ -56,15 +59,18 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [bookingFacility, setBookingFacility] = useState<FacilityBooking['facility']>('روف العمارة');
   const [bookingDate, setBookingDate] = useState(new Date().toISOString().split('T')[0]);
-  const [bookingTimeSlot, setBookingTimeSlot] = useState('06:00 م - 09:00 م');
+  const [bookingTimeSlot, setBookingTimeSlot] = useState('');
 
 
 
+  const [requestBusy, setRequestBusy] = useState(false);
+  const [requestError, setRequestError] = useState('');
   const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!ticketTitle) return;
-
-    await onAddTicket({
+    if (!ticketTitle.trim() || requestBusy) return;
+    setRequestBusy(true); setRequestError('');
+    try {
+    const saved = await onAddTicket({
       unitNumber: currentResident.unitNumber,
       residentName: currentResident.residentName,
       category: ticketCategory,
@@ -75,23 +81,32 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
       status: 'جديد',
     });
 
+    if (saved === false) { setRequestError('تعذر حفظ البلاغ. حاول مرة أخرى.'); return; }
     setIsTicketModalOpen(false);
     setTicketTitle('');
     setTicketDescription('');
+    } catch { setRequestError('تعذر حفظ البلاغ. حاول مرة أخرى.'); }
+    finally { setRequestBusy(false); }
   };
 
-  const handleCreateBooking = (e: React.FormEvent) => {
+  const handleCreateBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    onAddBooking({
+    if (requestBusy) return;
+    setRequestBusy(true); setRequestError('');
+    try {
+    const saved = await onAddBooking({
       facility: bookingFacility,
       unitNumber: currentResident.unitNumber,
       residentName: currentResident.residentName,
       date: bookingDate,
       timeSlot: bookingTimeSlot,
-      status: 'مؤكد',
+      status: 'قيد المراجعة',
     });
 
+    if (saved === false) { setRequestError('تعذر حفظ الحجز. حاول مرة أخرى.'); return; }
     setIsBookingModalOpen(false);
+    } catch { setRequestError('تعذر حفظ الحجز. حاول مرة أخرى.'); }
+    finally { setRequestBusy(false); }
   };
 
   if (!currentResident) {
@@ -127,7 +142,7 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
 
         {/* Change Current Unit for Testing */}
         <div className="flex items-center gap-2 bg-white/10 p-1.5 rounded-xl border border-white/15 text-xs">
-          <span className="text-slate-300 text-[11px] pr-1">تغيير الشقة للتجربة:</span>
+          <span className="text-slate-300 text-[11px] pr-1">مراجعة حساب الشقة:</span>
           <select
             value={selectedUnitId}
             onChange={(e) => setSelectedUnitId(e.target.value)}
@@ -204,7 +219,7 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-bold text-sm text-slate-900 mb-0.5">الموقف المالي لاشتراكات صيانة الشقة</h3>
-                  <p className="text-xs text-slate-500">دورة الحساب الحالية: شهر أكتوبر 2024</p>
+                  <p className="text-xs text-slate-500">المستحقات المسجلة للشقة، شاملة مدد التأخير المحددة</p>
                 </div>
                 {fin.creditBalance > 0 && (
                   <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-full text-xs font-bold">
@@ -341,6 +356,7 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
                     <span className="text-[10px] text-slate-400 mt-1 block">
                       مقدم البلاغ: {t.residentName} ({t.unitNumber}) • {t.date}
                     </span>
+                    {isAdmin && onUpdateTicket && <ServiceRequestActions key={`${t.id}:${t.status}:${t.managerNote}`} status={t.status} note={t.managerNote} statuses={['جديد','قيد التنفيذ','مكتمل']} onSave={(status, note) => onUpdateTicket(t.id, status, note)}/>}
                   </div>
                 </div>
 
@@ -395,6 +411,7 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
                 </div>
                 <div className="space-y-1 text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                   <p>المحجوز باسم: <strong className="text-slate-800">{b.residentName}</strong> ({b.unitNumber})</p>
+                  {isAdmin && onUpdateBooking && <ServiceRequestActions key={`${b.id}:${b.status}:${b.managerNote}`} status={b.status} note={b.managerNote} statuses={['قيد المراجعة','مؤكد','ملغي']} onSave={(status, note) => onUpdateBooking(b.id, status, note)}/>}
                   <p>التاريخ: <span className="font-mono">{displayDateTime(b.date)}</span></p>
                   <p>الفترة: <span className="font-mono">{b.timeSlot}</span></p>
                 </div>
@@ -409,7 +426,8 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
       {/* Ticket Modal */}
       {isTicketModalOpen && (
         <div className="fixed inset-0 z-50 bg-[#0f2537]/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <form onSubmit={handleCreateTicket} className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200">
+          {requestError && <p role="alert" className="text-rose-700 p-3">{requestError}</p>}
+            <form onSubmit={handleCreateTicket} className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200">
             <h3 className="font-bold text-sm text-slate-900 mb-3 pb-2 border-b">تقديم بلاغ صيانة جديد</h3>
             <div className="space-y-3 text-xs">
               <div>
@@ -467,7 +485,7 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
 
             <div className="flex items-center gap-2 pt-3 border-t border-slate-100 mt-3">
               <button
-                type="submit"
+                type="submit" disabled={requestBusy}
                 className="flex-1 bg-[#0f2537] hover:bg-[#1a3852] text-white font-bold py-2 rounded-xl text-xs"
               >
                 إرسال الطلب لإدارة العمارة
@@ -487,7 +505,8 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
       {/* Booking Modal */}
       {isBookingModalOpen && (
         <div className="fixed inset-0 z-50 bg-[#0f2537]/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <form onSubmit={handleCreateBooking} className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200">
+          {requestError && <p role="alert" className="text-rose-700 p-3">{requestError}</p>}
+            <form onSubmit={handleCreateBooking} className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200">
             <h3 className="font-bold text-sm text-slate-900 mb-3 pb-2 border-b">حجز مرفق بالعقار</h3>
             <div className="space-y-3 text-xs">
               <div>
@@ -507,7 +526,7 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
               <div>
                 <label className="block text-slate-700 font-bold mb-1">التاريخ المحدد:</label>
                 <input
-                  type="date"
+                  type="date" min={new Date().toLocaleDateString('en-CA')}
                   value={bookingDate}
                   onChange={(e) => setBookingDate(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs font-mono"
@@ -531,10 +550,10 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
 
             <div className="flex items-center gap-2 pt-3 border-t border-slate-100 mt-3">
               <button
-                type="submit"
+                type="submit" disabled={requestBusy}
                 className="flex-1 bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 rounded-xl text-xs"
               >
-                تأكيد طلب الحجز
+                {requestBusy ? 'جارٍ الحفظ...' : 'تسجيل طلب الحجز'}
               </button>
               <button
                 type="button"

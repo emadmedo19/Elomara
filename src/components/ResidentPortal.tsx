@@ -34,6 +34,7 @@ export const ResidentPortal: React.FC = () => {
     if (tab === activeTab) return;
     window.history.pushState({ ...window.history.state, residentPage: tab }, '', window.location.href);
     setActiveTab(tab);
+    window.scrollTo({ top: 0, behavior: 'auto' });
   };
   useEffect(() => {
     const back = (event: PopStateEvent) => {
@@ -53,6 +54,7 @@ export const ResidentPortal: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [paymentMethodsRevision, setPaymentMethodsRevision] = useState(0);
   const [error, setError] = useState('');
+  const [sectionErrors, setSectionErrors] = useState({ payments: '', maintenance: '', bookings: '', reports: '' });
   const [notice, setNotice] = useState('');
   const [ticketForm, setTicketForm] = useState({ category: 'سباكة', title: '', description: '', urgency: 'عادي' });
   const [bookingForm, setBookingForm] = useState({ facility: 'الروف', booking_date: '', time_slot: '' });
@@ -102,18 +104,20 @@ export const ResidentPortal: React.FC = () => {
     if (!user || !userProfile?.apartmentId || !userProfile?.buildingId) { setLoading(false); return; }
     if (quiet) setRefreshing(true); else setLoading(true);
     setError('');
+    try {
     const [apt, bld, pay, news, maintenance, facility, report] = await Promise.all([
       supabase.from('apartments').select('id,unit_number,floor,resident_name,resident_phone,is_owner,monthly_fee,payment_status,overdue_months,paid_amount,credit_balance,last_payment_date').eq('id', userProfile.apartmentId).single(),
       supabase.from('buildings').select('id,name,address,manager_name,manager_phone,balance,monthly_target,reserve_fund,total_units,total_floors').eq('id', userProfile.buildingId).single(),
       supabase.from('payments').select('id,amount,payment_date,month,method,receipt_number,notes,payment_type,is_assessment,exceptional_charge_id,assessment_cancelled').eq('apartment_id', userProfile.apartmentId).order('payment_date',{ascending:false}),
       supabase.from('announcements').select('id,title,content,announcement_type,created_at,pinned').eq('building_id', userProfile.buildingId).order('pinned',{ascending:false}).order('created_at',{ascending:false}),
-      supabase.from('maintenance_tickets').select('id,category,title,description,urgency,status,created_at,updated_at').eq('apartment_id', userProfile.apartmentId).order('created_at',{ascending:false}),
-      supabase.from('facility_bookings').select('id,facility,booking_date,time_slot,status,created_at').eq('apartment_id', userProfile.apartmentId).order('booking_date',{ascending:false}),
+      supabase.from('maintenance_tickets').select('id,category,title,description,urgency,status,created_at,updated_at,manager_note').eq('apartment_id', userProfile.apartmentId).order('created_at',{ascending:false}),
+      supabase.from('facility_bookings').select('id,facility,booking_date,time_slot,status,created_at,updated_at,manager_note').eq('apartment_id', userProfile.apartmentId).order('booking_date',{ascending:false}),
       supabase.rpc('get_building_financial_summary', { p_building_id: userProfile.buildingId }),
     ]);
     const firstError = apt.error || bld.error;
     if (firstError) setError('تعذر تحميل بيانات الحساب: ' + firstError.message);
-    const rows = pay.data || [];
+    setSectionErrors({ payments: pay.error ? 'تعذر تحميل السداد. اسحب للتحديث أو اضغط تحديث البيانات.' : '', maintenance: maintenance.error ? 'تعذر تحميل البلاغات. حاول تحديث البيانات.' : '', bookings: facility.error ? 'تعذر تحميل الحجوزات. حاول تحديث البيانات.' : '', reports: report.error ? 'تعذر تحميل التقرير. حاول تحديث البيانات.' : '' });
+    const rows = pay.error ? payments : pay.data || [];
     const totals = apt.data ? calculateApartmentFinancials({
       ...apt.data, buildingId: userProfile.buildingId, unitNumber: apt.data.unit_number,
       residentName: apt.data.resident_name, residentPhone: apt.data.resident_phone, isOwner: apt.data.is_owner,
@@ -121,15 +125,18 @@ export const ResidentPortal: React.FC = () => {
     }, rows.map((p: any) => ({ ...p, apartmentId: apt.data.id, paymentType: p.payment_type,
       isAssessment: p.is_assessment, assessmentCancelled: p.assessment_cancelled, exceptionalChargeId: p.exceptional_charge_id,
       date: p.payment_date, amount: Number(p.amount || 0) }))) : null;
-    setApartment(apt.data ? { ...apt.data, paid_amount: totals?.totalPaid || 0,
-      remaining: totals?.remaining || 0, payment_status: totals?.status } : null);
+    if (!apt.error) setApartment((previous: Record<string, unknown> | null) => apt.data ? { ...apt.data, paid_amount: pay.error ? previous?.paid_amount : totals?.totalPaid || 0,
+      remaining: pay.error ? previous?.remaining : totals?.remaining || 0, credit_balance: pay.error ? previous?.credit_balance : totals?.creditBalance || 0, payment_status: pay.error ? previous?.payment_status : totals?.status } : null);
     if (quiet) setPaymentMethodsRevision(value=>value+1);
-    setBuilding(bld.data); setPayments(rows.filter((p: any) => !p.is_assessment));
+    if (!bld.error) setBuilding(bld.data);
+    if (!pay.error) setPayments(rows.filter((p: any) => !p.is_assessment));
     if (news.error) {
       console.error('[Elomara resident announcements]', news.error);
       setError(previous => previous || 'تعذر تحميل الإعلانات: ' + news.error.message);
     }
-    setAnnouncements(news.data || []); setTickets(maintenance.data || []); setBookings(facility.data || []);
+    if (!news.error) setAnnouncements(news.data || []);
+    if (!maintenance.error) setTickets(maintenance.data || []);
+    if (!facility.error) setBookings(facility.data || []);
     // Legacy Base64 images are fetched individually, so the announcements list stays below
     // the API response-size limit. Do not drop the image from the stored announcement.
     if (!news.error && news.data?.length) {
@@ -148,8 +155,9 @@ export const ResidentPortal: React.FC = () => {
       })();
     }
     if (report.error) console.error('[Bunyan financial summary]', report.error);
-    setFinancialReport(report.data || null);
-    setLoading(false); setRefreshing(false);
+    if (!report.error) setFinancialReport(report.data || null);
+    } catch { setError('تعذر الاتصال بالخادم. اضغط تحديث البيانات للمحاولة مرة أخرى.'); setSectionErrors({ payments: 'تعذر تحميل السداد.', maintenance: 'تعذر تحميل البلاغات.', bookings: 'تعذر تحميل الحجوزات.', reports: 'تعذر تحميل التقرير.' }); }
+    finally { setLoading(false); setRefreshing(false); }
   };
 
   useEffect(() => {
@@ -231,7 +239,7 @@ export const ResidentPortal: React.FC = () => {
     { id: 'announcements', label: 'إعلانات العمارة', icon: <Megaphone className="w-5 h-5"/> },
     { id: 'building', label: 'عن العمارة', icon: <Building2 className="w-5 h-5"/> },
   ];
-  const statusLabel = apartment?.payment_status === 'paid' ? 'مسدد' : apartment?.payment_status === 'overdue' ? 'متأخر' : 'قيد المتابعة';
+  const statusLabel = sectionErrors.payments ? 'تعذر تحديث السداد' : apartment?.payment_status === 'paid' ? 'مسدد' : apartment?.payment_status === 'overdue' ? 'متأخر' : 'قيد المتابعة';
   const ticketStatus = (s: string) => s === 'مكتمل' ? 'مكتمل' : s === 'قيد التنفيذ' ? 'قيد التنفيذ' : 'جديد';
 
   return <div dir="rtl" onTouchStart={handlePullStart} onTouchMove={handlePullMove} onTouchEnd={handlePullEnd} onTouchCancel={handlePullCancel} className="bunyan-resident fotouh-portal min-h-screen bg-[#f4f7fb] text-slate-800" style={{ overscrollBehaviorY: 'contain', touchAction: 'pan-y' }}>
@@ -247,7 +255,7 @@ export const ResidentPortal: React.FC = () => {
           <button id="resident-refresh-button" onClick={() => void load(true)} disabled={refreshing} className="p-2 rounded-xl" style={{ backgroundColor: "#e6f4f1", color: "#0f766e", border: "1px solid #9acfc4", opacity: 1, minWidth: 42, minHeight: 42 }} title="تحديث البيانات"><RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} style={{ color: "#0f766e", stroke: "#0f766e" }}/></button>
           <NotificationBell onNavigate={page => {
             const allowed: ResidentTab[] = ['home','payments','reports','announcements','maintenance','bookings','building','polls'];
-            setActiveTab(allowed.includes(page as ResidentTab) ? page as ResidentTab : 'home');
+            navigateSettings(allowed.includes(page as ResidentTab) ? page as ResidentTab : 'home');
             setNotice(''); setError(''); void load(true);
           }}/>
         </div>
@@ -257,13 +265,14 @@ export const ResidentPortal: React.FC = () => {
 
     <nav aria-label="التنقل الرئيسي" className="resident-bottom-nav fixed bottom-0 inset-x-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur-md shadow-[0_-5px_20px_rgba(15,40,50,.08)]" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 8px)" }}>
       <div className="mx-auto grid max-w-xl grid-cols-4 gap-1 px-2 pt-2">
-        {primaryNav.map(item => <button key={item.id} aria-current={activeTab===item.id ? 'page' : undefined} onClick={() => { setActiveTab(item.id); setNotice(''); setError(''); }} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold transition ${activeTab === item.id ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><span className={`settings-icon settings-icon-${item.id==='maintenance'?'violet':item.id==='payments'?'teal':'blue'} nav-color-icon`}>{item.icon}{item.id==='maintenance' && unreadTicketCount>0 && <span className="absolute -right-3 -top-3 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[10px] font-black leading-none text-white">{unreadTicketCount}</span>}</span><span className="truncate max-w-full">{item.label}</span></button>)}
+        {primaryNav.map(item => <button key={item.id} aria-current={activeTab===item.id ? 'page' : undefined} onClick={() => { navigateSettings(item.id); setNotice(''); setError(''); }} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold transition ${activeTab === item.id ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><span className={`settings-icon settings-icon-${item.id==='maintenance'?'violet':item.id==='payments'?'teal':'blue'} nav-color-icon`}>{item.icon}{item.id==='maintenance' && unreadTicketCount>0 && <span className="absolute -right-3 -top-3 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[10px] font-black leading-none text-white">{unreadTicketCount}</span>}</span><span className="truncate max-w-full">{item.label}</span></button>)}
         <button onClick={() => navigateSettings('more')} aria-current={['more', 'app-settings', ...moreNav.map(item => item.id)].includes(activeTab) ? 'page' : undefined} className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11px] font-bold ${['more', 'app-settings', ...moreNav.map(item => item.id)].includes(activeTab) ? 'bg-teal-50 text-teal-800' : 'text-slate-500'}`}><span className="settings-icon settings-icon-blue nav-color-icon"><MoreHorizontal className="w-5 h-5"/></span><span>المزيد</span></button>
       </div>
     </nav>
     <AppTour key={`${user?.id}:resident`} mode="resident" currentPage={activeTab} onNavigate={page => setActiveTab(page as ResidentTab)} />
     <main data-tour="resident-page" data-tour-page={activeTab} key={activeTab} className="bunyan-page-enter max-w-6xl mx-auto p-3 sm:p-5 pb-28 space-y-4">
       {error && <div className="rounded-xl bg-rose-50 text-rose-800 border border-rose-100 p-3 text-sm flex gap-2"><AlertCircle className="w-5 h-5 shrink-0"/>{error}</div>}
+      {Object.values(sectionErrors).some(Boolean) && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{Object.values(sectionErrors).filter(Boolean).join(' ')}<button type="button" onClick={() => void load(true)} className="block min-h-11 font-bold underline">إعادة المحاولة</button></div>}
       {notice && <div className="rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-100 p-3 text-sm flex gap-2"><CheckCircle2 className="w-5 h-5 shrink-0"/>{notice}</div>}
 
       {activeTab === 'more' && <MoreView onBack={() => window.history.back()} onOpenAppSettings={() => navigateSettings('app-settings')} onSignOut={() => void signOut()} items={[
@@ -284,7 +293,7 @@ export const ResidentPortal: React.FC = () => {
           <div data-tour="resident-financials" className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5">
             <div className="rounded-xl bg-white/10 p-3"><div className="text-xs text-slate-300">الاشتراك الشهري</div><b>{money(apartment?.monthly_fee)} جنيه</b></div>
             <div className="rounded-xl bg-white/10 p-3"><div className="text-xs text-slate-300">حالة السداد</div><b>{statusLabel}</b></div>
-            <div className="rounded-xl bg-white/10 p-3 col-span-2 sm:col-span-1"><div className="text-xs text-slate-300">رصيد الشقة</div><b>{money(apartment?.credit_balance)} جنيه</b></div>
+            <div className="rounded-xl bg-white/10 p-3 col-span-2 sm:col-span-1"><div className="text-xs text-slate-300">رصيد الشقة</div><b>{sectionErrors.payments ? '—' : money(apartment?.credit_balance)} جنيه</b></div>
           </div>
         </section>
         <section data-tour="resident-shortcuts" className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -293,10 +302,10 @@ export const ResidentPortal: React.FC = () => {
             {label:'بلاغات الصيانة',value:tickets.length,unit:'بلاغ',icon:<Wrench/>,tab:'maintenance' as ResidentTab},
             {label:'طلبات الحجز',value:bookings.length,unit:'طلب',icon:<CalendarDays/>,tab:'bookings' as ResidentTab},
             {label:'إعلانات جديدة',value:announcements.length,unit:'إعلان',icon:<Megaphone/>,tab:'announcements' as ResidentTab},
-          ].map(card=><button key={card.tab} onClick={()=>setActiveTab(card.tab)} className="bg-white rounded-2xl border p-4 text-right shadow-sm hover:border-teal-300"><div className={`settings-icon settings-icon-${card.tab==='maintenance'?'violet':card.tab==='bookings'?'gold':card.tab==='announcements'?'blue':'teal'} mb-2`}>{card.icon}</div><div className="text-xs text-slate-500">{card.label}</div><div className="text-xl font-black mt-1">{card.value} <span className="text-xs font-normal text-slate-500">{card.unit}</span></div></button>)}
+          ].map(card=><button key={card.tab} onClick={()=>navigateSettings(card.tab)} className="bg-white rounded-2xl border p-4 text-right shadow-sm hover:border-teal-300"><div className={`settings-icon settings-icon-${card.tab==='maintenance'?'violet':card.tab==='bookings'?'gold':card.tab==='announcements'?'blue':'teal'} mb-2`}>{card.icon}</div><div className="text-xs text-slate-500">{card.label}</div><div className="text-xl font-black mt-1">{card.value} <span className="text-xs font-normal text-slate-500">{card.unit}</span></div></button>)}
         </section>
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <div className="bg-white rounded-2xl border p-4 shadow-sm"><h3 className="font-bold mb-3">آخر الإعلانات</h3>{announcements.slice(0,3).length ? announcements.slice(0,3).map(n=><div key={n.id} className="border-t py-2"><b className="text-sm">{n.title}</b><p className="text-xs text-slate-500 mt-1 line-clamp-2">{n.content}</p></div>) : <p className="text-sm text-slate-500">لا توجد إعلانات حاليًا.</p>}<button onClick={()=>setActiveTab('announcements')} className="text-teal-700 text-xs font-bold mt-2">عرض كل الإعلانات</button></div>
+          <div className="bg-white rounded-2xl border p-4 shadow-sm"><h3 className="font-bold mb-3">آخر الإعلانات</h3>{announcements.slice(0,3).length ? announcements.slice(0,3).map(n=><div key={n.id} className="border-t py-2"><b className="text-sm">{n.title}</b><p className="text-xs text-slate-500 mt-1 line-clamp-2">{n.content}</p></div>) : <p className="text-sm text-slate-500">لا توجد إعلانات حاليًا.</p>}<button onClick={()=>navigateSettings('announcements')} className="text-teal-700 text-xs font-bold mt-2">عرض كل الإعلانات</button></div>
           <div className="bg-white rounded-2xl border p-4 shadow-sm"><h3 className="font-bold mb-3">التواصل مع الإدارة</h3><p className="text-sm text-slate-600">{building?.manager_name || 'إدارة العمارة'}</p><GuardContact buildingId={userProfile.buildingId} />{building?.manager_phone ? <a className="inline-flex items-center gap-2 mt-3 rounded-xl bg-teal-50 text-teal-800 px-3 py-2 text-sm font-bold" href={`tel:${building.manager_phone}`}><Phone className="w-4 h-4"/> {building.manager_phone}</a> : <p className="text-xs text-slate-500 mt-2">يمكنك إرسال بلاغ صيانة من قسم الصيانة والبلاغات.</p>}</div>
         </section>
       </>}
@@ -305,12 +314,12 @@ export const ResidentPortal: React.FC = () => {
         <div className="flex items-center gap-2 mb-3"><Receipt className="w-5 h-5 text-teal-600"/><h3 className="font-bold">حسابي المالي وسجل المدفوعات</h3></div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
           <div className="rounded-xl bg-slate-50 border p-3"><div className="text-xs text-slate-500">الاشتراك الشهري</div><b>{money(apartment?.monthly_fee)} جنيه</b></div>
-          <div className="rounded-xl bg-slate-50 border p-3"><div className="text-xs text-slate-500">إجمالي المسدد</div><b>{money(apartment?.paid_amount)} جنيه</b></div>
+          <div className="rounded-xl bg-slate-50 border p-3"><div className="text-xs text-slate-500">إجمالي المسدد</div><b>{sectionErrors.payments ? '—' : money(apartment?.paid_amount)} جنيه</b></div>
           <div className="rounded-xl bg-slate-50 border p-3 col-span-2 sm:col-span-1"><div className="text-xs text-slate-500">المتأخرات بالشهور</div><b>{Number(apartment?.overdue_months || 0)} شهر</b></div>
-          <div className="rounded-xl bg-slate-50 border p-3 col-span-2 sm:col-span-3"><div className="text-xs text-slate-500">المتبقي شامل التحصيل الاستثنائي</div><b>{money(apartment?.remaining)} جنيه</b></div>
+          <div className="rounded-xl bg-slate-50 border p-3 col-span-2 sm:col-span-3"><div className="text-xs text-slate-500">المتبقي شامل التحصيل الاستثنائي</div><b>{sectionErrors.payments ? '—' : money(apartment?.remaining)} جنيه</b></div>
         </div>
         <MemberPaymentMethods buildingId={userProfile.buildingId} revision={paymentMethodsRevision}/>
-        {payments.length ? payments.map(p=><div key={p.id} className="flex justify-between gap-3 border-t py-3 text-sm"><div><b>{p.month || dateLabel(p.payment_date)}</b><p className="text-xs text-slate-500">{p.method || 'نقدي'} {p.receipt_number ? '• إيصال '+p.receipt_number : ''}</p>{p.notes && <p className="text-xs text-slate-500 mt-1">{p.notes}</p>}</div><div className="text-left"><b className="whitespace-nowrap">{money(p.amount)} جنيه</b><p className="text-[11px] text-slate-400">{dateLabel(p.payment_date)}</p></div></div>) : <p className="text-sm text-slate-500">لا توجد مدفوعات مسجلة لهذه الشقة حتى الآن.</p>}
+        {payments.length ? payments.map(p=><div key={p.id} className="flex justify-between gap-3 border-t py-3 text-sm"><div><b>{p.month || dateLabel(p.payment_date)}</b><p className="text-xs text-slate-500">{p.method || 'نقدي'} {p.receipt_number ? '• إيصال '+p.receipt_number : ''}</p>{p.notes && <p className="text-xs text-slate-500 mt-1">{p.notes}</p>}</div><div className="text-left"><b className="whitespace-nowrap">{money(p.amount)} جنيه</b><p className="text-[11px] text-slate-400">{dateLabel(p.payment_date)}</p></div></div>) : <p className="text-sm text-slate-500">{sectionErrors.payments ? 'لم يتم تأكيد تحميل المدفوعات. أعد المحاولة.' : 'لا توجد مدفوعات مسجلة لهذه الشقة حتى الآن.'}</p>}
       </section>}
 
       {activeTab === 'reports' && <section data-tour="resident-reports" className="space-y-4">
@@ -360,19 +369,19 @@ export const ResidentPortal: React.FC = () => {
           <label className="block text-xs font-bold text-slate-600">الأولوية<select data-tour="ticket-urgency" value={ticketForm.urgency} onChange={e=>setTicketForm({...ticketForm,urgency:e.target.value})} className="mt-1 w-full rounded-xl border p-3 bg-white"><option>عادي</option><option>متوسط</option><option>عاجل</option></select></label>
           <button data-tour="ticket-submit" disabled={submitting} className="w-full rounded-xl bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white font-bold p-3">{submitting?'جارٍ الإرسال...':'إرسال البلاغ للإدارة'}</button>
         </form>
-        <div className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm"><h3 className="font-bold mb-3">بلاغاتي ومتابعة التنفيذ</h3>{tickets.length ? tickets.map(t=><article key={t.id} className="border-t py-3"><div className="flex items-start justify-between gap-2"><b className="text-sm">{t.title}</b><span className="text-[11px] rounded-full bg-slate-100 px-2 py-1 whitespace-nowrap">{ticketStatus(t.status)}</span></div><p className="text-xs text-slate-500 mt-1">{t.category} • أولوية {t.urgency}</p><p className="text-sm text-slate-600 mt-2">{t.description}</p><p className="text-[11px] text-slate-400 mt-2">تاريخ البلاغ: {new Date(t.created_at).toLocaleDateString('ar-EG')}</p></article>) : <p className="text-sm text-slate-500">لم ترسل أي بلاغات حتى الآن.</p>}</div>
+        <div className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm"><h3 className="font-bold mb-3">بلاغاتي ومتابعة التنفيذ</h3>{tickets.length ? tickets.map(t=><article key={t.id} className="border-t py-3"><div className="flex items-start justify-between gap-2"><b className="text-sm">{t.title}</b><span className="text-[11px] rounded-full bg-slate-100 px-2 py-1 whitespace-nowrap">{ticketStatus(t.status)}</span></div><p className="text-xs text-slate-500 mt-1">{t.category} • أولوية {t.urgency}</p><p className="text-sm text-slate-600 mt-2">{t.description}</p>{t.manager_note && <p className="mt-2 rounded-xl bg-teal-50 p-3 text-sm text-teal-900">ملاحظة الإدارة: {t.manager_note}</p>}{t.updated_at && <p className="mt-1 text-xs text-slate-500">آخر تحديث: {dateLabel(t.updated_at)}</p>}<p className="text-[11px] text-slate-400 mt-2">تاريخ البلاغ: {new Date(t.created_at).toLocaleDateString('ar-EG')}</p></article>) : <p className="text-sm text-slate-500">{sectionErrors.maintenance ? 'لم يتم تأكيد تحميل البلاغات. أعد المحاولة.' : 'لم ترسل أي بلاغات حتى الآن.'}</p>}</div>
       </section>}
 
       {activeTab === 'bookings' && <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <form onSubmit={submitBooking} className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm space-y-3">
           <div className="flex items-center gap-2"><CalendarDays className="w-5 h-5 text-teal-600"/><h3 className="font-bold">طلب حجز مرفق</h3></div>
-          <label className="block text-xs font-bold text-slate-600">المرفق<select data-tour="booking-facility" value={bookingForm.facility} onChange={e=>setBookingForm({...bookingForm,facility:e.target.value})} className="mt-1 w-full rounded-xl border p-3 bg-white"><option>الروف</option><option>قاعة الاجتماعات</option><option>مكان انتظار الزوار</option><option>موقف الزوار</option><option>أخرى</option></select></label>
+          <label className="block text-xs font-bold text-slate-600">المرفق<select data-tour="booking-facility" value={bookingForm.facility} onChange={e=>setBookingForm({...bookingForm,facility:e.target.value})} className="mt-1 w-full rounded-xl border p-3 bg-white"><option>الروف</option><option>قاعة الاجتماعات</option><option>موقف الزوار</option><option>أخرى</option></select></label>
           <label className="block text-xs font-bold text-slate-600">التاريخ<input required type="date" min={new Date().toISOString().slice(0,10)} data-tour="booking-date" value={bookingForm.booking_date} onChange={e=>setBookingForm({...bookingForm,booking_date:e.target.value})} className="mt-1 w-full rounded-xl border p-3"/></label>
           <label className="block text-xs font-bold text-slate-600">الوقت / الفترة<input required data-tour="booking-time" value={bookingForm.time_slot} onChange={e=>setBookingForm({...bookingForm,time_slot:e.target.value})} maxLength={80} className="mt-1 w-full rounded-xl border p-3" placeholder="مثال: من 5 إلى 7 مساءً"/></label>
           <button data-tour="booking-submit" disabled={submitting} className="w-full rounded-xl bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white font-bold p-3">{submitting?'جارٍ الإرسال...':'إرسال طلب الحجز'}</button>
           <p className="text-[11px] text-slate-500">الحجز يظل طلبًا قيد المراجعة حتى تؤكده الإدارة.</p>
         </form>
-        <div className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm"><h3 className="font-bold mb-3">حجوزاتي</h3>{bookings.length ? bookings.map(b=><article key={b.id} className="border-t py-3 flex justify-between gap-2"><div><b className="text-sm">{b.facility}</b><p className="text-xs text-slate-500 mt-1">{dateLabel(b.booking_date)} • {b.time_slot}</p></div><span className="text-[11px] bg-amber-50 text-amber-800 rounded-full px-2 py-1 h-fit">{b.status}</span></article>) : <p className="text-sm text-slate-500">لا توجد طلبات حجز حتى الآن.</p>}</div>
+        <div className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm"><h3 className="font-bold mb-3">حجوزاتي</h3>{bookings.length ? bookings.map(b=><article key={b.id} className="border-t py-3 flex justify-between gap-2"><div><b className="text-sm">{b.facility}</b><p className="text-xs text-slate-500 mt-1">{dateLabel(b.booking_date)} • {b.time_slot}</p>{b.manager_note && <p className="mt-2 text-sm text-teal-800">ملاحظة الإدارة: {b.manager_note}</p>}{b.updated_at && <p className="mt-1 text-xs text-slate-500">آخر تحديث: {dateLabel(b.updated_at)}</p>}</div><span className="text-[11px] bg-amber-50 text-amber-800 rounded-full px-2 py-1 h-fit">{b.status}</span></article>) : <p className="text-sm text-slate-500">{sectionErrors.bookings ? 'لم يتم تأكيد تحميل الحجوزات. أعد المحاولة.' : 'لا توجد طلبات حجز حتى الآن.'}</p>}</div>
       </section>}
 
       {activeTab === 'announcements' && <section data-tour="resident-announcements" className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm">

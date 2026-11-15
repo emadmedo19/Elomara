@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { ArrowLeft, ArrowRight, BookOpen, Building2, Check, Eye, List, Play, Users, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
-import { setupSteps, tourDialogs, tourSteps, type TourDialog, type TourMode } from '../data/appTourSteps';
+import { setupSteps, tourDialogs, tourSteps, quickTourSteps, type TourDialog, type TourMode } from '../data/appTourSteps';
 
 type Rect = { left:number; top:number; width:number; height:number };
 const completed = new Set<string>();
@@ -15,6 +15,7 @@ export function TourHelpButton() {
 }
 export function AppTour({mode,onNavigate,currentPage}:{mode:TourMode;onNavigate?:(page:string)=>void;currentPage?:string}) {
   const {user} = useAuth();
+  const [fullGuide,setFullGuide] = useState(false);
   const [open,setOpen] = useState(false);
   const [paused,setPaused] = useState(false);
   const [index,setIndex] = useState(0);
@@ -31,7 +32,7 @@ export function AppTour({mode,onNavigate,currentPage}:{mode:TourMode;onNavigate?
   const exploring = useRef(paused);exploring.current=paused;
   const navigation = useRef(onNavigate);navigation.current=onNavigate;
   const titleId=useId(),maskId=useId().replace(/:/g,'');
-  const steps = mode==='setup'&&journey ? [...tourSteps.setup,...setupSteps[journey]] : tourSteps[mode];
+  const steps = mode==='setup'&&journey ? [...tourSteps.setup,...setupSteps[journey]] : (!fullGuide && quickTourSteps[mode] ? quickTourSteps[mode]! : tourSteps[mode]);
   const step=steps[index]||steps[0];
   const choosing=mode==='setup'&&index===0;
   const chapters=steps.flatMap((item,i)=>i===0||item.section!==steps[i-1].section?[{label:item.section,index:i}]:[]);
@@ -64,7 +65,7 @@ export function AppTour({mode,onNavigate,currentPage}:{mode:TourMode;onNavigate?
   };
   useEffect(()=>{
     if(!user)return;
-    const start=()=>{if(!owned.current?.root.isConnected){owned.current=null;dirty.current=false;}originalPage.current=currentPage;setIndex(0);setJourney(null);setPaused(false);setOpen(true);setMenu(false);};
+    const start=()=>{setFullGuide(true);if(!owned.current?.root.isConnected){owned.current=null;dirty.current=false;}originalPage.current=currentPage;setIndex(0);setJourney(null);setPaused(false);setOpen(true);setMenu(false);};
     window.addEventListener('elomara:open-tour',start);
     return()=>window.removeEventListener('elomara:open-tour',start);
   },[user?.id,currentPage]);
