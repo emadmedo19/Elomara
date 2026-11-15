@@ -6,6 +6,12 @@ on:
       - main
   workflow_dispatch:
 
+# Serialize OTA publishing: one active run and at most one pending latest push.
+# Do not cancel a running upload; it must finish before the next release.
+concurrency:
+  group: elomara-ota-main
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
