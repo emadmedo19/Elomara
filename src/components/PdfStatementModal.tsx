@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { buildStatementPrintHtml } from '../services/statementPrinting';
 import { Printer as NativePrinter } from '@capgo/capacitor-printer';
 import { Building, Apartment, Expense, Payment } from '../types';
-import { calculateApartmentFinancials, calculateBuildingFinancials } from '../services/financialAccounting';
+import { calculateApartmentFinancials } from '../services/financialAccounting';
 import { Printer, Download, X, CheckCircle2, ShieldCheck } from 'lucide-react';
 
 interface PdfStatementModalProps {
@@ -20,13 +20,34 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
   expenses,
   onClose,
 }) => {
-  const buildingFin = calculateBuildingFinancials(building.id, apartments, payments);
-  const totalInflow = buildingFin.totalCollected;
-  const totalOutflow = expenses.reduce((acc, e) => acc + e.amount, 0);
+  const reportRange = (() => {
+    try {
+      const value = JSON.parse(sessionStorage.getItem('elomara-report-range') || 'null') as { startDate?: string; endDate?: string } | null;
+      if (value && /^\d{4}-\d{2}-\d{2}$/.test(value.startDate || '') && /^\d{4}-\d{2}-\d{2}$/.test(value.endDate || '') && value.startDate! <= value.endDate!) return value;
+    } catch { /* Use current month when opened without a selected range. */ }
+    return null;
+  })();
+  const startDate = reportRange?.startDate || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString('en-CA');
+  const endDate = reportRange?.endDate || new Date().toLocaleDateString('en-CA');
+  const inRange = (date: string) => date.slice(0, 10) >= startDate && date.slice(0, 10) <= endDate;
+  const receipts = payments.filter(p => !p.isAssessment);
+  const periodPayments = receipts.filter(p => inRange(p.date));
+  const periodExpenses = expenses.filter(e => inRange(e.date));
+  const totalInflow = periodPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const totalOutflow = periodExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   const netSurplus = totalInflow - totalOutflow;
-  const statementDate = new Date();
-  const statementMonth = statementDate.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
-  const referenceNumber = `FTU-${statementDate.getFullYear()}${String(statementDate.getMonth() + 1).padStart(2, '0')}${String(statementDate.getDate()).padStart(2, '0')}-${building.id.slice(0, 6).toUpperCase()}`;
+  const allInflow = receipts.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const allOutflow = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const openingBalance = building.balance - allInflow + allOutflow +
+    receipts.filter(p => p.date.slice(0, 10) < startDate).reduce((sum, p) => sum + (Number(p.amount) || 0), 0) -
+    expenses.filter(e => e.date.slice(0, 10) < startDate).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const closingBalance = openingBalance + netSurplus;
+  const formatDate = (date: string) => new Date(date + 'T12:00:00').toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' });
+  const statementMonth = startDate.slice(0, 7) === endDate.slice(0, 7) && startDate.endsWith('-01') &&
+    Number(endDate.slice(8)) === new Date(Number(endDate.slice(0, 4)), Number(endDate.slice(5, 7)), 0).getDate()
+    ? new Date(startDate + 'T12:00:00').toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' })
+    : formatDate(startDate) + ' - ' + formatDate(endDate);
+  const referenceNumber = 'FTU-' + startDate.replace(/-/g, '') + '-' + endDate.replace(/-/g, '') + '-' + building.id.slice(0, 6).toUpperCase();
 
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfError, setPdfError] = useState('');
@@ -127,15 +148,16 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
               <span className="text-base font-bold text-rose-600 block mt-0.5">{totalOutflow.toLocaleString()} ج.م</span>
             </div>
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-              <span className="text-[11px] text-slate-500 block">فائض حركة الشهر</span>
-              <span className="text-base font-bold text-emerald-600 block mt-0.5">+{netSurplus.toLocaleString()} ج.م</span>
+              <span className="text-[11px] text-slate-500 block">صافي حركة الفترة</span>
+              <span className="text-base font-bold text-emerald-600 block mt-0.5">{netSurplus.toLocaleString()} ج.م</span>
             </div>
             <div className="p-3 rounded-xl bg-teal-50/70 border border-teal-200">
-              <span className="text-[11px] text-teal-800 block">رصيد الصندوق المرحل</span>
-              <span className="text-base font-bold text-teal-900 block mt-0.5">{building.balance.toLocaleString()} ج.م</span>
+              <span className="text-[11px] text-teal-800 block">الرصيد الختامي للفترة</span>
+              <span className="text-base font-bold text-teal-900 block mt-0.5">{closingBalance.toLocaleString()} ج.م</span>
             </div>
           </div>
 
+          <p className="text-[11px] text-slate-500">الرصيد الافتتاحي المحسوب: {openingBalance.toLocaleString()} ج.م (يُراجع عند وجود أرصدة أو تسويات غير مسجلة).</p>
           {/* Section 1: Collections Table */}
           <div>
             <h3 className="font-bold text-sm text-[#0f2537] mb-2 flex items-center gap-1.5">
@@ -146,24 +168,27 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
                 <tr>
                   <th className="p-2 border border-slate-300">الوحدة</th>
                   <th className="p-2 border border-slate-300">اسم الشاغل / المالك</th>
-                  <th className="p-2 border border-slate-300">المستحق</th>
-                  <th className="p-2 border border-slate-300">المسدد</th>
-                  <th className="p-2 border border-slate-300">المتبقي</th>
-                  <th className="p-2 border border-slate-300">رصيد دائن</th>
-                  <th className="p-2 border border-slate-300">الحالة</th>
+                  <th className="p-2 border border-slate-300">المستحق الحالي*</th>
+                  <th className="p-2 border border-slate-300">المسدد خلال الفترة</th>
+                  <th className="p-2 border border-slate-300">المتبقي الحالي*</th>
+                  <th className="p-2 border border-slate-300">رصيد دائن حالي*</th>
+                  <th className="p-2 border border-slate-300">الحالة الحالية*</th>
                   <th className="p-2 border border-slate-300">تاريخ السداد</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {apartments.map((apt) => {
                   const fin = calculateApartmentFinancials(apt, payments);
+                  const aptPeriodPayments = periodPayments.filter(p => p.apartmentId === apt.id);
+                  const periodPaid = aptPeriodPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+                  const lastPeriodPayment = [...aptPeriodPayments].sort((x, y) => y.date.localeCompare(x.date))[0];
                   return (
                     <tr key={apt.id} className="hover:bg-slate-50">
                       <td className="p-2 font-bold border border-slate-200">{apt.unitNumber}</td>
                       <td className="p-2 border border-slate-200">{apt.residentName}</td>
                       <td className="p-2 border border-slate-200 font-mono">{fin.totalDue.toLocaleString()} ج.م</td>
                       <td className="p-2 border border-slate-200 font-mono font-bold text-teal-700">
-                        {fin.totalPaid.toLocaleString()} ج.م
+                        {periodPaid.toLocaleString()} ج.م
                       </td>
                       <td className="p-2 border border-slate-200 font-mono font-bold text-rose-600">
                         {fin.remaining > 0 ? `${fin.remaining.toLocaleString()} ج.م` : '0 ج.م'}
@@ -181,7 +206,7 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
                         )}
                       </td>
                       <td className="p-2 border border-slate-200 font-mono text-slate-500">
-                        {fin.lastPaymentDate || '-'}
+                        {lastPeriodPayment?.date || '-'}
                       </td>
                     </tr>
                   );
@@ -190,6 +215,7 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
             </table></div>
           </div>
 
+          <p className="text-[11px] text-slate-500">* المستحق والمتبقي والحالة تعكس الوضع الحالي، وليست أرصدة تاريخية. المسدد وتاريخ السداد والمصروفات تخص الفترة المختارة.</p>
           {/* Section 2: Itemized Expenditures */}
           <div>
             <h3 className="font-bold text-sm text-[#0f2537] mb-2 flex items-center gap-1.5">
@@ -206,7 +232,7 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {expenses.map((exp) => (
+                {periodExpenses.map((exp) => (
                   <tr key={exp.id} className="hover:bg-slate-50">
                     <td className="p-2 font-bold border border-slate-200">{exp.title}</td>
                     <td className="p-2 border border-slate-200">{exp.category}</td>
