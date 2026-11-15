@@ -3,7 +3,7 @@ import { BrandLogo } from './BrandLogo';
 import { useSuccessFeedback } from './SuccessFeedback';
 import { AppTour } from './AppTour';
 import { GuardContact } from './GuardContact';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { NotificationBell } from './NotificationBell';
 import { MoreView } from './MoreView';
 import { ServiceDirectory } from './ServiceDirectory';
@@ -30,11 +30,11 @@ export const ResidentPortal: React.FC = () => {
   const [bookings, setBookings] = useState<any[]>([]);
   const [financialReport, setFinancialReport] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<ResidentTab>('home');
+  useLayoutEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [activeTab]);
   const navigateSettings = (tab: ResidentTab) => {
     if (tab === activeTab) return;
     window.history.pushState({ ...window.history.state, residentPage: tab }, '', window.location.href);
     setActiveTab(tab);
-    window.scrollTo({ top: 0, behavior: 'auto' });
   };
   useEffect(() => {
     const back = (event: PopStateEvent) => {

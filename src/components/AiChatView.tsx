@@ -17,7 +17,7 @@ export const AiChatView: React.FC<AiChatViewProps> = ({ buildingName }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
 
   const personaInstructions: Record<string, { title: string; instruction: string }> = {
     'legal-finance': {
@@ -51,7 +51,8 @@ export const AiChatView: React.FC<AiChatViewProps> = ({ buildingName }) => {
   ]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const thread = threadRef.current;
+    thread?.scrollTo({ top: thread.scrollHeight, behavior: messages.length > 1 ? 'smooth' : 'instant' });
   };
 
   useEffect(() => {
@@ -167,7 +168,7 @@ export const AiChatView: React.FC<AiChatViewProps> = ({ buildingName }) => {
       </div>
 
       {/* Messages Scrollable Thread */}
-      <div className="ai-chat-thread flex-1 p-4 sm:p-5 overflow-y-auto space-y-4 bg-slate-50/50">
+      <div ref={threadRef} className="ai-chat-thread flex-1 p-4 sm:p-5 overflow-y-auto space-y-4 bg-slate-50/50">
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -226,7 +227,6 @@ export const AiChatView: React.FC<AiChatViewProps> = ({ buildingName }) => {
           </div>
         )}
 
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Suggested Quick Prompt Chips */}

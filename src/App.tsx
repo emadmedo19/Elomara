@@ -1,6 +1,6 @@
 import { isNeonBackend, updateNeonBuilding } from './lib/neon';
 import { IntroWindowLights } from './components/IntroWindowLights';
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { 
   Building, UserRole, Apartment, Payment, Expense, MaintenanceTicket, 
@@ -59,6 +59,11 @@ const tabFromLocation = () => {
 
 export default function App() {
   useEffect(initializeDevicePreferences, []);
+  useEffect(() => {
+    const previous = window.history.scrollRestoration;
+    window.history.scrollRestoration = 'manual';
+    return () => { window.history.scrollRestoration = previous; };
+  }, []);
   // Live Updates are initialized once in src/main.tsx. Keeping a second
   // initializer here caused two concurrent ready/download flows on Android.
   useEffect(() => {
@@ -293,6 +298,7 @@ export default function App() {
 
   // 3. Navigation State (Defaults directly to 'dashboard')
   const [currentTab, setCurrentTabState] = useState<string>(() => typeof window === 'undefined' ? 'dashboard' : tabFromLocation());
+  useLayoutEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [currentTab]);
   useEffect(() => { if (currentTab !== 'collections') setPaymentRequest(0); }, [currentTab]);
 
   const notificationStorageKey = (kind: 'tickets' | 'announcements') => `bunyan-seen-${kind}-${user?.id || 'guest'}-${currentBuildingId || 'all'}`;

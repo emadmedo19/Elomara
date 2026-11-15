@@ -37,7 +37,7 @@
   --bunyan-mist: #f3f7fa;
   --bunyan-line: rgba(148, 163, 184, .2);
 }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: auto; }
 body { -webkit-tap-highlight-color: transparent; }
 button, a, input, select, textarea {
   transition: color .2s ease, background-color .2s ease, border-color .2s ease,
@@ -56,12 +56,12 @@ button:not(:disabled):active { transform: scale(.975); }
   0%, 100% { box-shadow: 0 8px 24px rgba(15, 37, 55, .06); }
   50% { box-shadow: 0 12px 30px rgba(15, 139, 131, .11); }
 }
-.bunyan-page-enter { animation: bunyan-rise .38s cubic-bezier(.2,.7,.2,1) both; }
+.bunyan-page-enter { animation: none; }
 .bunyan-resident main section > div,
 .bunyan-resident main section > article,
 .bunyan-resident main section > button,
 .bunyan-resident main > section {
-  animation: bunyan-rise .35s ease both;
+  animation: none;
 }
 .bunyan-resident main section > button:hover,
 .bunyan-resident main section > div:hover {
@@ -542,8 +542,8 @@ body { background: var(--fotouh-page); color: #263c43; }
   to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 .bunyan-manager-shell > main > * {
-  animation: fotouh-screen-arrive .42s cubic-bezier(.2,.75,.25,1) both;
-  will-change: opacity, transform;
+  animation: none;
+  will-change: auto;
 }
 .bunyan-manager-shell > main > *:nth-child(2) { animation-delay: .035s; }
 .bunyan-manager-shell > main > *:nth-child(3) { animation-delay: .07s; }

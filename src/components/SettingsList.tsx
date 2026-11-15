@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 import { ArrowRight, ChevronLeft, type LucideIcon } from 'lucide-react';
 
 export interface SettingsListItem {
@@ -21,7 +21,7 @@ export function SettingsList({ items }: { items: SettingsListItem[] }) {
 }
 export function SettingsPage({ title, onBack, children, subpage = false, tourTarget }: { title: string; onBack: () => void; children: React.ReactNode; subpage?: boolean; tourTarget?: string }) {
   const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { window.scrollTo({ top: 0, behavior: 'auto' }); heading.current?.focus({ preventScroll: true }); }, [title]);
+  useLayoutEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); heading.current?.focus({ preventScroll: true }); }, [title]);
   return <section data-tour={tourTarget} className="settings-page" dir="rtl" data-settings-subpage={subpage || undefined}>
     <div className="settings-page-heading"><button type="button" className="settings-back" aria-label="رجوع" onClick={onBack}><ArrowRight size={22}/></button><h1 ref={heading} tabIndex={-1}>{title}</h1><span aria-hidden="true"/></div>
     {children}
