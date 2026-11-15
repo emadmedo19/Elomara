@@ -1,9 +1,6 @@
 name: Bunyan OTA
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 # Serialize OTA publishing: one active run and at most one pending latest push.

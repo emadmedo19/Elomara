@@ -1,10 +1,6 @@
 name: Build Neon Android candidate
 
 on:
-  workflow_run:
-    workflows: [Deploy Neon backend]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
