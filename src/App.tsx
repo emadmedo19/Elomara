@@ -18,6 +18,7 @@ import {
   getStoredAuditLogs, saveStoredAuditLogs
 } from './services/storage';
 import { 
+  type ApartmentPaymentFilter,
   calculateApartmentFinancials, 
   calculateBuildingFinancials, 
   reconcileApartment 
@@ -87,6 +88,7 @@ export default function App() {
   const [role, setRole] = useState<UserRole>('manager');
   
   const [apartments, setApartments] = useState<Apartment[]>([]);
+  const [collectionEntryFilter, setCollectionEntryFilter] = useState<ApartmentPaymentFilter>('all');
   const [paymentRequest, setPaymentRequest] = useState(0);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [auditLogs, setAuditLogs] = useState<PaymentAuditLog[]>([]);
@@ -299,7 +301,7 @@ export default function App() {
   // 3. Navigation State (Defaults directly to 'dashboard')
   const [currentTab, setCurrentTabState] = useState<string>(() => typeof window === 'undefined' ? 'dashboard' : tabFromLocation());
   useLayoutEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [currentTab]);
-  useEffect(() => { if (currentTab !== 'collections') setPaymentRequest(0); }, [currentTab]);
+  useEffect(() => { if (currentTab !== 'collections') { setPaymentRequest(0); setCollectionEntryFilter('all'); } }, [currentTab]);
 
   const notificationStorageKey = (kind: 'tickets' | 'announcements') => `bunyan-seen-${kind}-${user?.id || 'guest'}-${currentBuildingId || 'all'}`;
   const getSeenNotificationIds = (kind: 'tickets' | 'announcements'): string[] => {
@@ -1512,6 +1514,7 @@ export default function App() {
               onNavigate={setCurrentTab}
               onOpenAddExpense={() => { setCurrentTab('expenses'); setIsAddExpenseModalOpen(true); }}
               onOpenPdf={() => setIsPdfModalOpen(true)}
+              onOpenOutstanding={() => { setCollectionEntryFilter('outstanding'); setCurrentTab('collections'); }}
               onOpenAddPayment={() => { setPaymentRequest(value => value + 1); setCurrentTab('collections'); }}
             />
           )}
@@ -1527,6 +1530,7 @@ export default function App() {
               onAddApartment={handleAddApartment}
               onUpdateApartment={handleUpdateApartment}
               onDeleteApartment={handleDeleteApartment}
+              initialPaymentFilter={collectionEntryFilter}
               paymentRequest={paymentRequest}
               onSavePayment={handleSavePayment}
               onEditPayment={handleEditPayment}

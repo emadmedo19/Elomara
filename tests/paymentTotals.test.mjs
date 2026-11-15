@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { transform } from 'esbuild';
 
 const { code } = await transform(await readFile('src/services/financialAccounting.ts', 'utf8'), { loader: 'ts', format: 'esm' });
-const { calculateApartmentFinancials: apartmentTotals, calculateBuildingFinancials: buildingTotals, reconcileApartment } =
+const { calculateApartmentFinancials: apartmentTotals, calculateBuildingFinancials: buildingTotals, reconcileApartment, classifyApartmentPayment } =
   await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
 const apartment = { id: 'a', buildingId: 'b', monthlyFee: 100, overdueMonths: 0, paidAmount: 2000, creditBalance: 1900, lastPaymentDate: '2026-11-09' };
 const receipt = { id: 'p', apartmentId: 'a', amount: 2000, date: '2026-11-09', month: '2026-11' };
@@ -129,4 +129,19 @@ test('advance cash never reports complete collection while another unit owes mon
   assert.equal(totals.totalCollected, 2000);
   assert.equal(totals.totalRemaining, 1000);
   assert.equal(totals.collectionRate, 50);
+});
+
+
+test('payment filters distinguish complete, zero and partial settlements using recorded balances', () => {
+  const unit = { ...apartment, monthlyFee: 1000, overdueMonths: 4 };
+  assert.equal(classifyApartmentPayment(apartmentTotals(unit, [])), 'unpaid');
+  assert.equal(classifyApartmentPayment(apartmentTotals(unit, [{ ...receipt, amount: 2000 }])), 'partial');
+  assert.equal(classifyApartmentPayment(apartmentTotals(unit, [{ ...receipt, amount: 4000 }])), 'paid');
+  assert.equal(classifyApartmentPayment(apartmentTotals(unit, [{ ...receipt, amount: 5000 }])), 'paid');
+  assert.equal(classifyApartmentPayment(apartmentTotals({ ...unit, monthlyFee: 0 }, [])), 'unconfigured');
+});
+
+test('an unpaid exceptional assessment keeps a prepaid monthly account in the partial group', () => {
+  const unit = { ...apartment, monthlyFee: 1000 };
+  assert.equal(classifyApartmentPayment(apartmentTotals(unit, [{ ...receipt, amount: 1500 }, { ...charge, amount: 5000 }])), 'partial');
 });

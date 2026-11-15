@@ -1,6 +1,6 @@
 import React from 'react';
 import { Building, Apartment, Expense, Announcement, MaintenanceTicket, Payment } from '../types';
-import { calculateBuildingFinancials } from '../services/financialAccounting';
+import { calculateBuildingFinancials, calculateApartmentFinancials } from '../services/financialAccounting';
 import {
   PlusCircle, Receipt, FileText, Sparkles, ArrowDownRight, Wrench,
   Megaphone, TrendingUp, Wallet, ChevronLeft, CalendarDays, BarChart3
@@ -17,6 +17,7 @@ interface DashboardViewProps {
   onOpenAddExpense: () => void;
   onOpenPdf: () => void;
   onOpenAddPayment: () => void;
+  onOpenOutstanding?: () => void;
   canManageAnnouncements?: boolean;
   onDeleteAnnouncement?: (announcementId: string) => void;
 }
@@ -30,7 +31,7 @@ const dateLabel = (value?: string) => {
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   building, apartments, payments = [], expenses, announcements, tickets, onNavigate,
-  onOpenAddExpense, onOpenPdf, onOpenAddPayment, canManageAnnouncements = false, onDeleteAnnouncement,
+  onOpenAddExpense, onOpenPdf, onOpenAddPayment, onOpenOutstanding, canManageAnnouncements = false, onDeleteAnnouncement,
 }) => {
   const fin = calculateBuildingFinancials(building.id, apartments, payments);
   const expensesTotal = expenses.reduce((sum, item) => sum + item.amount, 0);
@@ -71,11 +72,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <strong>{money(fin.totalCollected)} <small>ج.م</small></strong>
           <p>المبالغ المسجلة كتحصيل</p>
         </article>
-        <article className="light-stat light-stat-due">
+        <button type="button" className="light-stat light-stat-due light-stat-button" aria-label="عرض الشقق التي عليها مستحقات" onClick={() => onOpenOutstanding ? onOpenOutstanding() : onNavigate('collections')}>
           <div><span>المتبقي للتحصيل</span><span className="light-stat-icon settings-icon-gold"><Wallet size={21} /></span></div>
           <strong>{money(fin.totalRemaining)} <small>ج.م</small></strong>
-          <p>{fin.pendingCount + fin.overdueCount} وحدة عليها مستحقات</p>
-        </article>
+          <p>{apartments.filter(apt => calculateApartmentFinancials(apt, payments).remaining > 0).length} وحدة عليها مستحقات · عرض الشقق</p>
+        </button>
         <article className="light-stat light-stat-expenses">
           <div><span>المصروفات المسجلة</span><span className="light-stat-icon settings-icon-rose"><Receipt size={21} /></span></div>
           <strong>{money(expensesTotal)} <small>ج.م</small></strong>

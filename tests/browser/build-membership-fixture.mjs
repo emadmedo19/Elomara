@@ -15,11 +15,17 @@ const residentFixture=['tour-resident','feedback-resident','payment-destinations
 const user={id:'manager',created_at:new URLSearchParams(location.search).has('guide')?new Date().toISOString():'2026-11-01T00:00:00Z',email:'fixture@example.invalid',user_metadata:{}};
 const state=window.mock={fixture:'elomara-membership-fixture-v1',created:false,staleReads:['error','switch'].includes(scenario)?100:2,calls:0,reads:0,currentUser:scenario==='signup'?null:user,lateRead:false,building:null,apartments:[],emit(){}};
 
-if(scenario==='review-manager') {
+if(['review-manager','payment-filter-manager'].includes(scenario)) {
  state.created=true;state.staleReads=0;
  state.building={id:'new-building',name:'عمارة الاختبار',address:'',total_units:14,total_floors:4,balance:100,monthly_target:14000,reserve_fund:0,manager_name:'مدير الاختبار',manager_phone:''};
  state.apartments=Array.from({length:14},(_,i)=>({id:'apt-'+(i+1),building_id:'new-building',unit_number:String(i+1),floor:Math.floor(i/4)+1,resident_name:'ساكن '+(i+1),resident_phone:'',is_owner:true,monthly_fee:1000,payment_status:'pending',overdue_months:i===0?3:0,paid_amount:0,credit_balance:0}));
  state.entities={payments:[],expenses:[],financial_audit_log:[],maintenance_tickets:[{id:'ticket',building_id:'new-building',apartment_id:'apt-1',unit_number:'1',resident_name:'ساكن 1',title:'عطل المصعد',description:'بلاغ اختبار',category:'مصاعد',urgency:'عاجل',status:'جديد',created_at:new Date().toISOString()}],facility_bookings:[{id:'booking',building_id:'new-building',apartment_id:'apt-1',unit_number:'1',resident_name:'ساكن 1',facility:'الروف',booking_date:'2026-11-20',time_slot:'5-7',status:'قيد المراجعة'}]};
+}
+if(scenario==='payment-filter-manager') {
+ state.apartments[3].overdue_months=4;state.apartments[4].overdue_months=3;state.apartments[5].monthly_fee=0;
+ state.apartments[2].payment_status='paid';
+ state.entities.payments=[[0,3000],[1,1500],[3,2000],[4,1000]].map(([index,amount])=>({id:'seed-'+index,building_id:'new-building',apartment_id:'apt-'+(index+1),unit_number:String(index+1),resident_name:'ساكن '+(index+1),amount,payment_date:'2026-11-14',month:'نوفمبر ٢٠٢٦',method:'نقدي',payment_type:'monthly',recorded_at:new Date().toISOString()}));
+ state.entities.payments.push({id:'charge',building_id:'new-building',apartment_id:'apt-2',unit_number:'2',resident_name:'ساكن 2',amount:5000,payment_date:'2026-11-14',month:'نوفمبر ٢٠٢٦',method:'',payment_type:'exceptional',is_assessment:true});
 }
 const row=(pending=false,id='manager')=>({id,full_name:'Fixture',role:residentFixture?'tenant':pending||state.forcePending?'pending':'building_admin',approved:!(pending||state.forcePending),building_id:residentFixture?'resident-building':state.created&&!pending?'new-building':null,apartment_id:residentFixture?'resident-apartment':null,disabled_at:null,updated_at:'2026-11-10'});
 function query(table,authoritative=false){let single=false,filters={},inserting=null,updating=null,deleting=false;const q={update(value){updating=value;return q},delete(){deleting=true;return q},insert(value){inserting=value;return q},select(){return q},eq(k,v){filters[k]=v;return q},in(){return q},order(){return q},is(){return q},limit(){return q},abortSignal(){return q},maybeSingle(){single=true;return q},single(){single=true;return q},then(resolve,reject){let result;

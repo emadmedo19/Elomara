@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { Building, Apartment, Payment, PaymentStatus, UserRole, PaymentAuditLog } from '../types';
-import { calculateApartmentFinancials, calculateBuildingFinancials } from '../services/financialAccounting';
+import { calculateApartmentFinancials, calculateBuildingFinancials, classifyApartmentPayment, type ApartmentPaymentFilter } from '../services/financialAccounting';
 import { 
   Building2, Search, Filter, CheckCircle2, AlertCircle, Clock, 
   DollarSign, UserCheck, Phone, Plus, Edit2, Trash2, Eye, Share2, 
@@ -38,6 +38,7 @@ interface CollectionsViewProps {
   paymentMethods?: string[];
   onDeletePayment: (paymentId: string) => Promise<boolean | void> | void;
   paymentRequest?: number;
+  initialPaymentFilter?: ApartmentPaymentFilter;
 }
 
 export const CollectionsView: React.FC<CollectionsViewProps> = ({
@@ -52,7 +53,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
   onSavePayment,
   onEditPayment,
   paymentMethods,
-  onDeletePayment, paymentRequest = 0,
+  onDeletePayment, paymentRequest = 0, initialPaymentFilter = 'all',
 }) => {
   const [deletingPayment, setDeletingPayment] = useState(false);
   const isManager = role === 'manager';
@@ -61,7 +62,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'apartments' | 'payments' | 'audit'>('apartments');
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<ApartmentPaymentFilter>(initialPaymentFilter);
   const [monthFilter, setMonthFilter] = useState<string>('all');
 
   // Modals state
@@ -101,15 +102,28 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
     payments
   );
 
+  const paymentStateLabels = { paid: 'خالص السداد', unpaid: 'لم يسدد', partial: 'سداد جزئي', unconfigured: 'لم تحدد المستحقات' };
+  const paymentStateCounts = buildingApartments.reduce((counts, apt) => {
+    counts[classifyApartmentPayment(calculateApartmentFinancials(apt, payments))] += 1;
+    return counts;
+  }, { paid: 0, unpaid: 0, partial: 0, unconfigured: 0 });
+  const paymentFilters = [
+    { value: 'all', label: 'الكل', count: buildingApartments.length },
+    { value: 'paid', label: 'خالص السداد', count: paymentStateCounts.paid },
+    { value: 'unpaid', label: 'لم يسدد', count: paymentStateCounts.unpaid },
+    { value: 'partial', label: 'سداد جزئي', count: paymentStateCounts.partial },
+  ] as const;
+  const normalizeDigits = (text: string) => text.replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)));
+
   // Filter apartments for display
   const filteredApartments = buildingApartments.filter((apt) => {
     const fin = calculateApartmentFinancials(apt, payments);
     const matchesSearch =
-      apt.unitNumber.includes(searchTerm) ||
+      normalizeDigits(apt.unitNumber).includes(normalizeDigits(searchTerm)) ||
       apt.residentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      apt.residentPhone.includes(searchTerm);
+      normalizeDigits(apt.residentPhone).includes(normalizeDigits(searchTerm));
 
-    const matchesStatus = statusFilter === 'all' || fin.status === statusFilter;
+    const matchesStatus = statusFilter === 'all' || (statusFilter === 'outstanding' ? fin.remaining > 0 : classifyApartmentPayment(fin) === statusFilter);
 
     return matchesSearch && matchesStatus;
   }).sort((a, b) => a.unitNumber.localeCompare(b.unitNumber, 'ar', { numeric: true, sensitivity: 'base' }));
@@ -266,7 +280,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
             {buildingFin.totalRemaining.toLocaleString()} <span className="text-xs text-slate-500">ج.م</span>
           </span>
           <span className="text-[11px] text-rose-600 block mt-1">
-            {buildingFin.pendingCount + buildingFin.overdueCount} شقة عليها متبقي
+            {paymentStateCounts.unpaid + paymentStateCounts.partial} شقة عليها متبقي
           </span>
         </div>
 
@@ -280,6 +294,17 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
             نسبة التحصيل: {buildingFin.collectionRate}%
           </span>
         </div>
+        {activeSubTab === 'apartments' && <section className="payment-status-filters col-span-2 lg:col-span-4" aria-label="تصفية الشقق حسب السداد">
+          <h2 className="mb-3 text-sm font-bold text-slate-800">اعرض الشقق حسب حالة السداد</h2>
+          <div className="payment-status-options" role="group" aria-label="حالة السداد">
+            {paymentFilters.map(filter => <button key={filter.value} type="button" className="payment-status-button" data-payment-status={filter.value}
+              aria-pressed={statusFilter === filter.value} onClick={() => setStatusFilter(filter.value)}>
+              <span>{filter.label}</span><strong>{filter.count.toLocaleString('ar-EG')}</strong>
+            </button>)}
+          </div>
+          <p className="mt-3 text-xs text-slate-500">حسب المستحقات والإيصالات المسجلة للشقق.</p>
+          {paymentStateCounts.unconfigured > 0 && <p className="mt-1 text-xs text-slate-500">الشقق بدون مستحقات محددة تظهر في «الكل».</p>}
+        </section>}
       </div>
 
       {/* Tabs Navigation: Apartments | All Payments | Audit Log */}
@@ -341,23 +366,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto no-scrollbar text-xs">
-          {activeSubTab === 'apartments' ? (
-            <>
-              {/* Status Filter */}
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none"
-              >
-                <option value="all">كل الحالات ({buildingApartments.length})</option>
-                <option value="paid">خالص السداد ({buildingFin.paidCount})</option>
-                <option value="pending">سداد جزئي / معلق ({buildingFin.pendingCount})</option>
-                <option value="overdue">متأخرات ({buildingFin.overdueCount})</option>
-              </select>
-
-
-            </>
-          ) : activeSubTab === 'payments' ? (
+          {activeSubTab === 'payments' ? (
             <select
               value={monthFilter}
               onChange={(e) => setMonthFilter(e.target.value)}
@@ -467,6 +476,11 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
       {/* SUBTAB 1: APARTMENTS VIEW */}
       {activeSubTab === 'apartments' && (
         <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600" aria-live="polite" data-payment-filter-summary>
+            <strong>{statusFilter === 'outstanding' ? 'الشقق التي عليها متبقي' : statusFilter === 'all' ? 'كل الشقق' : paymentStateLabels[statusFilter]} · {filteredApartments.length.toLocaleString('ar-EG')} شقة</strong>
+            <span>المتبقي: {filteredApartments.reduce((sum, apt) => sum + calculateApartmentFinancials(apt, payments).remaining, 0).toLocaleString('ar-EG')} ج.م</span>
+            {statusFilter === 'outstanding' && <button type="button" onClick={() => setStatusFilter('all')} className="min-h-11 font-bold text-teal-700">عرض كل الشقق</button>}
+          </div>
           {filteredApartments.length === 0 ? (
             <div className="bg-white p-8 rounded-3xl border border-slate-200 text-center text-slate-400 text-xs space-y-2">
               <Building2 className="w-8 h-8 text-slate-300 mx-auto" />
@@ -475,7 +489,8 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
           ) : (
             filteredApartments.map((apt) => {
               const fin = calculateApartmentFinancials(apt, payments);
-              const isPaid = fin.status === 'paid';
+              const paymentState = classifyApartmentPayment(fin);
+              const isPaid = paymentState === 'paid';
               const isOverdue = fin.status === 'overdue';
 
               return (
@@ -484,7 +499,8 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
                     <button type="button" onClick={() => setDetailsApartment(apt)} title="عرض كشف حساب وتفاصيل الشقة والإيصالات" className="min-h-11 min-w-0 flex-1 text-right">
                       <span className="block truncate text-sm font-bold text-slate-900">شقة {apt.unitNumber.replace('شقة ', '')} · {apt.residentName || 'بيانات الساكن غير مسجلة'}</span>
                       <span className={`mt-1 block text-xs ${isPaid ? 'text-emerald-700' : isOverdue ? 'text-rose-700' : 'text-slate-600'}`}>
-                        {isPaid ? 'خالص السداد' : `متبقي ${fin.remaining.toLocaleString()} ج.م`}
+                        <span className="apartment-payment-state" data-payment-status={paymentState}>{paymentStateLabels[paymentState]}</span>
+                        {!isPaid && paymentState !== 'unconfigured' && ` · متبقي ${fin.remaining.toLocaleString()} ج.م`}
                         {fin.creditBalance > 0 && ` · مقدم ${fin.creditBalance.toLocaleString()} ج.م`}
                         {' · '}عرض التفاصيل ({fin.allPayments.length})
                       </span>

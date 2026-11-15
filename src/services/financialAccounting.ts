@@ -22,6 +22,16 @@ export interface ApartmentFinancials {
   };
 }
 
+export type ApartmentPaymentState = 'paid' | 'unpaid' | 'partial' | 'unconfigured';
+export type ApartmentPaymentFilter = 'all' | 'paid' | 'unpaid' | 'partial' | 'outstanding';
+
+/** Display filters are based on the actual recorded dues and receipts, not the cached status. */
+export function classifyApartmentPayment(financials: Pick<ApartmentFinancials, 'totalDue' | 'totalPaid' | 'remaining'>): ApartmentPaymentState {
+  if (financials.totalDue <= 0) return 'unconfigured';
+  if (financials.remaining <= 0) return 'paid';
+  return financials.totalPaid > 0 ? 'partial' : 'unpaid';
+}
+
 export interface BuildingFinancials {
   buildingId: string;
   totalExpectedDues: number;
