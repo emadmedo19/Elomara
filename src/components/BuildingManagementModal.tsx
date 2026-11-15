@@ -29,7 +29,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
   const [reserveFund, setReserveFund] = useState(0);
   const [collectionStartMonth, setCollectionStartMonth] = useState('');
   const [historicalExpensesTotal, setHistoricalExpensesTotal] = useState(0);
-  const [historicalExceptionalExpensesTotal, setHistoricalExceptionalExpensesTotal] = useState(0);
+  const [historicalExceptionalCollectionsTotal, setHistoricalExceptionalCollectionsTotal] = useState(0);
   const [managerName, setManagerName] = useState('');
   const [managerPhone, setManagerPhone] = useState('');
   const [manager2Name, setManager2Name] = useState('');
@@ -47,7 +47,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
       setTotalUnits(0);
       setMonthlyTarget(0);
       setReserveFund(0);
-      setCollectionStartMonth(''); setHistoricalExpensesTotal(0); setHistoricalExceptionalExpensesTotal(0);
+      setCollectionStartMonth(''); setHistoricalExpensesTotal(0); setHistoricalExceptionalCollectionsTotal(0);
       setManagerName('');
       setManagerPhone('');
       setManager2Name(''); setManager2Phone('');
@@ -61,7 +61,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
       setReserveFund(currentBuilding.reserveFund || 0);
       setCollectionStartMonth(currentBuilding.collectionStartMonth || '');
       setHistoricalExpensesTotal(currentBuilding.historicalExpensesTotal || 0);
-      setHistoricalExceptionalExpensesTotal(currentBuilding.historicalExceptionalExpensesTotal || 0);
+      setHistoricalExceptionalCollectionsTotal(currentBuilding.historicalExceptionalCollectionsTotal || 0);
       setManagerName(currentBuilding.managerName || '');
       setManagerPhone(currentBuilding.managerPhone || '');
       setManager2Name(currentBuilding.manager2Name || '');
@@ -100,15 +100,15 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
       monthlyTarget: Math.max(0, Number(monthlyTarget) || 0),
       collectionStartMonth: collectionStartMonth || undefined,
       historicalExpensesTotal,
-      historicalExceptionalExpensesTotal,
+      historicalExceptionalCollectionsTotal,
       reserveFund: Math.max(0, Number(reserveFund) || 0),
       managerName: managerName.trim(),
       managerPhone: managerPhone.trim(),
       manager2Name: manager2Name.trim(), manager2Phone: manager2Phone.trim(),
       manager3Name: manager3Name.trim(), manager3Phone: manager3Phone.trim(),
     };
-    if (!Number.isFinite(historicalExpensesTotal) || historicalExpensesTotal < 0 || !Number.isFinite(historicalExceptionalExpensesTotal) || historicalExceptionalExpensesTotal < 0) { setSaveError('راجع مبلغ المصروفات السابقة'); return; }
-    if (!isNewBuilding && (historicalExpensesTotal !== (currentBuilding.historicalExpensesTotal || 0) || historicalExceptionalExpensesTotal !== (currentBuilding.historicalExceptionalExpensesTotal || 0) || (collectionStartMonth || '') !== (currentBuilding.collectionStartMonth || '')) && !window.confirm('تأكيد تعديل الأرصدة السابقة؟ سيتم حفظ القيمة الجديدة دون إضافة مصروف جديد للخزنة.')) return;
+    if (!Number.isFinite(historicalExpensesTotal) || historicalExpensesTotal < 0 || !Number.isFinite(historicalExceptionalCollectionsTotal) || historicalExceptionalCollectionsTotal < 0) { setSaveError('راجع مبلغ المصروفات السابقة'); return; }
+    if (!isNewBuilding && (historicalExpensesTotal !== (currentBuilding.historicalExpensesTotal || 0) || historicalExceptionalCollectionsTotal !== (currentBuilding.historicalExceptionalCollectionsTotal || 0) || (collectionStartMonth || '') !== (currentBuilding.collectionStartMonth || '')) && !window.confirm('تأكيد تعديل الأرصدة السابقة؟ سيتم حفظ القيمة الجديدة دون إضافة مصروف جديد للخزنة.')) return;
     setSaving(true); setSaveError('');
     try {
       if (isNewBuilding) {
@@ -172,8 +172,8 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
             <h3 className="text-sm font-bold text-slate-800">الأرصدة السابقة — قابلة للتعديل</h3>
             <div><label className={label}>شهر بداية التحصيل</label><input type="month" value={collectionStartMonth} onChange={e => setCollectionStartMonth(e.target.value)} className={field} /></div>
             <div><label className={label}>إجمالي المصروفات السابقة (جنيه)</label><input type="number" min="0" step="0.01" value={historicalExpensesTotal} onChange={e => setHistoricalExpensesTotal(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
-            <div><label className={label}>إجمالي المصروفات الاستثنائية السابقة (جنيه)</label><input type="number" min="0" step="0.01" value={historicalExceptionalExpensesTotal} onChange={e => setHistoricalExceptionalExpensesTotal(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
-            <p className="text-[11px] text-slate-600">المصروفات الاستثنائية السابقة منفصلة عن تحصيلات الشهور الرجعية. يمكن تصحيح هذه القيم لاحقًا. لا يتم خصمها من الخزنة الحالية مرة ثانية؛ تسوية الرصيد الافتتاحي تتم منفصلة.</p>
+            <div><label className={label}>إجمالي التحصيلات الاستثنائية السابقة (جنيه)</label><input type="number" min="0" step="0.01" value={historicalExceptionalCollectionsTotal} onChange={e => setHistoricalExceptionalCollectionsTotal(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
+            <p className="text-[11px] text-slate-600">التحصيلات الاستثنائية السابقة مستقلة عن اشتراكات الشهور الرجعية، وتظهر أيضًا في قسم التحصيلات الاستثنائية. يمكن تصحيح هذه القيم لاحقًا. لا يتم خصمها من الخزنة الحالية مرة ثانية؛ تسوية الرصيد الافتتاحي تتم منفصلة.</p>
           </section>
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

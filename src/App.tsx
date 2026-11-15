@@ -171,7 +171,7 @@ export default function App() {
           if (refreshError) throw refreshError;
           if (refreshed.session?.user.id !== user.id) throw new Error('Account changed during restore');
         }
-        const { data, error } = await supabase.from('buildings').select('id,name,address,total_units,total_floors,balance,collection_start_month,historical_expenses_total,historical_exceptional_expenses_total,monthly_target,reserve_fund,manager_name,manager_phone,manager2_name,manager2_phone,manager3_name,manager3_phone').order('created_at').abortSignal(requestController.signal);
+        const { data, error } = await supabase.from('buildings').select('id,name,address,total_units,total_floors,balance,collection_start_month,historical_expenses_total,historical_exceptional_collections_total,monthly_target,reserve_fund,manager_name,manager_phone,manager2_name,manager2_phone,manager3_name,manager3_phone').order('created_at').abortSignal(requestController.signal);
         if (cancelled || timedOut) return;
         if (error) throw error;
         if (!Array.isArray(data)) throw new Error('Incomplete building response');
@@ -181,7 +181,7 @@ export default function App() {
           throw new Error('Expected building is not available yet');
         }
         {
-          const rows: Building[] = (data || []).map((r: any) => ({ id:r.id,name:r.name,address:r.address || '',totalUnits:Number(r.total_units || 0),totalFloors:r.total_floors ?? undefined,balance:Number(r.balance || 0),collectionStartMonth:r.collection_start_month?.slice(0,7),historicalExpensesTotal:Number(r.historical_expenses_total || 0),historicalExceptionalExpensesTotal:Number(r.historical_exceptional_expenses_total || 0),monthlyTarget:Number(r.monthly_target || 0),reserveFund:Number(r.reserve_fund || 0),managerName:r.manager_name || '',managerPhone:r.manager_phone || '',manager2Name:r.manager2_name || '',manager2Phone:r.manager2_phone || '',manager3Name:r.manager3_name || '',manager3Phone:r.manager3_phone || '' }));
+          const rows: Building[] = (data || []).map((r: any) => ({ id:r.id,name:r.name,address:r.address || '',totalUnits:Number(r.total_units || 0),totalFloors:r.total_floors ?? undefined,balance:Number(r.balance || 0),collectionStartMonth:r.collection_start_month?.slice(0,7),historicalExpensesTotal:Number(r.historical_expenses_total || 0),historicalExceptionalCollectionsTotal:Number(r.historical_exceptional_collections_total || 0),monthlyTarget:Number(r.monthly_target || 0),reserveFund:Number(r.reserve_fund || 0),managerName:r.manager_name || '',managerPhone:r.manager_phone || '',manager2Name:r.manager2_name || '',manager2Phone:r.manager2_phone || '',manager3Name:r.manager3_name || '',manager3Phone:r.manager3_phone || '' }));
           setBuildings(rows); setCurrentBuildingIdState(rows[0]?.id || '');
           if (rows.length) {
             await loadSharedWorkflows(rows.map(b => b.id));
@@ -544,12 +544,12 @@ export default function App() {
       if (activeUserId.current !== actorId) throw new Error('تم تغيير الحساب أثناء الحفظ.');
       const newBld: Building = {
         id: data.id, name: data.name, address: data.address || '', totalUnits: Number(data.total_units || 0),
-        totalFloors: data.total_floors ?? undefined, balance: Number(data.balance || 0), collectionStartMonth: newBldData.collectionStartMonth, historicalExpensesTotal: newBldData.historicalExpensesTotal, historicalExceptionalExpensesTotal: newBldData.historicalExceptionalExpensesTotal,
+        totalFloors: data.total_floors ?? undefined, balance: Number(data.balance || 0), collectionStartMonth: newBldData.collectionStartMonth, historicalExpensesTotal: newBldData.historicalExpensesTotal, historicalExceptionalCollectionsTotal: newBldData.historicalExceptionalCollectionsTotal,
         monthlyTarget: Number(data.monthly_target || 0), reserveFund: Number(data.reserve_fund || 0),
         managerName: data.manager_name || '', managerPhone: data.manager_phone || '', manager2Name: data.manager2_name || '', manager2Phone: data.manager2_phone || '', manager3Name: data.manager3_name || '', manager3Phone: data.manager3_phone || '',
       };
-      if (newBldData.collectionStartMonth || newBldData.historicalExpensesTotal || newBldData.historicalExceptionalExpensesTotal) {
-        const { error: openingError } = await supabase.rpc('save_building_historical_settings_v2', { p_building_id: newBld.id, p_start_month: newBldData.collectionStartMonth || null, p_expenses: newBldData.historicalExpensesTotal || 0, p_exceptional_expenses: newBldData.historicalExceptionalExpensesTotal || 0 });
+      if (newBldData.collectionStartMonth || newBldData.historicalExpensesTotal || newBldData.historicalExceptionalCollectionsTotal) {
+        const { error: openingError } = await supabase.rpc('save_building_historical_settings_v3', { p_building_id: newBld.id, p_start_month: newBldData.collectionStartMonth || null, p_expenses: newBldData.historicalExpensesTotal || 0, p_exceptional_collections: newBldData.historicalExceptionalCollectionsTotal || 0 });
         if (openingError) throw new Error('تم إنشاء العمارة لكن تعذر حفظ الأرصدة السابقة: ' + openingError.message);
       }
       setBuildings(rows => [...rows, newBld]);
@@ -575,8 +575,8 @@ export default function App() {
       if (error) throw new Error('فشل تحديث بيانات العمارة والشقق: ' + error.message);
     }
     if (managerScopeRef.current !== scope) throw new Error('تم تغيير الحساب أثناء الحفظ.');
-    if (next.collectionStartMonth !== current.collectionStartMonth || next.historicalExpensesTotal !== current.historicalExpensesTotal || next.historicalExceptionalExpensesTotal !== current.historicalExceptionalExpensesTotal) {
-      const { error: openingError } = await supabase.rpc('save_building_historical_settings_v2', { p_building_id: id, p_start_month: next.collectionStartMonth || null, p_expenses: next.historicalExpensesTotal || 0, p_exceptional_expenses: next.historicalExceptionalExpensesTotal || 0 });
+    if (next.collectionStartMonth !== current.collectionStartMonth || next.historicalExpensesTotal !== current.historicalExpensesTotal || next.historicalExceptionalCollectionsTotal !== current.historicalExceptionalCollectionsTotal) {
+      const { error: openingError } = await supabase.rpc('save_building_historical_settings_v3', { p_building_id: id, p_start_month: next.collectionStartMonth || null, p_expenses: next.historicalExpensesTotal || 0, p_exceptional_collections: next.historicalExceptionalCollectionsTotal || 0 });
       if (openingError) throw new Error('تم تعديل بيانات العمارة لكن تعذر حفظ الأرصدة السابقة: ' + openingError.message);
     }
     // Refresh actual apartment records; dashboards and PDF reports derive totals from these.
@@ -1503,7 +1503,7 @@ export default function App() {
 
           {currentTab === 'services' && <ServiceDirectory buildingId={currentBuilding.id} canManage={isAdmin}/>}
           {currentTab === 'polls' && <PollsView buildingId={currentBuilding.id} canManage />}
-          {currentTab === 'exceptional-collections' && isAdmin && <ExceptionalCollectionsView key={currentBuilding.id} onCreated={() => void refreshAppData()} buildingId={currentBuilding.id} apartments={apartments.filter(a => a.buildingId === currentBuilding.id)} />}
+          {currentTab === 'exceptional-collections' && isAdmin && <ExceptionalCollectionsView key={currentBuilding.id} onCreated={() => void refreshAppData()} buildingId={currentBuilding.id} apartments={apartments.filter(a => a.buildingId === currentBuilding.id)} historicalCollectionsTotal={currentBuilding.historicalExceptionalCollectionsTotal || 0} />}
 
           {currentTab === 'approvals' && (
             <RegistrationApprovalsView apartments={apartments.filter(a => a.buildingId === currentBuilding.id)} />
