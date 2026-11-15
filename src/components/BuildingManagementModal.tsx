@@ -3,6 +3,7 @@ import { Building } from '../types';
 import { supabase } from '../lib/supabase';
 import { Building2, Save, X, Phone, MapPin, Layers } from 'lucide-react';
 import { BuildingDataDeletionButton } from './BuildingDataDeletionButton';
+import { HistoricalMonthlyDistribution } from './HistoricalMonthlyDistribution';
 
 interface BuildingManagementModalProps {
   isOpen: boolean;
@@ -175,6 +176,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
             <div><label className={label}>إجمالي التحصيلات الاستثنائية السابقة (جنيه)</label><input type="number" min="0" step="0.01" value={historicalExceptionalCollectionsTotal} onChange={e => setHistoricalExceptionalCollectionsTotal(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
             <p className="text-[11px] text-slate-600">التحصيلات الاستثنائية السابقة مستقلة عن اشتراكات الشهور الرجعية، وتظهر أيضًا في قسم التحصيلات الاستثنائية. يمكن تصحيح هذه القيم لاحقًا. لا يتم خصمها من الخزنة الحالية مرة ثانية؛ تسوية الرصيد الافتتاحي تتم منفصلة.</p>
           </section>
+          {!isNewBuilding && <HistoricalMonthlyDistribution buildingId={currentBuilding.id} startMonth={collectionStartMonth} onSaved={() => { window.location.reload(); }} />}
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={label}>اسم المسؤول الأول</label><input data-tour="building-manager" value={managerName} onChange={e => setManagerName(e.target.value)} className={field} /></div>
