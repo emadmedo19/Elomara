@@ -33,6 +33,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
   useBodyScrollLock(isOpenAddModal);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [deficitConfirmation, setDeficitConfirmation] = useState('');
   const scanRevision = useRef(0);
   const mutation = useRef({ signature: '', id: '' });
   const [searchTerm, setSearchTerm] = useState('');
@@ -92,6 +93,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
     setTitle('');
     setAmount(0);
     setSaveError('');
+    setDeficitConfirmation('');
     mutation.current = { signature: '', id: '' };
     setVendor('');
     setNotes('');
@@ -106,6 +108,13 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
     const data = { buildingId: currentBuilding.id, title: title.trim(), category, amount: Number(amount), date,
       vendor: vendor.trim(), notes: notes.trim(), receiptUrl, approvedBy: currentBuilding.managerName || 'مدير العمارة' };
     const signature = JSON.stringify({ ...data, id: editingExpense?.id });
+    const availableBalance = Number(currentBuilding.balance) || 0;
+    const additionalExpense = Number(amount) - (editingExpense?.amount || 0);
+    if (additionalExpense > 0 && additionalExpense > availableBalance && deficitConfirmation !== `${signature}:${availableBalance}`) {
+      setDeficitConfirmation(`${signature}:${availableBalance}`);
+      setSaveError('رصيد الخزينة غير كافٍ. راجع العجز المتوقع واضغط تأكيد التسجيل بالعجز إذا كنت تريد الاستمرار.');
+      return;
+    }
     if (mutation.current.signature !== signature) mutation.current = { signature, id: crypto.randomUUID() };
     setSaving(true); setSaveError('');
     try {
@@ -405,6 +414,13 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
             )}
 
             {saveError && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{saveError}</p>}
+            {Number(amount) > 0 && Number(amount) - (editingExpense?.amount || 0) > Number(currentBuilding.balance || 0) && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950" role="status">
+                <p className="font-bold">تحذير: المصروف سيتسبب في عجز بالخزينة</p>
+                <p className="mt-1">الرصيد الحالي: {Number(currentBuilding.balance || 0).toLocaleString('ar-EG')} ج.م — الرصيد بعد الحفظ: {(Number(currentBuilding.balance || 0) - (Number(amount) - (editingExpense?.amount || 0))).toLocaleString('ar-EG')} ج.م</p>
+                <p className="mt-1">لن يتم تسجيل المصروف إلا بعد تأكيدك الصريح.</p>
+              </div>
+            )}
             <div className="space-y-3.5 my-3">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-700">عنوان البند أو المصروف *</label>
@@ -499,7 +515,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                 className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md transition active:scale-95 flex items-center gap-1.5"
               >
                 <Check className="w-4 h-4" />
-                <span>{saving ? 'جارٍ الحفظ...' : editingExpense ? 'حفظ تعديلات المصروف' : 'توثيق وخصم من الخزينة'}</span>
+                <span>{saving ? 'جارٍ الحفظ...' : deficitConfirmation === `${JSON.stringify({ buildingId: currentBuilding.id, title: title.trim(), category, amount: Number(amount), date, vendor: vendor.trim(), notes: notes.trim(), receiptUrl, approvedBy: currentBuilding.managerName || 'مدير العمارة', id: editingExpense?.id })}:${Number(currentBuilding.balance) || 0}` ? 'تأكيد التسجيل بالعجز' : editingExpense ? 'حفظ تعديلات المصروف' : 'توثيق وخصم من الخزينة'}</span>
               </button>
             </div>
           </form>
