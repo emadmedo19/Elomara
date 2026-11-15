@@ -39,7 +39,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const closingBalance = openingBalance + netMonthlySurplus;
 
   const categories = [
-    { name: 'مصاعد', color: 'bg-indigo-500' },
+    { name: 'مصاعد', label: 'صيانة أسانسير', color: 'bg-indigo-500' },
     { name: 'كهرباء', color: 'bg-amber-500' },
     { name: 'مياه ومضخات', color: 'bg-cyan-500' },
     { name: 'نظافة', color: 'bg-emerald-500' },
