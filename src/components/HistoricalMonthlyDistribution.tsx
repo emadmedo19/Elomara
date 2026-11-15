@@ -21,7 +21,7 @@ export const HistoricalMonthlyDistribution: React.FC<Props> = ({buildingId,start
     supabase.from('historical_monthly_allocations').select('apartment_id,month,amount').eq('building_id',buildingId)
    ]);
    if(!active)return;
-   if(apartments.error||rows.error){setError(apartments.error?.message||rows.error?.message||'تعذر تحميل التوزيع');setLoading(false);return;}
+   if(apartments.error || (rows.error && !['PGRST205','42P01'].includes(rows.error.code||''))){setError(apartments.error?.message||rows.error?.message||'تعذر تحميل التوزيع');setLoading(false);return;}
    const apt=(apartments.data||[]) as Unit[];setUnits(apt);
    const amounts:Record<string,number>={};
    for(const item of (rows.data||[]) as any[]){amounts[item.apartment_id]=(amounts[item.apartment_id]||0)+Number(item.amount);}
