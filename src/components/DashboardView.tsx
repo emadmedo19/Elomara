@@ -34,7 +34,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenAddExpense, onOpenPdf, onOpenAddPayment, onOpenOutstanding, canManageAnnouncements = false, onDeleteAnnouncement,
 }) => {
   const fin = calculateBuildingFinancials(building.id, apartments, payments);
-  const expensesTotal = expenses.reduce((sum, item) => sum + item.amount, 0);
+  const recordedExpensesTotal = expenses.reduce((sum, item) => sum + item.amount, 0);
+  const historicalExpenses = Number(building.historicalExpensesTotal || 0);
+  const historicalExceptionalCollections = Number(building.historicalExceptionalCollectionsTotal || 0);
+  const expensesTotal = recordedExpensesTotal + historicalExpenses;
   const pendingTickets = tickets.filter(ticket => ticket.status !== 'مكتمل').length;
   const now = new Date();
   const monthName = new Intl.DateTimeFormat('ar-EG', { month: 'long', year: 'numeric' }).format(now);
@@ -69,8 +72,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </article>
         <article data-tour="dashboard-collected" className="light-stat light-stat-collected">
           <div><span>إجمالي المحصل</span><span className="light-stat-icon settings-icon-teal"><ArrowDownRight size={21} /></span></div>
-          <strong>{money(fin.totalCollected)} <small>ج.م</small></strong>
-          <p>المبالغ المسجلة كتحصيل</p>
+          <strong>{money(fin.totalCollected + historicalExceptionalCollections)} <small>ج.م</small></strong>
+          <p>الإيصالات + التحصيلات الاستثنائية السابقة ({money(historicalExceptionalCollections)} ج.م)</p>
         </article>
         <button type="button" className="light-stat light-stat-due light-stat-button" aria-label="عرض الشقق التي عليها مستحقات" onClick={() => onOpenOutstanding ? onOpenOutstanding() : onNavigate('collections')}>
           <div><span>المتبقي للتحصيل</span><span className="light-stat-icon settings-icon-gold"><Wallet size={21} /></span></div>
@@ -80,7 +83,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <article className="light-stat light-stat-expenses">
           <div><span>المصروفات المسجلة</span><span className="light-stat-icon settings-icon-rose"><Receipt size={21} /></span></div>
           <strong>{money(expensesTotal)} <small>ج.م</small></strong>
-          <p>{expenses.length} بند • احتياطي {money(building.reserveFund)} ج.م</p>
+          <p>{expenses.length} بند + مصروفات سابقة {money(historicalExpenses)} ج.م • احتياطي {money(building.reserveFund)} ج.م</p>
         </article>
         <article className="light-collection-rate">
           <div><span><TrendingUp size={17} />نسبة التحصيل</span><strong>{fin.collectionRate}%</strong></div>
