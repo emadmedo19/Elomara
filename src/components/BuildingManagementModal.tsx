@@ -27,6 +27,8 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
   const [totalUnits, setTotalUnits] = useState(0);
   const [monthlyTarget, setMonthlyTarget] = useState(0);
   const [reserveFund, setReserveFund] = useState(0);
+  const [collectionStartMonth, setCollectionStartMonth] = useState('');
+  const [historicalExpensesTotal, setHistoricalExpensesTotal] = useState(0);
   const [managerName, setManagerName] = useState('');
   const [managerPhone, setManagerPhone] = useState('');
   const [manager2Name, setManager2Name] = useState('');
@@ -44,6 +46,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
       setTotalUnits(0);
       setMonthlyTarget(0);
       setReserveFund(0);
+      setCollectionStartMonth(''); setHistoricalExpensesTotal(0);
       setManagerName('');
       setManagerPhone('');
       setManager2Name(''); setManager2Phone('');
@@ -55,6 +58,8 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
       setTotalUnits(currentBuilding.totalUnits || 0);
       setMonthlyTarget(currentBuilding.monthlyTarget || 0);
       setReserveFund(currentBuilding.reserveFund || 0);
+      setCollectionStartMonth(currentBuilding.collectionStartMonth || '');
+      setHistoricalExpensesTotal(currentBuilding.historicalExpensesTotal || 0);
       setManagerName(currentBuilding.managerName || '');
       setManagerPhone(currentBuilding.managerPhone || '');
       setManager2Name(currentBuilding.manager2Name || '');
@@ -91,12 +96,16 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
       totalUnits: Math.max(0, Number(totalUnits) || 0),
       balance: 0,
       monthlyTarget: Math.max(0, Number(monthlyTarget) || 0),
+      collectionStartMonth: collectionStartMonth || undefined,
+      historicalExpensesTotal,
       reserveFund: Math.max(0, Number(reserveFund) || 0),
       managerName: managerName.trim(),
       managerPhone: managerPhone.trim(),
       manager2Name: manager2Name.trim(), manager2Phone: manager2Phone.trim(),
       manager3Name: manager3Name.trim(), manager3Phone: manager3Phone.trim(),
     };
+    if (!Number.isFinite(historicalExpensesTotal) || historicalExpensesTotal < 0) { setSaveError('راجع مبلغ المصروفات السابقة'); return; }
+    if (!isNewBuilding && (historicalExpensesTotal !== (currentBuilding.historicalExpensesTotal || 0) || (collectionStartMonth || '') !== (currentBuilding.collectionStartMonth || '')) && !window.confirm('تأكيد تعديل الأرصدة السابقة؟ سيتم حفظ القيمة الجديدة دون إضافة مصروف جديد للخزنة.')) return;
     setSaving(true); setSaveError('');
     try {
       if (isNewBuilding) {
@@ -156,6 +165,12 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
             <div><label className={label}>الاشتراك الشهري الافتراضي للشقة</label><input type="number" min="0" value={monthlyTarget} onChange={e => setMonthlyTarget(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
             <div><label className={label}>صندوق الطوارئ</label><input type="number" min="0" value={reserveFund} onChange={e => setReserveFund(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
           </div>
+          <section className="space-y-3 rounded-xl border border-teal-100 bg-teal-50/50 p-3">
+            <h3 className="text-sm font-bold text-slate-800">الأرصدة السابقة — قابلة للتعديل</h3>
+            <div><label className={label}>شهر بداية التحصيل</label><input type="month" value={collectionStartMonth} onChange={e => setCollectionStartMonth(e.target.value)} className={field} /></div>
+            <div><label className={label}>إجمالي المصروفات السابقة (جنيه)</label><input type="number" min="0" step="0.01" value={historicalExpensesTotal} onChange={e => setHistoricalExpensesTotal(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
+            <p className="text-[11px] text-slate-600">يمكن تصحيح هذه القيم لاحقًا. لا يتم خصمها من الخزنة الحالية مرة ثانية؛ تسوية الرصيد الافتتاحي تتم منفصلة.</p>
+          </section>
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={label}>اسم المسؤول الأول</label><input data-tour="building-manager" value={managerName} onChange={e => setManagerName(e.target.value)} className={field} /></div>
