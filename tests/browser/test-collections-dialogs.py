@@ -49,6 +49,28 @@ with sync_playwright() as p:
   assert page.evaluate('document.body.style.overflow')==''
   page.get_by_title('عرض كشف حساب وتفاصيل الشقة والإيصالات').last.click()
   expect(page.get_by_role('dialog').get_by_text('سجل المدفوعات والإيصالات',exact=False)).to_be_visible()
+  for action in ['cancel','escape','confirm']:
+   details=page.get_by_role('dialog',name='تفاصيل الشقة',exact=True)
+   trigger=details.get_by_title('حذف هذه الدفعة').last
+   trigger.click()
+   dialog=page.get_by_role('alertdialog',name='تأكيد حذف دفعة سداد للشقة')
+   expect(dialog).to_be_visible()
+   assert dialog.evaluate('(node)=>node.parentElement.parentElement===document.body')
+   box=dialog.bounding_box()
+   assert box['y']>=0 and box['y']+box['height']<=height,box
+   assert abs(box['y']+box['height']/2-height/2)<2,box
+   expect(dialog.get_by_role('button',name='إلغاء التراجع')).to_be_focused()
+   assert details.locator('[inert]').count()==1
+   if action=='escape': page.keyboard.press('Escape')
+   else: dialog.get_by_role('button',name='إلغاء التراجع' if action=='cancel' else 'تأكيد حذف الدفعة نهائياً',exact=True).click()
+   expect(dialog).to_have_count(0)
+   assert page.evaluate('document.body.style.overflow')=='hidden'
+   if action!='confirm': expect(trigger).to_be_focused()
+  expect(details.get_by_title('حذف هذه الدفعة')).to_have_count(0)
+  details.get_by_role('button',name='تسجيل سداد جديد',exact=True).click()
+  page.get_by_role('button',name='تأكيد وقيد السداد',exact=True).click()
+  page.get_by_title('عرض كشف حساب وتفاصيل الشقة والإيصالات').last.click()
+  print('PASS',width,'apartment payment deletion centered; focus; cancel; Escape; confirm; parent stays open')
   page.get_by_role('button',name='إغلاق',exact=True).click()
   page.get_by_role('button',name='سجل جميع الإيصالات والمدفوعات',exact=False).click()
   for action in ['cancel','confirm']:

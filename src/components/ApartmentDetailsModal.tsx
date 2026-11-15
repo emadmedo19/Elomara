@@ -38,6 +38,13 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
 }) => {
   const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
   const [isDeletingApartment, setIsDeletingApartment] = useState(false);
+  const cancelDeleteRef = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => {
+    if (!isOpen || !paymentToDelete) return;
+    const trigger = document.activeElement as HTMLElement | null;
+    cancelDeleteRef.current?.focus();
+    return () => { trigger?.focus({ preventScroll: true }); };
+  }, [isOpen, paymentToDelete]);
   const detailsScrollRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     if (isOpen && apartment?.id) {
@@ -70,7 +77,7 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
   // Keep viewport positioning independent of the animated collections screen.
   return createPortal(
     <div dir="rtl" role="dialog" aria-modal="true" aria-label="تفاصيل الشقة" className="fixed inset-0 z-[70] bg-[#0f2537]/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-      <div ref={detailsScrollRef} className="bg-white rounded-3xl w-full max-w-2xl p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[90dvh] overflow-y-auto overscroll-contain flex flex-col">
+      <div inert={Boolean(paymentToDelete)} ref={detailsScrollRef} className="bg-white rounded-3xl w-full max-w-2xl p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[90dvh] overflow-y-auto overscroll-contain flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
@@ -137,17 +144,31 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
         )}
 
         {/* Delete Payment Confirmation Alert Modal */}
-        {paymentToDelete && (
-          <div className="my-3.5 p-4 rounded-2xl bg-rose-50 border-2 border-rose-300 space-y-3 animate-in fade-in shadow-sm">
+        {paymentToDelete && createPortal(
+          <div dir="rtl" className="fixed inset-0 z-[80] bg-[#0f2537]/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4" onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.stopPropagation();
+              setPaymentToDelete(null);
+            }
+            if (event.key === 'Tab') {
+              const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>('button');
+              const target = event.shiftKey ? buttons[0] : buttons[buttons.length - 1];
+              if (document.activeElement === target) {
+                event.preventDefault();
+                (event.shiftKey ? buttons[buttons.length - 1] : buttons[0])?.focus();
+              }
+            }
+          }}>
+          <div role="alertdialog" aria-modal="true" aria-labelledby="apartment-delete-payment-title" aria-describedby="apartment-delete-payment-description" className="w-full max-w-lg max-h-[90dvh] overflow-y-auto overscroll-contain p-4 rounded-2xl bg-rose-50 border-2 border-rose-300 space-y-3 animate-in fade-in shadow-sm">
             <div className="flex items-start gap-3 text-rose-950">
               <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 mt-0.5">
                 <AlertTriangle className="w-5 h-5" />
               </div>
               <div className="space-y-1.5 flex-1">
-                <strong className="block text-sm font-bold text-rose-900">
+                <strong id="apartment-delete-payment-title" className="block text-sm font-bold text-rose-900">
                   تأكيد حذف دفعة سداد للشقة
                 </strong>
-                <p className="text-xs text-rose-700 leading-relaxed">
+                <p id="apartment-delete-payment-description" className="text-xs text-rose-700 leading-relaxed">
                   أنت على وشك حذف دفعة سداد مسجلة. يرجى مراجعة تفاصيل الدفعة قبل التأكيد:
                 </p>
                 <div className="bg-white p-3 rounded-xl border border-rose-200 grid grid-cols-2 gap-2 text-xs">
@@ -176,6 +197,7 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-rose-200">
               <button
                 type="button"
+                ref={cancelDeleteRef}
                 onClick={() => setPaymentToDelete(null)}
                 className="px-4 py-2 rounded-xl bg-white text-slate-700 text-xs font-bold border border-slate-300 hover:bg-slate-50"
               >
@@ -193,6 +215,7 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
               </button>
             </div>
           </div>
+          </div>, document.body
         )}
 
         {/* Financial & Resident Info Grid */}
