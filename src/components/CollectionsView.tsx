@@ -295,14 +295,13 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
           </span>
         </div>
         {activeSubTab === 'apartments' && <section className="payment-status-filters col-span-2 lg:col-span-4" aria-label="تصفية الشقق حسب السداد">
-          <h2 className="mb-3 text-sm font-bold text-slate-800">اعرض الشقق حسب حالة السداد</h2>
+          <h2 className="mb-2 text-xs font-bold text-slate-600">حالة السداد</h2>
           <div className="payment-status-options" role="group" aria-label="حالة السداد">
             {paymentFilters.map(filter => <button key={filter.value} type="button" className="payment-status-button" data-payment-status={filter.value}
               aria-pressed={statusFilter === filter.value} onClick={() => setStatusFilter(filter.value)}>
-              <span>{filter.label}</span><strong>{filter.count.toLocaleString('ar-EG')}</strong>
+              <span className="payment-status-label">{filter.label}</span><strong>{filter.count.toLocaleString('ar-EG')}</strong>
             </button>)}
           </div>
-          <p className="mt-3 text-xs text-slate-500">حسب المستحقات والإيصالات المسجلة للشقق.</p>
           {paymentStateCounts.unconfigured > 0 && <p className="mt-1 text-xs text-slate-500">الشقق بدون مستحقات محددة تظهر في «الكل».</p>}
         </section>}
       </div>

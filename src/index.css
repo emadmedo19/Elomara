@@ -647,21 +647,25 @@ body { background: var(--fotouh-page); color: #263c43; }
 .apartment-compact-card { min-width:0; }
 .apartment-compact-card summary::marker { color:#64748b; }
 
-/* Persistent payment-state colors, with a stronger selected state. */
-.payment-status-filters { padding:14px; border:1px solid #dce8ef; border-radius:18px; background:#fff; }
-.payment-status-options { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+/* Compact payment filters: persistent status colors and an understated active underline. */
+.payment-status-filters { --payment-badge-selected-text:#fff; padding:0; }
+.payment-status-options { display:grid; grid-template-columns:minmax(0,.85fr) minmax(0,1.4fr) minmax(0,1.1fr) minmax(0,1.3fr); gap:3px; width:100%; max-width:680px; border-bottom:1px solid #dce8ef; }
 .payment-status-button,.apartment-payment-state { --payment-ink:#334155; --payment-fill:#f1f5f9; --payment-line:#cbd5e1; }
 [data-payment-status="paid"] { --payment-ink:#047857; --payment-fill:#ecfdf5; --payment-line:#a7dfc5; }
 [data-payment-status="unpaid"] { --payment-ink:#be123c; --payment-fill:#fff1f2; --payment-line:#fecdd3; }
 [data-payment-status="partial"] { --payment-ink:#b45309; --payment-fill:#fff7ed; --payment-line:#fed7aa; }
-.payment-status-button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; min-width:0; min-height:70px; padding:10px 4px; border:1px solid var(--payment-line); border-radius:13px; background:var(--payment-fill); color:var(--payment-ink); font-size:12px; font-weight:700; cursor:pointer; }
-.payment-status-button strong { color:inherit; font-size:19px; font-variant-numeric:tabular-nums; }
-.payment-status-button[aria-pressed="true"] { border-color:var(--payment-ink); box-shadow:inset 0 0 0 1px var(--payment-ink); }
+.payment-status-button { display:flex; align-items:center; justify-content:center; gap:5px; min-width:0; min-height:48px; padding:10px 4px; border:0; border-bottom:2px solid transparent; border-radius:9px 9px 0 0; background:transparent; color:var(--payment-ink); font-size:12px; font-weight:600; cursor:pointer; }
+.payment-status-label { min-width:0; line-height:1.4; }
+.payment-status-button strong { display:inline-flex; flex:none; align-items:center; justify-content:center; min-width:22px; height:22px; padding:0 5px; border-radius:7px; background:var(--payment-fill); color:var(--payment-ink); font-size:11px; line-height:1; font-weight:700; font-variant-numeric:tabular-nums; }
+.payment-status-button[aria-pressed="true"] { border-bottom-color:var(--payment-ink); background:var(--payment-fill); }
+.payment-status-button[aria-pressed="true"] strong { background:var(--payment-ink); color:var(--payment-badge-selected-text); }
 .apartment-payment-state { color:var(--payment-ink); }
 .light-stat-button { width:100%; text-align:right; font:inherit; cursor:pointer; }
-html:root[data-appearance="dark"] .payment-status-filters { background:#141414; border-color:#333; }
+html:root[data-appearance="dark"] .payment-status-filters { --payment-badge-selected-text:#101820; }
+html:root[data-appearance="dark"] .payment-status-options { border-bottom-color:#333; }
 html:root[data-appearance="dark"] :is(.payment-status-button,.apartment-payment-state) { --payment-ink:#cbd5e1; --payment-fill:#20262e; --payment-line:#43505f; }
 html:root[data-appearance="dark"] [data-payment-status="paid"] { --payment-ink:#6ee7b7; --payment-fill:#123329; --payment-line:#2b6350; }
 html:root[data-appearance="dark"] [data-payment-status="unpaid"] { --payment-ink:#fda4af; --payment-fill:#3c1823; --payment-line:#713344; }
 html:root[data-appearance="dark"] [data-payment-status="partial"] { --payment-ink:#fdba74; --payment-fill:#3a2714; --payment-line:#7a4e23; }
-@media(max-width:359px) { .payment-status-options { grid-template-columns:repeat(2,minmax(0,1fr)); } .payment-status-button { flex-direction:row; gap:10px; min-height:46px; } }
+@media(max-width:359px) { .payment-status-options { grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; } }
+html:is([data-font-size="large"],[data-font-size="extra-large"]) .payment-status-options { grid-template-columns:repeat(2,minmax(0,1fr)); }
