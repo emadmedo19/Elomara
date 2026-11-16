@@ -111,7 +111,14 @@ function AppContent() {
       ...(isNeonBackend ? [supabase.from('financial_audit_log').select('id,building_id,entity_type,entity_id,action,apartment_id,unit_number,performed_by_name,previous_data,new_data,created_at').in('building_id', buildingIds).order('created_at', { ascending: false }).limit(500)] : [Promise.resolve({ data: [], error: null })]),
     ]);
     if (scope !== managerScopeRef.current) return;
-    if (bookingResult.error || auditResult.error) throw new Error('تعذر تحميل الحجوزات أو سجل العمليات. حاول تحديث البيانات.');
+    if (bookingResult.error || auditResult.error) {
+      const source = bookingResult.error ? 'الحجوزات' : 'سجل العمليات';
+      const failure = bookingResult.error || auditResult.error;
+      const code = typeof failure?.code === 'string' ? failure.code : 'UNKNOWN';
+      const detail = typeof failure?.message === 'string' ? failure.message : 'تعذر الاتصال بالخادم';
+      console.warn('Shared workflow read failed', { source, code, detail });
+      throw new Error(`تعذر تحميل ${source} (رمز ${code}): ${detail}`);
+    }
     setBookings((bookingResult.data || []).map((r: Record<string, unknown>) => ({ id: String(r.id), buildingId: String(r.building_id), facility: r.facility as FacilityBooking['facility'], unitNumber: String(r.unit_number), residentName: String(r.resident_name || ''), date: String(r.booking_date), timeSlot: String(r.time_slot), managerNote: String(r.manager_note || ''), updatedAt: String(r.updated_at || ''), status: r.status as FacilityBooking['status'] })));
     setAuditLogs((auditResult.data || []).map((row: Record<string, unknown>) => mapAudit(row)));
   };
