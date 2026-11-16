@@ -61,7 +61,10 @@ public class AnnouncementFilesPlugin extends Plugin {
             call.resolve();
         } catch (Exception error) {
             pendingImage = null;
-            call.reject("تعذر نقل جزء من الصورة.");
+            JSObject details = new JSObject();
+            details.put("index", index); details.put("length", chunk.length());
+            details.put("cause", error.getClass().getSimpleName());
+            call.reject("تعذر نقل جزء من الصورة.", "PNG_TRANSFER_FAILED", error, details);
         }
     }
 
