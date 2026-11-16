@@ -1,0 +1,16 @@
+# Private payment receipts
+
+Every successfully saved Neon payment opens a receipt backed by the confirmed payment ID. Managers can reopen receipts from apartment details and receipt history; the approved apartment accounts can open their own receipts from the resident financial page and the existing payment inbox item. No second notification stream is created. The inbox source key/idempotency semantics are unchanged; payment push copy is generic and recipient scoping is explicitly guarded. Assessments and imported opening settlements do not issue ordinary payment receipts.
+
+Migration 032 adds an authenticated, read-only receipt RPC. It checks current approval, disabled status, building and apartment membership on every lookup; managers require management authorization for the receipt building. It returns only invoice fields from the authoritative payment and linked exceptional charge. There are no public image URLs or buckets. Exports refresh the same authorized RPC, so edits are reflected and deleted/denied payments cannot be exported. This is a current ledger receipt, not an immutable archive or a tax invoice. Existing saved files can of course remain with their recipients after a later ledger correction.
+
+The receipt includes building/name/address, unit and resident name, number and unique payment reference, amount, period, payment date, method, description and notes. PDF uses the existing native print-to-PDF flow; PNG renders locally with Arabic support. Browser sharing uses the Web Share file API when available. Android transfers bounded PNG chunks through the existing plugin and shares a private cache content URI with read permission, preferring WhatsApp when available. The user selects the recipient and confirms sending. Cached share files older than seven days are cleaned only in the dedicated private directory. Native sharing requires installing the new APK; existing APKs receive an accurate upgrade message and retain image/PDF saving.
+
+Verification:
+
+- Isolated PostgreSQL rehearsal rolls back schema and fixtures. It tests monthly and exceptional receipts, approved manager/tenant/owner access, denial to another apartment, another building manager, pending/disabled accounts; exact notification recipient counts and no duplicate notices on retries; no ordinary receipt for opening settlements/assessments; current edits and deleted-payment denial.
+- Real Chromium at mobile/desktop widths exercises save success/failure, automatic receipt display, PDF HTML, actual PNG generation, file sharing and export authorization rechecks. Resident payment history and its inbox open the same private receipt; other-apartment access is refused. No fictional notices are broadcast to customers.
+- Native JSON request and bounded file-sharing tests; existing payment status/count regressions, TypeScript and production build.
+- Android instrumentation checks the WebView bridge, real PNG attachment, private FileProvider URI and granted read access. The signed Neon APK workflow builds and runs the Android runtime suites before distribution.
+
+Server installation changes definitions only; no customer payment, balance or notification history is rewritten. Physical WhatsApp delivery and a paper printer are not claimed as tested; the share/print integration and generated files are tested at their bridges.

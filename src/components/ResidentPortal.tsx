@@ -1,3 +1,4 @@
+import {requestPaymentReceipt} from '../services/paymentReceipts';
 import { useBuildingReadOnly, SubscriptionReadOnlyNotice } from './SubscriptionReadOnlyNotice';
 import { MemberPaymentMethods } from './MemberPaymentMethods';
 import { BrandLogo } from './BrandLogo';
@@ -325,7 +326,7 @@ export const ResidentPortal: React.FC = () => {
           <div className="rounded-xl bg-slate-50 border p-3 col-span-2 sm:col-span-3"><div className="text-xs text-slate-500">المتبقي شامل التحصيل الاستثنائي</div><b>{sectionErrors.payments ? '—' : money(apartment?.remaining)} جنيه</b></div>
         </div>
         <MemberPaymentMethods buildingId={userProfile.buildingId} revision={paymentMethodsRevision}/>
-        {payments.length ? payments.map(p=><div key={p.id} className="flex justify-between gap-3 border-t py-3 text-sm"><div><b>{p.month || dateLabel(p.payment_date)}</b><p className="text-xs text-slate-500">{p.method || 'نقدي'} {p.receipt_number ? '• إيصال '+p.receipt_number : ''}</p>{p.notes && <p className="text-xs text-slate-500 mt-1">{p.notes}</p>}</div><div className="text-left"><b className="whitespace-nowrap">{money(p.amount)} جنيه</b><p className="text-[11px] text-slate-400">{dateLabel(p.payment_date)}</p></div></div>) : <p className="text-sm text-slate-500">{sectionErrors.payments ? 'لم يتم تأكيد تحميل المدفوعات. أعد المحاولة.' : 'لا توجد مدفوعات مسجلة لهذه الشقة حتى الآن.'}</p>}
+        {payments.length ? payments.map(p=><div key={p.id} className="flex justify-between gap-3 border-t py-3 text-sm"><div><b>{p.month || dateLabel(p.payment_date)}</b><p className="text-xs text-slate-500">{p.method || 'نقدي'} {p.receipt_number ? '• إيصال '+p.receipt_number : ''}</p>{p.notes && <p className="text-xs text-slate-500 mt-1">{p.notes}</p>}</div><div className="text-left"><b className="whitespace-nowrap">{money(p.amount)} جنيه</b><p className="text-[11px] text-slate-400">{dateLabel(p.payment_date)}</p>{!p.isHistorical&&!p.is_opening_entry&&<button type="button" onClick={()=>requestPaymentReceipt(p.id)} className="mt-2 min-h-11 rounded-xl bg-teal-50 px-3 text-xs font-bold text-teal-800">عرض إيصال السداد</button>}</div></div>) : <p className="text-sm text-slate-500">{sectionErrors.payments ? 'لم يتم تأكيد تحميل المدفوعات. أعد المحاولة.' : 'لا توجد مدفوعات مسجلة لهذه الشقة حتى الآن.'}</p>}
       </section>}
 
       {activeTab === 'reports' && <section data-tour="resident-reports" className="space-y-4">

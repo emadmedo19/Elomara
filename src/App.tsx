@@ -1,3 +1,5 @@
+import {PaymentReceiptCenter} from './components/PaymentReceiptCenter';
+import {requestPaymentReceipt} from './services/paymentReceipts';
 import { isNeonBackend, saveNeonBuildingManagement, createNeonBuildingWithFinances } from './lib/neon';
 import { useBuildingReadOnly, SubscriptionReadOnlyNotice } from './components/SubscriptionReadOnlyNotice';
 import { IntroWindowLights } from './components/IntroWindowLights';
@@ -61,7 +63,7 @@ const tabFromLocation = () => {
   return tab && managerTabs.includes(tab) ? tab : 'dashboard';
 };
 
-export default function App() {
+function AppContent() {
   useEffect(initializeDevicePreferences, []);
   useEffect(() => {
     const previous = window.history.scrollRestoration;
@@ -821,6 +823,7 @@ export default function App() {
         applyFinancialResult(buildingId, result);
         announcePaymentSuccess(String(apt.unitNumber), paymentData.month, paymentData.amount);
         showToast('تم تسجيل السداد وتحديث حساب الشقة والخزينة.');
+        window.setTimeout(()=>requestPaymentReceipt(receipt.id),0);
         return true;
       } catch (error) { showToast(error instanceof Error ? error.message : 'تعذر حفظ السداد. حاول مرة أخرى.', 'error'); return false; }
     }
@@ -1710,3 +1713,5 @@ export default function App() {
     </div>
   );
 }
+
+export default function App(){return <><AppContent/><PaymentReceiptCenter/></>;}

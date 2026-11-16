@@ -1,3 +1,4 @@
+import {requestPaymentReceipt} from '../services/paymentReceipts';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -415,6 +416,7 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
                     </div>
                   </div>
 
+                  {!p.isHistorical&&!p.isAssessment&&<button type="button" onClick={()=>requestPaymentReceipt(p.id)} className="min-h-11 rounded-xl bg-teal-50 px-3 text-xs font-bold text-teal-800">عرض إيصال السداد</button>}
                   {isManager && !p.isHistorical && (
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button

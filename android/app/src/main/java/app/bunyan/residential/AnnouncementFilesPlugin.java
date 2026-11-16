@@ -76,7 +76,7 @@ public class AnnouncementFilesPlugin extends Plugin {
         try { validatePngBytes(bytes); }
         catch (IOException error) { call.reject("الصورة غير سليمة. حاول إنشاءها مرة أخرى."); return; }
         String name = call.getString("fileName", "elomara-announcement.png");
-        if (!name.matches("[A-Za-z0-9_-]+\\.png")) name = "elomara-announcement.png";
+        if (!name.matches("[A-Za-z0-9_-]+[.]png")) name = "elomara-announcement.png";
         pendingSaveBytes = bytes;
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -85,6 +85,38 @@ public class AnnouncementFilesPlugin extends Plugin {
         try { startActivityForResult(call, intent, "chunkedSaveResult"); }
         catch (Exception error) { pendingSaveBytes = null; call.reject("تعذر فتح مكان حفظ الصورة."); }
     }
+
+    @PluginMethod
+    public synchronized void finishPngShare(PluginCall call) {
+        if (pendingImage == null || receivedChunks != expectedChunks) { call.reject("الصورة غير مكتملة."); return; }
+        byte[] bytes = pendingImage.toByteArray(); pendingImage = null;
+        try {
+            validatePngBytes(bytes);
+            String name = call.getString("fileName", "elomara-receipt.png");
+            if (!name.matches("[A-Za-z0-9_-]+[.]png")) name = "elomara-receipt.png";
+            java.io.File directory = new java.io.File(getContext().getCacheDir(), "payment-receipts");
+            if (!directory.exists() && !directory.mkdirs()) throw new IOException("Unable to prepare receipt");
+            java.io.File[] cached = directory.listFiles();
+            if (cached != null) for (java.io.File old : cached) {
+                if (old.isFile() && old.lastModified() < System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000) old.delete();
+            }
+            // Separate cache files prevent parallel shares from replacing attachments.
+            java.io.File file = new java.io.File(directory, java.util.UUID.randomUUID().toString() + "-" + name);
+            try (java.io.FileOutputStream output = new java.io.FileOutputStream(file)) { output.write(bytes); }
+            Uri uri = androidx.core.content.FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", file);
+            Intent send = new Intent(Intent.ACTION_SEND); send.setType("image/png");
+            send.putExtra(Intent.EXTRA_STREAM, uri); send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            send.setClipData(android.content.ClipData.newRawUri("receipt", uri));
+            if (call.getBoolean("whatsapp", false)) {
+                Intent whatsapp = new Intent(send); whatsapp.setPackage("com.whatsapp");
+                if (whatsapp.resolveActivity(getContext().getPackageManager()) != null) send = whatsapp;
+                else { whatsapp.setPackage("com.whatsapp.w4b"); if (whatsapp.resolveActivity(getContext().getPackageManager()) != null) send = whatsapp; }
+            }
+            getActivity().startActivity(Intent.createChooser(send, "مشاركة إيصال السداد"));
+            call.resolve();
+        } catch (Exception error) { call.reject("تعذر فتح مشاركة صورة الإيصال."); }
+    }
+
 
     @ActivityCallback
     private void chunkedSaveResult(PluginCall call, ActivityResult result) {
@@ -116,7 +148,7 @@ public class AnnouncementFilesPlugin extends Plugin {
         try { decodePng(data); }
         catch (IOException error) { call.reject("ملف الصورة غير مكتمل. ولّد الإعلان مرة أخرى قبل الحفظ."); return; }
         String name = call.getString("fileName", "elomara-announcement.png");
-        if (!name.matches("[A-Za-z0-9_-]+\\.png")) name = "elomara-announcement.png";
+        if (!name.matches("[A-Za-z0-9_-]+[.]png")) name = "elomara-announcement.png";
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("image/png");

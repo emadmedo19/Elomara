@@ -1,3 +1,4 @@
+import {requestPaymentReceipt} from '../services/paymentReceipts';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
@@ -590,6 +591,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
                       <td className="p-3 text-slate-500 max-w-xs truncate">{p.notes || '-'}</td>
                       {isManager && (
                         <td className="p-3 text-center">
+                          {!p.isHistorical&&!p.isAssessment&&<button type="button" onClick={()=>requestPaymentReceipt(p.id)} className="min-h-11 rounded-xl bg-teal-50 px-3 text-xs font-bold text-teal-800">عرض إيصال السداد</button>}
                           {p.isHistorical ? <span className="text-xs text-slate-500">{p.paymentType==='exceptional'?'سداد استثنائي سابق من نقل الحسابات':'يُعدّل من توزيع الرصيد السابق في بيانات العمارة'}</span> : <div className="flex items-center justify-center gap-1.5">
                             <button
                               onClick={() => handleOpenEditPayment(p)}

@@ -5,9 +5,9 @@ const AnnouncementFiles = registerPlugin<{
   appendPngChunk: (options: { index: number; chunk: string }) => Promise<void>;
   finishPngTransfer: (options: { fileName: string }) => Promise<{ saved: boolean }>;
 }>('AnnouncementFiles');
-export async function saveAnnouncementImage(dataUrl: string): Promise<'saved' | 'cancelled' | 'download-started'> {
+export async function saveAnnouncementImage(dataUrl: string, requestedFileName?:string): Promise<'saved' | 'cancelled' | 'download-started'> {
   if (!dataUrl.startsWith('data:image/png;base64,')) throw new Error('صورة الإعلان غير جاهزة للحفظ.');
-  const fileName = `elomara-announcement-${Date.now()}.png`;
+  const fileName = requestedFileName&&/^[A-Za-z0-9_-]+\.png$/.test(requestedFileName)?requestedFileName:`elomara-announcement-${Date.now()}.png`;
   if (Capacitor.isNativePlatform()) {
     if (!Capacitor.isPluginAvailable('AnnouncementFiles')) {
       throw new Error('الحفظ على أندرويد يحتاج تثبيت أحدث نسخة APK من التطبيق.');

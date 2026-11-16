@@ -44,6 +44,7 @@ function setup() {
         if (mock.identityFailure) return Response.json({ message: mock.identityFailure }, { status: 403 });
         return Response.json(mock.resolvedId);
       }
+      if(url.endsWith('/rpc/get_payment_receipt')){const args=JSON.parse(options.body);assert.equal(options.headers['Content-Type'],'application/json');return Response.json({id:args.p_payment_id,amount:500.25,buildingId:'b',apartmentId:'apt'});}
       if(url.endsWith('/rpc/complete_guided_building_setup')){const args=JSON.parse(options.body);assert.ok(args.p_request_id);assert.ok(args.p_history);assert.equal(options.headers['Content-Type'],'application/json');return Response.json({id:'guided-building'});}
       if(url.endsWith('/rpc/save_historical_monthly_allocations')){
         const args=JSON.parse(options.body);assert.ok(Array.isArray(args.p_allocations));
@@ -346,4 +347,8 @@ test('guided setup sends all accounting inputs and a stable idempotency key in n
  await api.completeNeonBuildingSetup('request',details,history,null);
  const r=requests.find(r=>r.url.endsWith('/rpc/complete_guided_building_setup'));
  assert.deepEqual(JSON.parse(r.options.body),{p_request_id:'request',p_details:details,p_history:history,p_building_id:null});
+});
+
+test('receipt lookup sends only its payment ID with explicit native JSON and bearer auth',async()=>{
+ const {api,requests}=setup();const result=await api.fetchNeonPaymentReceipt('receipt-id');assert.equal(result.id,'receipt-id');const r=requests.find(r=>r.url.endsWith('/rpc/get_payment_receipt'));assert.deepEqual(JSON.parse(r.options.body),{p_payment_id:'receipt-id'});assert.equal(r.options.headers.Authorization,'Bearer jwt-one');
 });

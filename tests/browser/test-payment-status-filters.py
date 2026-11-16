@@ -40,7 +40,7 @@ with sync_playwright() as p:
   form.get_by_role('button',name='تأكيد وقيد السداد',exact=True).click()
   if form.get_by_role('button',name='نعم، تسجيل الدفعة رغم التشابه',exact=True).count():
    form.get_by_role('button',name='نعم، تسجيل الدفعة رغم التشابه',exact=True).click()
-  expect(form).to_have_count(0);page.get_by_role('button',name='تم',exact=True).click()
+  expect(form).to_have_count(0);page.locator('[data-payment-receipt]').get_by_role('button',name='إغلاق الإيصال',exact=True).click();page.get_by_role('button',name='تم',exact=True).click()
   expect(filters.locator('[data-payment-status=paid] strong')).to_have_text('٢')
   expect(filters.locator('[data-payment-status=partial] strong')).to_have_text('٢')
   expect(page.locator('.apartment-compact-card')).to_have_count(2)

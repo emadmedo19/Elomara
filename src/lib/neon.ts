@@ -239,7 +239,7 @@ async function buildingJsonRpc(name: string, params: object, completedId?:string
   let response:Response;
   try {
     response=await fetch(dataUrl+'/rpc/'+name,{method:'POST',cache:'no-store',headers:{Authorization:`Bearer ${session.accessToken}`,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(params)});
-  }catch {throw new Error('تعذر الاتصال بخادم العمارة. لم يتم تأكيد الحفظ؛ أعد المحاولة.');}
+  }catch {throw new Error(name==='get_payment_receipt'?'تعذر تحميل إيصال السداد. تأكد من الاتصال وأعد المحاولة.':'تعذر الاتصال بخادم العمارة. لم يتم تأكيد الحفظ؛ أعد المحاولة.');}
   const payload:unknown=await response.json().catch(()=>null);
   const result=payload&&typeof payload==='object'&&!Array.isArray(payload)?payload as Record<string,unknown>:null;
   if(response.status===401)throw new Error('انتهت جلسة الدخول. أعد تسجيل الدخول ثم حاول الحفظ.');
@@ -265,6 +265,7 @@ export function saveNeonHistoricalMonthlyAllocations(buildingId:string,allocatio
 export function completeNeonBuildingSetup(requestId:string,details:object,history:object,buildingId:string|null){
  return buildingJsonRpc('complete_guided_building_setup',{p_request_id:requestId,p_details:details,p_history:history,p_building_id:buildingId});
 }
+export function fetchNeonPaymentReceipt(paymentId:string){return buildingJsonRpc('get_payment_receipt',{p_payment_id:paymentId});}
 export const neonClient = {
   from: data.from.bind(data), rpc: data.rpc.bind(data),
   channel: (_name: string) => new RefreshChannel(),

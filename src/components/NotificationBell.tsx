@@ -1,10 +1,11 @@
+import {requestPaymentReceipt} from '../services/paymentReceipts';
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { Bell, X, CheckCheck, RefreshCw, Megaphone, Wrench, Wallet, CalendarDays, UserCheck, BarChart3, Settings, Download } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { applyOtaUpdate, getOtaSnapshot, subscribeToOta } from '../services/otaUpdates';
-interface Notice { id: string; title: string; body: string; category: string; created_at: string; read_at: string | null; manager_target: string; member_target: string; }
+interface Notice { entity_id?:string; id: string; title: string; body: string; category: string; created_at: string; read_at: string | null; manager_target: string; member_target: string; }
 const categoryIcons = { app_updates: Download, announcements: Megaphone, maintenance_tickets: Wrench, payments: Wallet, expenses: Wallet, facility_bookings: CalendarDays, building_join_requests: UserCheck, building_polls: BarChart3, building_treasury_settings_audit: Wallet, app_settings: Settings };
 const dateLabel = (value: string) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium', timeStyle: 'short' }).format(date); };
 export function NotificationBell({ onNavigate }: { onNavigate: (page: string) => void }) {
@@ -30,7 +31,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (page: string) =>
     const version = ++request.current;
     setLoading(true);
     try {
-      let listQuery = supabase.from('app_notifications').select('id,title,body,category,created_at,read_at,manager_target,member_target').eq('recipient_id',userId).eq('building_id',buildingId).order('created_at',{ascending:false}).order('id',{ascending:false}).limit(80);
+      let listQuery = supabase.from('app_notifications').select('id,title,body,category,created_at,read_at,manager_target,member_target,entity_id').eq('recipient_id',userId).eq('building_id',buildingId).order('created_at',{ascending:false}).order('id',{ascending:false}).limit(80);
       if (!isAdmin) listQuery = listQuery.neq('category','building_join_requests');
       if (filter === 'unread') listQuery = listQuery.is('read_at',null);
       const [list, count] = await Promise.all([
@@ -99,6 +100,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (page: string) =>
   const go = (notice: Notice) => {
     if (!notice.read_at) void markRead(notice);
     setOpen(false); onNavigate(isAdmin?notice.manager_target:notice.member_target);
+    if(notice.category==='payments'&&notice.entity_id)window.setTimeout(()=>requestPaymentReceipt(notice.entity_id!),0);
   };
   return <>
     <button type="button" ref={bell} className={`notification-bell${unread > 0 ? ' notification-bell-unread' : ''}`} aria-label={`الإشعارات${unread ? `، ${unread} غير مقروء` : ''}`} aria-haspopup="dialog" aria-expanded={open} onClick={()=>{setOpen(true);void refresh();}}><Bell size={21} aria-hidden="true"/>{unread>0 && <span className="notification-badge" aria-hidden="true">{unread>99?'99+':unread}</span>}</button>
