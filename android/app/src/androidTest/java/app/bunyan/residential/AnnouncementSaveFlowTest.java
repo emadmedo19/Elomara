@@ -92,7 +92,7 @@ public class AnnouncementSaveFlowTest {
                     String segment=payload.substring(offset,Math.min(offset+32768,payload.length()));
                     assertEquals("true",evaluate(view,"window.__testPngPayload+="+JSONObject.quote(segment)+";true;"));
                 }
-                assertEquals(String(payload.length()),evaluate(view,"window.__testPngPayload.length"));
+                assertEquals(String.valueOf(payload.length()),evaluate(view,"window.__testPngPayload.length"));
                 evaluate(view,"window.__saveStage='transfer';window.__transferDone=false;window.__transferProgress=0;"+
                     "(async()=>{try{const p=window.__testPngPayload;const size="+chunkLength+";const count="+chunks+";"+
                     "for(let i=0;i<count;i++){window.__saveStage='chunk '+i;"+
