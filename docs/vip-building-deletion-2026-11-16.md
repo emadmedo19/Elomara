@@ -1,0 +1,7 @@
+# Building deletion with redeemed VIP codes
+
+The reported error is caused by private.vip_codes.redeemed_building_id referencing buildings with NO ACTION. private.subscription_events.building_id has the same issue. Both prevent the existing confirmed deletion routine from removing the building.
+
+Migration 031 replaces only the deletion function definition. During an explicitly confirmed full deletion, it archives the original VIP code IDs/redemption timestamps and building identity in a private subscription event; permanently revokes the spent codes before clearing their FK-bound redemption fields; and detaches prior subscription events while retaining their metadata and original building ID. No code hashes or plaintext codes are copied to the archive. Existing FK/check constraints remain intact. Reset does not enter this branch and retains subscriptions and redemption state. All original authorization and confirmation checks remain before writes.
+
+The isolated Neon rehearsal wraps the definition, schema compatibility fixture and test data in a rollback. Tests cover deletion with a consumed VIP code plus subscription events, archive preservation, refusal to reuse a consumed code, no-VIP deletion, reset preserving VIP/subscription data, wrong confirmation, another manager, isolation of a second building, detached residents, and manager creation after deletion. TypeScript/build checks also pass. No customer building is deleted or reset for verification; installing the definition invokes no deletion.
