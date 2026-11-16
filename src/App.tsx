@@ -250,14 +250,6 @@ export default function App() {
             })));
             if (cancelled || timedOut) return;
             if (expenseResult.error) throw expenseResult.error;
-      // Commit one complete financial snapshot; never mix fresh cash with stale expenses.
-      setBuildings(refreshedBuildings);
-      setApartments(refreshedApartments);
-      setPayments(refreshedPayments);
-      if (!refreshedBuildings.some(b => b.id === currentBuildingId)) {
-        setCurrentBuildingIdState(refreshedBuildings[0]?.id || '');
-      }
-
 
             setExpenses((expenseResult.data || []).map((r: any) => ({
               id:r.id, buildingId:r.building_id, title:r.title, category:r.category,
@@ -514,6 +506,15 @@ export default function App() {
         date:r.created_at,
       })));
       if (expenseResult.error) throw expenseResult.error;
+      // Commit one complete financial snapshot; never mix fresh cash with stale expenses.
+      setBuildings(refreshedBuildings);
+      setApartments(refreshedApartments);
+      setPayments(refreshedPayments);
+      if (!refreshedBuildings.some(b => b.id === currentBuildingId)) {
+        setCurrentBuildingIdState(refreshedBuildings[0]?.id || '');
+      }
+
+
       setExpenses((expenseResult.data || []).map((r: any) => ({
         id:r.id, buildingId:r.building_id, title:r.title, category:r.category,
         amount:Number(r.amount || 0), date:r.expense_date, vendor:r.vendor || '',
