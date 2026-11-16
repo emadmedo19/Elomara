@@ -37,6 +37,13 @@ jobs:
       - name: Install Android SDK packages
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
+      - name: Configure production Neon backend and OTA endpoints
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          npm ci --prefix neon
+          node neon/scripts/runtime-config.mjs
+
       - name: Install image tools
         run: python -m pip install cairosvg pillow
 
