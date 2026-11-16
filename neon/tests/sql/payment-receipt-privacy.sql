@@ -1,6 +1,6 @@
 -- Isolated rehearsal only, fixture users and financial writes are rolled back.
 DO $test$
-DECLARE b uuid:=gen_random_uuid(); other_b uuid:=gen_random_uuid(); manager uuid:=gen_random_uuid(); r1 uuid:=gen_random_uuid(); owner1 uuid:=gen_random_uuid(); r2 uuid:=gen_random_uuid(); outsider uuid:=gen_random_uuid(); disabled uuid:=gen_random_uuid(); pending uuid:=gen_random_uuid(); a1 uuid:=gen_random_uuid();a2 uuid:=gen_random_uuid(); request uuid:=gen_random_uuid(); payment uuid; charge uuid:=gen_random_uuid(); opening uuid:=gen_random_uuid(); result jsonb; receipt jsonb; denied boolean; notices bigint;
+DECLARE b uuid:=gen_random_uuid(); other_b uuid:=gen_random_uuid(); manager uuid:=gen_random_uuid(); r1 uuid:=gen_random_uuid(); owner1 uuid:=gen_random_uuid(); r2 uuid:=gen_random_uuid(); outsider uuid:=gen_random_uuid(); disabled uuid:=gen_random_uuid(); pending uuid:=gen_random_uuid(); unassigned uuid:=gen_random_uuid(); detached uuid:=gen_random_uuid(); a1 uuid:=gen_random_uuid();a2 uuid:=gen_random_uuid(); request uuid:=gen_random_uuid(); payment uuid; charge uuid:=gen_random_uuid(); opening uuid:=gen_random_uuid(); result jsonb; receipt jsonb; denied boolean; notices bigint;
 BEGIN
  BEGIN
   EXECUTE $definition$CREATE OR REPLACE FUNCTION app_auth.user_id() RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $identity$
@@ -8,7 +8,7 @@ BEGIN
   $identity$$definition$;
   INSERT INTO public.buildings(id,name,address,balance,opening_balance) VALUES(b,'عمارة إيصالات','عنوان تجريبي',0,0),(other_b,'عمارة أخرى','',0,0);
   INSERT INTO public.apartments(id,building_id,unit_number,resident_name,monthly_fee) VALUES(a1,b,'1','ساكن أول',100),(a2,b,'2','ساكن ثان',200);
-  INSERT INTO app_auth.users(id,email) SELECT u,u||'@example.invalid' FROM unnest(ARRAY[manager,r1,owner1,r2,outsider,disabled,pending])u;
+  INSERT INTO app_auth.users(id,email) SELECT u,u||'@example.invalid' FROM unnest(ARRAY[manager,r1,owner1,r2,outsider,disabled,pending,unassigned,detached])u;
   UPDATE public.profiles SET role='building_admin',approved=true,building_id=b WHERE id=manager;
   UPDATE public.profiles SET role='building_admin',approved=true,building_id=other_b WHERE id=outsider;
   UPDATE public.profiles SET role='tenant',approved=true,building_id=b,apartment_id=a1 WHERE id=r1;
@@ -16,6 +16,8 @@ BEGIN
   UPDATE public.profiles SET role='tenant',approved=true,building_id=b,apartment_id=a2 WHERE id=r2;
   UPDATE public.profiles SET role='tenant',approved=true,disabled_at=now(),building_id=b,apartment_id=a1 WHERE id=disabled;
   UPDATE public.profiles SET role='tenant',approved=false,building_id=b,apartment_id=a1 WHERE id=pending;
+  UPDATE public.profiles SET role='tenant',approved=true,building_id=b,apartment_id=NULL WHERE id=unassigned;
+  UPDATE public.profiles SET role='tenant',approved=true,building_id=NULL,apartment_id=NULL WHERE id=detached;
   PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',manager)::text,true);
   result:=public.mutate_financial_entry('payment','create',b,NULL,jsonb_build_object('apartmentId',a1,'amount',100.50,'date',current_date,'month','2026-11','method','نقدي','notes','<script>private note</script>'),request);payment:=(result->'entry'->>'id')::uuid;
   SELECT count(*) INTO notices FROM public.app_notifications WHERE entity_id=payment AND category='payments';
@@ -30,7 +32,7 @@ BEGIN
    receipt:=public.get_payment_receipt(payment);RESET ROLE;
    IF (receipt->>'amount')::numeric<>100.50 THEN RAISE EXCEPTION 'Approved apartment account could not access receipt'; END IF;
   END LOOP;
-  FOREACH r2 IN ARRAY ARRAY[r2,outsider,disabled,pending] LOOP
+  FOREACH r2 IN ARRAY ARRAY[r2,outsider,disabled,pending,unassigned,detached] LOOP
    PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',r2)::text,true);denied:=false;
    BEGIN PERFORM public.get_payment_receipt(payment);EXCEPTION WHEN insufficient_privilege THEN denied:=true;END;
    IF NOT denied THEN RAISE EXCEPTION 'Unauthorized user read another apartment receipt'; END IF;

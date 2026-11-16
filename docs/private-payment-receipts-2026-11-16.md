@@ -8,9 +8,11 @@ The receipt includes building/name/address, unit and resident name, number and u
 
 Verification:
 
-- Isolated PostgreSQL rehearsal rolls back schema and fixtures. It tests monthly and exceptional receipts, approved manager/tenant/owner access, denial to another apartment, another building manager, pending/disabled accounts; exact notification recipient counts and no duplicate notices on retries; no ordinary receipt for opening settlements/assessments; current edits and deleted-payment denial.
+- Isolated PostgreSQL rehearsal rolls back schema and fixtures. It tests monthly and exceptional receipts, approved manager/tenant/owner access, denial to another apartment, another building manager, pending/disabled and approved-but-unassigned/detached accounts; exact notification recipient counts and no duplicate notices on retries; no ordinary receipt for opening settlements/assessments; current edits and deleted-payment denial.
 - Real Chromium at mobile/desktop widths exercises save success/failure, automatic receipt display, PDF HTML, actual PNG generation, file sharing and export authorization rechecks. Resident payment history and its inbox open the same private receipt; other-apartment access is refused. No fictional notices are broadcast to customers.
 - Native JSON request and bounded file-sharing tests; existing payment status/count regressions, TypeScript and production build.
 - Android instrumentation checks the WebView bridge, real PNG attachment, private FileProvider URI and granted read access. The signed Neon APK workflow builds and runs the Android runtime suites before distribution.
 
 Server installation changes definitions only; no customer payment, balance or notification history is rewritten. Physical WhatsApp delivery and a paper printer are not claimed as tested; the share/print integration and generated files are tested at their bridges.
+
+Membership hardening: migration 033 requires the entire authorization predicate to be explicitly true, so SQL NULL apartment/building assignments fail closed. Isolated tests cover approved tenant accounts with missing apartment assignment and missing building assignment. Installation modifies only the read-only lookup definition.
