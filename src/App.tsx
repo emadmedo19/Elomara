@@ -1,4 +1,4 @@
-import { isNeonBackend, updateNeonBuilding } from './lib/neon';
+import { isNeonBackend } from './lib/neon';
 import { useBuildingReadOnly, SubscriptionReadOnlyNotice } from './components/SubscriptionReadOnlyNotice';
 import { IntroWindowLights } from './components/IntroWindowLights';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
@@ -41,7 +41,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { MoreView } from './components/MoreView';
 import { ServiceDirectory } from './components/ServiceDirectory';
 import { AppPreferencesView } from './components/AppPreferencesView';
-import { TreasurySettingsView } from './components/TreasurySettingsView';
+import type { BuildingFinanceDraft } from './services/buildingFinancialSettings';
 import { initializeDevicePreferences } from './services/appPreferences';
 import { RegistrationApprovalsView } from './components/RegistrationApprovalsView';
 import { PollsView } from './components/PollsView';
@@ -414,7 +414,7 @@ export default function App() {
     }
   };
 
-  const refreshAppData = async () => {
+  const refreshAppData = async (throwOnFailure = false) => {
     if (isRefreshing) return;
     setIsRefreshing(true);
     const refreshScope = managerScope;
@@ -531,6 +531,7 @@ export default function App() {
     } catch (error) {
       console.error('[Bunyan refresh] Failed:', error);
       showToast('تعذر إكمال التحديث. تأكد من اتصال الإنترنت وحاول مرة أخرى.', 'error');
+      if(throwOnFailure)throw error;
     } finally {
       setIsRefreshing(false);
     }
@@ -563,13 +564,22 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [isBuildingModalOpen, isSettingsModalOpen, isAddExpenseModalOpen, isPdfModalOpen, currentTab]);
 
+  useEffect(()=>{
+    if(currentTab!=='treasury-settings'||!isAdmin)return;
+    setCurrentTabState('more');setIsBuildingModalOpen(true);
+    const url=new URL(window.location.href);url.searchParams.set('tab','more');
+    window.history.replaceState(window.history.state,'',url);
+  },[currentTab,isAdmin]);
+
   // 7. BUILDINGS CRUD
-  const handleAddBuilding = async (newBldData: Omit<Building, 'id'>) => {
+  const handleAddBuilding = async (newBldData: Omit<Building, 'id'>, finance?: BuildingFinanceDraft) => {
     if (!user || !isAdmin) throw new Error('لا توجد صلاحية لإضافة عمارة.');
     const actorId = user.id;
     const release = holdMembership();
     try {
-      const { data, error } = await supabase.rpc('create_manager_building', { p_details: newBldData });
+      const { data, error } = isNeonBackend
+        ? await supabase.rpc('create_manager_building_with_finances', { p_details: newBldData, p_finance: finance || null })
+        : await supabase.rpc('create_manager_building', { p_details: newBldData });
       if (error || !data?.id) throw new Error('فشل حفظ العمارة: ' + (error?.message || 'لم يتم تأكيد الحفظ'));
       if (activeUserId.current !== actorId) throw new Error('تم تغيير الحساب أثناء الحفظ.');
       const newBld: Building = {
@@ -578,7 +588,7 @@ export default function App() {
         monthlyTarget: Number(data.monthly_target || 0), reserveFund: Number(data.reserve_fund || 0),
         managerName: data.manager_name || '', managerPhone: data.manager_phone || '', manager2Name: data.manager2_name || '', manager2Phone: data.manager2_phone || '', manager3Name: data.manager3_name || '', manager3Phone: data.manager3_phone || '',
       };
-      if (newBldData.collectionStartMonth || newBldData.historicalExpensesTotal || newBldData.historicalExceptionalCollectionsTotal) {
+      if ((!isNeonBackend || !finance) && (newBldData.collectionStartMonth || newBldData.historicalExpensesTotal || newBldData.historicalExceptionalCollectionsTotal)) {
         const { error: openingError } = await supabase.rpc('save_building_historical_settings_v3', { p_building_id: newBld.id, p_start_month: newBldData.collectionStartMonth || null, p_expenses: newBldData.historicalExpensesTotal || 0, p_exceptional_collections: newBldData.historicalExceptionalCollectionsTotal || 0 });
         if (openingError) throw new Error('تم إنشاء العمارة لكن تعذر حفظ الأرصدة السابقة: ' + openingError.message);
         const {data: openingBuilding,error: openingBalanceError} = await supabase.from('buildings').select('balance').eq('id',newBld.id).single();
@@ -592,14 +602,15 @@ export default function App() {
     } finally { release(); }
   };
 
-  const handleUpdateBuilding = async (id: string, updatedData: Partial<Building>) => {
+  const handleUpdateBuilding = async (id: string, updatedData: Partial<Building>, finance?: BuildingFinanceDraft) => {
     const current = buildings.find((b) => b.id === id);
     if (!current) throw new Error('لم يتم العثور على العمارة المطلوبة.');
     const scope = managerScope;
-    // This form edits building details; treasury changes use the dedicated RPC.
+    // Metadata and all opening inputs are committed together by Neon.
     const next = { ...current, ...updatedData, balance: current.balance };
     if (isNeonBackend) {
-      await updateNeonBuilding(id, next);
+      const {data,error}=await supabase.rpc('save_building_management',{p_building_id:id,p_details:next,p_finance:finance||null});
+      if(error||!data?.id)throw new Error(error?.message||'لم يتم تأكيد حفظ بيانات العمارة والأرصدة.');
     } else {
       const { error } = await supabase.rpc('update_manager_building', {
         p_building_id: id,
@@ -608,7 +619,13 @@ export default function App() {
       if (error) throw new Error('فشل تحديث بيانات العمارة والشقق: ' + error.message);
     }
     if (managerScopeRef.current !== scope) throw new Error('تم تغيير الحساب أثناء الحفظ.');
-    if (next.collectionStartMonth !== current.collectionStartMonth || next.historicalExpensesTotal !== current.historicalExpensesTotal || next.historicalExceptionalCollectionsTotal !== current.historicalExceptionalCollectionsTotal) {
+    if(isNeonBackend){
+      try{await refreshAppData(true);}catch{throw new Error('تم حفظ البيانات والأرصدة، لكن تعذر تحديث عرض الحسابات. أعد تحميل أرصدة العمارة قبل محاولة الحفظ مجددًا.');}
+      if(managerScopeRef.current!==scope)throw new Error('تم تغيير الحساب أثناء تحديث البيانات.');
+      showToast('تم حفظ بيانات العمارة والأرصدة وتحديث الحسابات بنجاح!');return;
+    }
+
+    if (!isNeonBackend && (next.collectionStartMonth !== current.collectionStartMonth || next.historicalExpensesTotal !== current.historicalExpensesTotal || next.historicalExceptionalCollectionsTotal !== current.historicalExceptionalCollectionsTotal)) {
       const { error: openingError } = await supabase.rpc('save_building_historical_settings_v3', { p_building_id: id, p_start_month: next.collectionStartMonth || null, p_expenses: next.historicalExpensesTotal || 0, p_exceptional_collections: next.historicalExceptionalCollectionsTotal || 0 });
       if (openingError) throw new Error('تم تعديل بيانات العمارة لكن تعذر حفظ الأرصدة السابقة: ' + openingError.message);
     }
@@ -1530,13 +1547,12 @@ export default function App() {
             { id: 'chat', label: 'المساعد الذكي', icon: Sparkles, tone: 'violet', onClick: () => setCurrentTab('chat') },
             { id: 'studio', label: 'الإعلانات والتصميم', icon: Palette, tone: 'gold', count: unreadAnnouncementCount, onClick: () => setCurrentTab('image-studio') },
             ...(isAdmin ? [
-              { id: 'treasury', label: 'الرصيد الافتتاحي ووديعة الصيانة', icon: Wallet, tone: 'teal' as const, onClick: () => setCurrentTab('treasury-settings') },
               { id: 'buildings', label: 'إدارة العقارات', icon: Building2, onClick: () => setIsBuildingModalOpen(true) },
               { id: 'building-settings', label: 'إعدادات العمارة والتحصيل', icon: SlidersHorizontal, onClick: () => setIsSettingsModalOpen(true) },
             ] : []),
           ]}/>}
           {currentTab === 'app-settings' && <AppPreferencesView onBack={() => goBack('more')} onSignOut={() => void signOut()} onBuildingSettings={isAdmin ? () => setIsSettingsModalOpen(true) : undefined}/>}
-          {currentTab === 'treasury-settings' && isAdmin && <TreasurySettingsView key={currentBuilding.id} buildingId={currentBuilding.id} onBack={() => goBack('more')} onSaved={({ balance, reserveFund }) => setBuildings(rows => rows.map(building => building.id === currentBuilding.id ? { ...building, balance, reserveFund } : building))}/>}
+
 
           {currentTab === 'services' && <ServiceDirectory buildingId={currentBuilding.id} canManage={isAdmin}/>}
           {currentTab === 'polls' && <PollsView buildingId={currentBuilding.id} canManage />}

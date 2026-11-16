@@ -5,6 +5,7 @@ import { Building2, Save, X, Phone, MapPin, Layers } from 'lucide-react';
 import { BuildingDataDeletionButton } from './BuildingDataDeletionButton';
 import { currentCollectionMonth } from '../services/historicalCollections';
 import { HistoricalMonthlyDistribution } from './HistoricalMonthlyDistribution';
+import { mapBuildingFinancialSnapshot, baseOpeningBalance, previewBuildingBalance, type BuildingFinanceDraft, type BuildingFinancialSnapshot } from '../services/buildingFinancialSettings';
 
 interface BuildingManagementModalProps {
   isOpen: boolean;
@@ -12,8 +13,8 @@ interface BuildingManagementModalProps {
   buildings?: Building[];
   currentBuilding: Building;
   onSelectBuilding?: (building: Building) => void;
-  onAddBuilding?: (newBuilding: Omit<Building, 'id'>) => Promise<void>;
-  onUpdateBuilding: (id: string, updatedBuilding: Partial<Building>) => Promise<void>;
+  onAddBuilding?: (newBuilding: Omit<Building, 'id'>, finance?: BuildingFinanceDraft) => Promise<void>;
+  onUpdateBuilding: (id: string, updatedBuilding: Partial<Building>, finance?: BuildingFinanceDraft) => Promise<void>;
   onDeleteBuilding?: (id: string) => void;
   onRefreshData?: () => Promise<void>;
 }
@@ -39,6 +40,12 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
   const [manager2Phone, setManager2Phone] = useState('');
   const [manager3Name, setManager3Name] = useState('');
   const [manager3Phone, setManager3Phone] = useState('');
+  const [financialSnapshot,setFinancialSnapshot]=useState<BuildingFinancialSnapshot|null>(null);
+  const [openingBase,setOpeningBase]=useState('0');
+  const [openingIncluded,setOpeningIncluded]=useState<'included'|'add'|''>('');
+  const [financeLoading,setFinanceLoading]=useState(false);
+  const [financeError,setFinanceError]=useState('');
+  const [financeReload,setFinanceReload]=useState(0);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -90,21 +97,46 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
     return () => { cancelled = true; };
   }, [isOpen, isNewBuilding, currentBuilding.id]);
 
-  if (!isOpen) return null;
+  useEffect(()=>{
+    if(!isOpen)return;
+    if(isNewBuilding){setFinancialSnapshot(null);setOpeningBase('0');setOpeningIncluded('');setFinanceLoading(false);setFinanceError('');return;}
+    let active=true;setFinanceLoading(true);setFinanceError('');
+    void (async()=>{
+      try {
+        const {data,error}=await supabase.from('buildings').select('balance,opening_balance,reserve_fund,historical_adjustment_applied,historical_monthly_collections_total,historical_expenses_total,historical_exceptional_collections_total,collection_start_month').eq('id',currentBuilding.id).single();
+        if(!active)return;
+        if(error||!data)throw new Error('تعذر تحميل أرصدة العمارة. أعد المحاولة قبل الحفظ.');
+        const snapshot=mapBuildingFinancialSnapshot(data);
+        setFinancialSnapshot(snapshot);setOpeningBase(baseOpeningBalance(snapshot)===null?'':String(baseOpeningBalance(snapshot)));setOpeningIncluded('');
+        setReserveFund(snapshot.reserveFund);setCollectionStartMonth(snapshot.startMonth||'');setHistoricalExpensesTotal(snapshot.expenses);setHistoricalExceptionalCollectionsTotal(snapshot.exceptional);
+      }catch(error){if(active)setFinanceError(error instanceof Error?error.message:'تعذر تحميل الأرصدة.');}
+      finally{if(active)setFinanceLoading(false);}
+    })();
+    return()=>{active=false};
+  },[isOpen,isNewBuilding,currentBuilding.id,financeReload]);
+
+  if(!isOpen)return null;
+
+  const savedBase=financialSnapshot?baseOpeningBalance(financialSnapshot):0;
+  const financialChanged=isNewBuilding||!!financialSnapshot&&(
+    openingBase!==(savedBase===null?'':String(savedBase))||openingIncluded!==''||reserveFund!==financialSnapshot.reserveFund||
+    collectionStartMonth!==(financialSnapshot.startMonth||'')||historicalExpensesTotal!==financialSnapshot.expenses||historicalExceptionalCollectionsTotal!==financialSnapshot.exceptional);
+  const preview=financialSnapshot?previewBuildingBalance(financialSnapshot,{baseOpening:Number(openingBase||0),expenses:historicalExpensesTotal,exceptional:historicalExceptionalCollectionsTotal,openingAlreadyIncluded:openingIncluded===''?null:openingIncluded==='included'}):Number(openingBase||0)+historicalExceptionalCollectionsTotal-historicalExpensesTotal;
 
   const hasUnsavedBuildingDetails = [
     [name,currentBuilding.name],[address,currentBuilding.address],[totalFloors,currentBuilding.totalFloors||1],[totalUnits,currentBuilding.totalUnits||0],
-    [monthlyTarget,currentBuilding.monthlyTarget||0],[reserveFund,currentBuilding.reserveFund||0],
-    [collectionStartMonth,currentBuilding.collectionStartMonth||''],[historicalExpensesTotal,currentBuilding.historicalExpensesTotal||0],
-    [historicalExceptionalCollectionsTotal,currentBuilding.historicalExceptionalCollectionsTotal||0],
+    [monthlyTarget,currentBuilding.monthlyTarget||0],[reserveFund,financialSnapshot?.reserveFund??currentBuilding.reserveFund??0],
+    [collectionStartMonth,financialSnapshot?.startMonth??currentBuilding.collectionStartMonth??''],[historicalExpensesTotal,financialSnapshot?.expenses??currentBuilding.historicalExpensesTotal??0],
+    [historicalExceptionalCollectionsTotal,financialSnapshot?.exceptional??currentBuilding.historicalExceptionalCollectionsTotal??0],
     [managerName,currentBuilding.managerName||''],[managerPhone,currentBuilding.managerPhone||''],
     [manager2Name,currentBuilding.manager2Name||''],[manager2Phone,currentBuilding.manager2Phone||''],
     [manager3Name,currentBuilding.manager3Name||''],[manager3Phone,currentBuilding.manager3Phone||'']
-  ].some(([value,saved])=>value!==saved);
+  ].some(([value,saved])=>value!==saved)||financialChanged;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (saving || !name.trim()) return;
+    if (saving || financeLoading || financeError || !name.trim()) return;
+    if(!isNewBuilding&&!financialSnapshot){setSaveError('أعد تحميل أرصدة العمارة قبل الحفظ.');return;}
     const data = {
       name: name.trim(),
       address: address.trim(),
@@ -123,14 +155,21 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
     };
     if ([historicalExpensesTotal,historicalExceptionalCollectionsTotal].some(value=>!Number.isFinite(value)||value<0||value>999999999999.99||Math.abs(Math.round(value*100)-value*100)>.00001)) { setSaveError('راجع الأرصدة السابقة: مبالغ غير سالبة وبحد أقصى رقمين عشريين.'); return; }
     if(collectionStartMonth && (collectionStartMonth<'1900-01'||collectionStartMonth>currentCollectionMonth())) {setSaveError('شهر بداية التحصيل لا يمكن أن يكون في المستقبل.');return;}
-    if (!isNewBuilding && (historicalExpensesTotal !== (currentBuilding.historicalExpensesTotal || 0) || historicalExceptionalCollectionsTotal !== (currentBuilding.historicalExceptionalCollectionsTotal || 0) || (collectionStartMonth || '') !== (currentBuilding.collectionStartMonth || '')) && !window.confirm('تأكيد تعديل الأرصدة السابقة؟ سيتم تعديل الخزينة والرصيد الافتتاحي بالفرق فقط؛ لن يتم إنشاء إيصالات أو مصروفات جديدة.')) return;
+    let finance:BuildingFinanceDraft|undefined;
+    if(financialChanged){
+      const base=Number(openingBase);
+      if(!openingBase.trim()||!Number.isFinite(base)||base<0||base>9999999999.99||Math.abs(Math.round(base*100)-base*100)>.00001||!Number.isFinite(reserveFund)||reserveFund<0||reserveFund>9999999999.99||Math.abs(Math.round(reserveFund*100)-reserveFund*100)>.00001){setSaveError('اكتب الرصيد المبدئي وصندوق الطوارئ بقيم غير سالبة وبحد أقصى رقمين عشريين.');return;}
+      if(!isNewBuilding&&financialSnapshot?.openingBalance===null&&openingIncluded===''){setSaveError('حدد هل الرصيد المبدئي موجود ضمن الخزينة الحالية حتى لا يُحسب مرتين.');return;}
+      finance={baseOpening:base,reserve:reserveFund,startMonth:collectionStartMonth||null,expenses:historicalExpensesTotal,exceptional:historicalExceptionalCollectionsTotal,expected:financialSnapshot,openingAlreadyIncluded:openingIncluded===''?null:openingIncluded==='included'};
+      if(!isNewBuilding&&!window.confirm('تأكيد حفظ أرصدة العمارة؟ ستتغير الخزينة بصافي الفرق فقط، دون إضافة الرصيد المبدئي أو الأرصدة السابقة كإيصالات جديدة.'))return;
+    }
     setSaving(true); setSaveError('');
     try {
       if (isNewBuilding) {
         if (!onAddBuilding) throw new Error('تعذر بدء إضافة العمارة. حاول مرة أخرى.');
-        await onAddBuilding(data);
+        await onAddBuilding(data,finance);
       } else {
-        await onUpdateBuilding(currentBuilding.id, data);
+        await onUpdateBuilding(currentBuilding.id, data,finance);
       }
       onClose();
     } catch (failure) {
@@ -159,7 +198,10 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
         </div>
 
         <form data-tour="building-form" onSubmit={handleSubmit} className="mt-4">
-          <fieldset disabled={saving} className="space-y-4">
+          {financeError&&<p role="alert" className="rounded-xl bg-rose-50 p-3 text-xs text-rose-800">{financeError}</p>}
+          {!isNewBuilding&&<button type="button" disabled={saving||financeLoading} className="min-h-11 text-xs text-teal-800 underline" onClick={()=>{if(!financialChanged||window.confirm('سيتم إعادة تحميل الأرصدة المحفوظة وإلغاء تعديلات الأرصدة غير المحفوظة. هل تريد المتابعة؟'))setFinanceReload(v=>v+1);}}>إعادة تحميل أرصدة العمارة</button>}
+          {financeLoading&&<p role="status" className="text-xs text-slate-500">جارٍ تحميل الأرصدة...</p>}
+          <fieldset disabled={saving||financeLoading||!!financeError} className="space-y-4">
           <div>
             <label className={label}>اسم العمارة *</label>
             <input required data-tour="building-name" value={name} onChange={e => setName(e.target.value)} placeholder="اكتب اسم العمارة" className={field} />
@@ -179,19 +221,35 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
             </div>
           </div>
           <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-3">{isNewBuilding ? 'سيتم إنشاء الشقق بأرقام متسلسلة وتوزيعها على الأدوار، وتطبيق الاشتراك الشهري الافتراضي عليها. يمكنك تخصيص اشتراك أي شقة لاحقًا من شاشة الشقق.' : 'عند زيادة العدد، تُضاف الشقق الناقصة تلقائيًا بالاشتراك الشهري الافتراضي. يُطبّق أيضًا على الشقق التي لم يُحدد لها اشتراك (قيمتها صفر)، مع الحفاظ على الاشتراكات المخصصة والمدفوعات الحالية. لا يمكن تقليل العدد عن الشقق المسجلة.'}</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <div><label className={label}>الاشتراك الشهري الافتراضي للشقة</label><input type="number" min="0" value={monthlyTarget} onChange={e => setMonthlyTarget(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
-            <div><label className={label}>صندوق الطوارئ</label><input type="number" min="0" value={reserveFund} onChange={e => setReserveFund(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
+
           </div>
+          <section className="space-y-3 rounded-xl border border-sky-100 bg-sky-50/50 p-3" data-tour="treasury-page">
+            <h3 className="text-sm font-bold text-slate-800">الرصيد المبدئي وصندوق الطوارئ</h3>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className={label}>الرصيد المبدئي (جنيه)<input data-tour="treasury-opening" type="number" min="0" max="9999999999.99" step="0.01" value={openingBase} onChange={e=>setOpeningBase(e.target.value)} className={field}/></label>
+              <label className={label}>رصيد صندوق الطوارئ (جنيه)<input data-tour="treasury-reserve" type="number" min="0" max="9999999999.99" step="0.01" value={reserveFund} onChange={e=>setReserveFund(Number(e.target.value))} className={field}/></label>
+            </div>
+            <p className="text-[11px] leading-6 text-slate-600">الرصيد المبدئي قبل إضافة التحصيلات السابقة وخصم المصروفات السابقة. صندوق الطوارئ مبلغ مخصص منفصل، ولا يُضاف تلقائيًا للخزينة أو لتحصيل الشقق.</p>
+            {!isNewBuilding&&financialSnapshot?.openingBalance===null&&<fieldset className="space-y-2 rounded-lg border bg-white p-3 text-xs"><legend className="font-bold">هل الرصيد المبدئي موجود ضمن الخزينة الحالية؟</legend><label className="block"><input type="radio" name="opening-included" checked={openingIncluded==='included'} onChange={()=>setOpeningIncluded('included')}/> نعم، تسجيله دون إضافته مرة ثانية</label><label className="block"><input type="radio" name="opening-included" checked={openingIncluded==='add'} onChange={()=>setOpeningIncluded('add')}/> لا، إضافته إلى الخزينة الحالية</label></fieldset>}
+          </section>
           <section className="space-y-3 rounded-xl border border-teal-100 bg-teal-50/50 p-3">
             <h3 className="text-sm font-bold text-slate-800">الأرصدة السابقة — قابلة للتعديل</h3>
             <div><label className={label}>شهر بداية التحصيل</label><input aria-label="شهر بداية التحصيل" type="month" max={currentCollectionMonth()} value={collectionStartMonth} onChange={e => setCollectionStartMonth(e.target.value)} className={field} /></div>
             <div><label className={label}>إجمالي المصروفات السابقة (جنيه)</label><input aria-label="إجمالي المصروفات السابقة" type="number" min="0" step="0.01" value={historicalExpensesTotal} onChange={e => setHistoricalExpensesTotal(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
             <div><label className={label}>إجمالي التحصيلات الاستثنائية السابقة (جنيه)</label><input aria-label="إجمالي التحصيلات الاستثنائية السابقة" type="number" min="0" step="0.01" value={historicalExceptionalCollectionsTotal} onChange={e => setHistoricalExceptionalCollectionsTotal(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
+            {historicalExpensesTotal>historicalExceptionalCollectionsTotal && <p data-historical-deficit role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs leading-6 text-amber-900">المصروفات السابقة أعلى من التحصيل الاستثنائي السابق بـ {(historicalExpensesTotal-historicalExceptionalCollectionsTotal).toLocaleString('ar-EG',{maximumFractionDigits:2})} ج.م. سيظهر عجز إذا لم تغطّه التحصيلات الشهرية السابقة أو الأرصدة الأخرى.</p>}
             <p className="text-[11px] text-slate-600">التحصيلات الاستثنائية السابقة مستقلة عن اشتراكات الشهور الرجعية، وتظهر أيضًا في قسم التحصيلات الاستثنائية. يمكن تصحيح هذه القيم لاحقًا. لا يتم خصمها من الخزنة الحالية مرة ثانية؛ تسوية الرصيد الافتتاحي تتم منفصلة.</p>
           </section>
-          {!isNewBuilding && collectionStartMonth!==(currentBuilding.collectionStartMonth||'') && <button type="button" className="min-h-11 text-xs text-teal-800 underline" onClick={()=>setCollectionStartMonth(currentBuilding.collectionStartMonth||'')}>استعادة شهر البداية المحفوظ</button>}
-          {!isNewBuilding && <HistoricalMonthlyDistribution buildingId={currentBuilding.id} key={currentBuilding.id} startMonth={currentBuilding.collectionStartMonth || ''} disabledReason={hasUnsavedBuildingDetails ? 'احفظ تعديلات بيانات العمارة أولًا أو ألغها، ثم عدّل التوزيع.' : undefined} onSaved={async () => { await onRefreshData?.(); }} />}
+          <div data-building-finance-preview className="rounded-xl border border-teal-100 bg-teal-50 p-3 text-xs leading-7 text-teal-900">
+            {!isNewBuilding&&financialSnapshot&&<p>الخزينة الحالية: <strong>{financialSnapshot.balance.toLocaleString('ar-EG')} ج.م</strong></p>}
+            <p>التحصيلات الشهرية السابقة المحفوظة: <strong>{(financialSnapshot?.historicalMonthly||0).toLocaleString('ar-EG')} ج.م</strong></p>
+            <p>الخزينة بعد حفظ التعديلات: <strong>{preview===null?'حدد طريقة تسجيل الرصيد المبدئي':preview.toLocaleString('ar-EG',{maximumFractionDigits:2})+' ج.م'}</strong></p>
+            <p className="text-[11px]">الحساب يشمل الرصيد المبدئي والأرصدة السابقة وحركات السداد والمصروفات المسجلة. تغيير صندوق الطوارئ وحده لا يغيّر إجمالي الخزينة.</p>
+          </div>
+          {!isNewBuilding && collectionStartMonth!==(financialSnapshot?.startMonth||'') && <button type="button" className="min-h-11 text-xs text-teal-800 underline" onClick={()=>setCollectionStartMonth(financialSnapshot?.startMonth||'')}>استعادة شهر البداية المحفوظ</button>}
+          {!isNewBuilding && <HistoricalMonthlyDistribution buildingId={currentBuilding.id} key={currentBuilding.id} startMonth={financialSnapshot?.startMonth || ''} disabledReason={hasUnsavedBuildingDetails ? 'احفظ تعديلات بيانات العمارة أولًا أو ألغها، ثم عدّل التوزيع.' : undefined} onSaved={async () => { await onRefreshData?.(); setFinanceReload(v=>v+1); }} />}
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={label}>اسم المسؤول الأول</label><input data-tour="building-manager" value={managerName} onChange={e => setManagerName(e.target.value)} className={field} /></div>

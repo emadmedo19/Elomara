@@ -1,6 +1,6 @@
 -- Isolated branch only. Fixtures and the identity shim roll back on success.
 DO $test$
-DECLARE b uuid:=gen_random_uuid(); foreign_b uuid:=gen_random_uuid(); a uuid:=gen_random_uuid(); a2 uuid:=gen_random_uuid(); foreign_a uuid:=gen_random_uuid();
+DECLARE b uuid:=gen_random_uuid(); deficit_b uuid:=gen_random_uuid(); foreign_b uuid:=gen_random_uuid(); a uuid:=gen_random_uuid(); a2 uuid:=gen_random_uuid(); foreign_a uuid:=gen_random_uuid();
  manager uuid:=gen_random_uuid(); resident uuid:=gen_random_uuid(); stranger uuid:=gen_random_uuid();
  this_m date:=date_trunc('month',timezone('Africa/Cairo',now()))::date; start_m date; allocations jsonb; r jsonb; entry uuid; request uuid:=gen_random_uuid(); denied boolean; candidate jsonb;
 BEGIN
@@ -74,8 +74,30 @@ BEGIN
   IF (SELECT balance FROM public.buildings WHERE id=b)<>100 THEN RAISE EXCEPTION 'Removing historical totals changed original cash'; END IF;
   RESET ROLE;
   IF (SELECT balance FROM public.buildings WHERE id=foreign_b)<>77 THEN RAISE EXCEPTION 'Operation crossed building boundary'; END IF;
+  -- Exact reported flow: reset, enter expenses 10000 and exceptional income 8000.
+  INSERT INTO public.buildings(id,name,balance,opening_balance) VALUES(deficit_b,'اختبار عجز افتتاحي',0,0);
+  UPDATE public.profiles SET building_id=deficit_b WHERE id=manager;
+  SET LOCAL ROLE authenticated;
+  PERFORM public.clear_building_data(deficit_b,'reset','تصفير سجلات اختبار عجز افتتاحي');
+  PERFORM public.save_building_historical_settings_v3(deficit_b,to_char(start_m,'YYYY-MM'),10000,8000);
+  PERFORM public.save_building_historical_settings_v3(deficit_b,to_char(start_m,'YYYY-MM'),10000,8000);
+  IF NOT EXISTS(SELECT FROM public.buildings WHERE id=deficit_b AND balance=-2000 AND opening_balance=-2000) THEN RAISE EXCEPTION 'Opening deficit was rejected, clamped or duplicated'; END IF;
+  r:=public.mutate_financial_entry('expense','create',deficit_b,NULL,jsonb_build_object('title','مصروف بعد العجز','category','أخرى','amount',100,'date',current_date),gen_random_uuid());
+  entry:=(r->'entry'->>'id')::uuid;
+  IF (r->>'balance')::numeric<>-2100 THEN RAISE EXCEPTION 'Expense on opening deficit incorrect'; END IF;
+  r:=public.mutate_financial_entry('expense','delete',deficit_b,entry,'{}',gen_random_uuid());
+  IF (r->>'balance')::numeric<>-2000 THEN RAISE EXCEPTION 'Reversing deficit expense did not restore original deficit'; END IF;
+  PERFORM public.save_building_historical_settings_v3(deficit_b,to_char(start_m,'YYYY-MM'),10000,12000);
+  IF NOT EXISTS(SELECT FROM public.buildings WHERE id=deficit_b AND balance=2000 AND opening_balance=2000) THEN RAISE EXCEPTION 'Correcting deficit did not apply only its delta'; END IF;
+  RESET ROLE;
+  denied:=false;
+  BEGIN UPDATE public.buildings SET opening_balance=-10000000000 WHERE id=deficit_b; EXCEPTION WHEN check_violation THEN denied:=true; END;
+  IF NOT denied THEN RAISE EXCEPTION 'Opening lower monetary bound was removed'; END IF;
+  denied:=false;
+  BEGIN UPDATE public.buildings SET opening_balance=10000000000 WHERE id=deficit_b; EXCEPTION WHEN check_violation THEN denied:=true; END;
+  IF NOT denied THEN RAISE EXCEPTION 'Opening upper monetary bound was removed'; END IF;
   RAISE EXCEPTION SQLSTATE 'Z0001' USING MESSAGE='historical rehearsal passed';
  EXCEPTION WHEN SQLSTATE 'Z0001' THEN NULL;
  END;
- IF EXISTS(SELECT FROM public.buildings WHERE id IN(b,foreign_b)) THEN RAISE EXCEPTION 'Fixture rollback failed'; END IF;
+ IF EXISTS(SELECT FROM public.buildings WHERE id IN(b,foreign_b,deficit_b)) THEN RAISE EXCEPTION 'Fixture rollback failed'; END IF;
 END $test$;

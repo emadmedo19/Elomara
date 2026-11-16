@@ -112,13 +112,13 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
   const isVip = subscription?.status === 'vip';
   return <SettingsPage tourTarget="more-page" title={ownerOpen ? "إدارة اشتراكات المنصة" : showPlans ? "الاشتراك والباقات" : "المزيد"} onBack={ownerOpen ? () => setOwnerOpen(false) : showPlans ? () => setShowPlans(false) : onBack} subpage={ownerOpen || showPlans}>{!ownerOpen && !showPlans && <div className="px-4 pb-3"><TourHelpButton /></div>}{!ownerOpen && !showPlans && <div className="space-y-4">
     {[
-      { title: 'الحسابات والتقارير', ids: ['exceptional','reports','treasury'] },
+      { title: 'الحسابات والتقارير', ids: ['exceptional','reports'] },
       { title: 'خدمات السكان', ids: ['services','polls','maintenance','bookings','announcements','building'] },
       { title: 'أدوات مساعدة', ids: ['chat','studio'] },
       { title: 'إدارة العمارة', ids: ['buildings','building-settings'] },
     ].map(group => { const rows = items.filter(item => group.ids.includes(item.id)); return rows.length ? <section key={group.title}><h2 className="px-4 py-2 text-sm font-bold text-slate-600">{group.title}</h2><SettingsList items={rows}/></section> : null; })}
     <section><h2 className="px-4 py-2 text-sm font-bold text-slate-600">الإعدادات والحساب</h2><SettingsList items={[
-      ...items.filter(item => !['exceptional','reports','treasury','services','polls','maintenance','bookings','announcements','building','chat','studio','buildings','building-settings'].includes(item.id)),
+      ...items.filter(item => !['exceptional','reports','services','polls','maintenance','bookings','announcements','building','chat','studio','buildings','building-settings'].includes(item.id)),
       ...(ownerSummary ? [{ id: 'platform-subscriptions', label: 'إدارة اشتراكات المنصة', icon: CreditCard, onClick: () => { setShowPlans(false); setOwnerOpen(true); } }] : []),
       ...(buildingId ? [{ id: 'subscription', label: 'الاشتراك والباقات', icon: CreditCard, onClick: () => { setOwnerOpen(false); setShowPlans(true); } }] : []),
       { id: 'app-settings', label: 'إعدادات التطبيق والحساب', icon: Settings, onClick: onOpenAppSettings },
