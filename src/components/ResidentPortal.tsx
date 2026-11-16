@@ -1,3 +1,4 @@
+import { useBuildingReadOnly, SubscriptionReadOnlyNotice } from './SubscriptionReadOnlyNotice';
 import { MemberPaymentMethods } from './MemberPaymentMethods';
 import { BrandLogo } from './BrandLogo';
 import { useSuccessFeedback } from './SuccessFeedback';
@@ -21,6 +22,7 @@ const dateLabel = (v: string) => { if (!v) return '—'; const d = new Date(v.le
 
 export const ResidentPortal: React.FC = () => {
   const { user, userProfile, signOut } = useAuth();
+  const subscriptionGate = useBuildingReadOnly(userProfile?.buildingId || undefined);
   const success = useSuccessFeedback();
   const [apartment, setApartment] = useState<any>(null);
   const [building, setBuilding] = useState<any>(null);
@@ -270,7 +272,9 @@ export const ResidentPortal: React.FC = () => {
       </div>
     </nav>
     <AppTour key={`${user?.id}:resident`} mode="resident" currentPage={activeTab} onNavigate={page => setActiveTab(page as ResidentTab)} />
-    <main data-tour="resident-page" data-tour-page={activeTab} key={activeTab} className="bunyan-page-enter max-w-6xl mx-auto p-3 sm:p-5 pb-28 space-y-4">
+    {subscriptionGate.expired && <div dir="rtl" className="fixed bottom-20 left-3 right-3 z-[65] mx-auto max-w-md rounded-xl border border-amber-200 bg-amber-50 p-3 text-center text-xs font-bold text-amber-900 shadow-lg">انتهى اشتراك العمارة — عرض البيانات فقط. تواصل مع مدير العمارة.</div>}
+    {subscriptionGate.notice && <SubscriptionReadOnlyNotice isAdmin={false} onClose={()=>subscriptionGate.setNotice(false)}/>}
+    <main onClickCapture={activeTab === "more" || activeTab === "app-settings" ? undefined : subscriptionGate.blockActions} onSubmitCapture={subscriptionGate.blockSubmit} data-tour="resident-page" data-tour-page={activeTab} key={activeTab} className="bunyan-page-enter max-w-6xl mx-auto p-3 sm:p-5 pb-28 space-y-4">
       {error && <div className="rounded-xl bg-rose-50 text-rose-800 border border-rose-100 p-3 text-sm flex gap-2"><AlertCircle className="w-5 h-5 shrink-0"/>{error}</div>}
       {Object.values(sectionErrors).some(Boolean) && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{Object.values(sectionErrors).filter(Boolean).join(' ')}<button type="button" onClick={() => void load(true)} className="block min-h-11 font-bold underline">إعادة المحاولة</button></div>}
       {notice && <div className="rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-100 p-3 text-sm flex gap-2"><CheckCircle2 className="w-5 h-5 shrink-0"/>{notice}</div>}

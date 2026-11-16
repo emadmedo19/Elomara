@@ -6,6 +6,7 @@ const historicalDueMonths = (start?: string): number => {
 };
 
 import { isNeonBackend, updateNeonBuilding } from './lib/neon';
+import { useBuildingReadOnly, SubscriptionReadOnlyNotice } from './components/SubscriptionReadOnlyNotice';
 import { IntroWindowLights } from './components/IntroWindowLights';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
@@ -138,6 +139,7 @@ export default function App() {
     };
   }, [buildings, currentBuildingId]);
 
+  const subscriptionGate = useBuildingReadOnly(currentBuilding.id || undefined);
   useEffect(() => {
     const clearData = () => {
       setBuildings([]); setApartments([]); setPayments([]); setTickets([]);
@@ -1515,7 +1517,7 @@ export default function App() {
         />
 
         {/* Content Body */}
-        <main data-tour="manager-page" data-tour-page={currentTab} className="flex-1 p-3 pb-28 sm:p-6 sm:pb-28 max-w-7xl mx-auto w-full">
+        <main onClickCapture={currentTab === "more" || currentTab === "app-settings" ? undefined : subscriptionGate.blockActions} onSubmitCapture={subscriptionGate.blockSubmit} data-tour="manager-page" data-tour-page={currentTab} className="flex-1 p-3 pb-28 sm:p-6 sm:pb-28 max-w-7xl mx-auto w-full">
           {currentTab === 'more' && <MoreView buildingId={isAdmin ? currentBuilding.id : ''} onBack={() => goBack('dashboard')} onOpenAppSettings={() => setCurrentTab('app-settings')} onSignOut={() => void signOut()} items={[
             ...(isAdmin ? [{ id: 'exceptional', label: 'التحصيلات الاستثنائية', icon: Wallet, tone: 'teal' as const, onClick: () => setCurrentTab('exceptional-collections') }] : []),
             { id: 'services', label: 'دليل الخدمات وأرقام الفنيين', icon: Wrench, tone: 'teal', onClick: () => setCurrentTab('services') },
@@ -1646,6 +1648,8 @@ export default function App() {
         </footer>
       </div>
 
+      {subscriptionGate.expired && <div dir="rtl" className="fixed bottom-20 left-3 right-3 z-[65] mx-auto max-w-md rounded-xl bg-amber-50 border border-amber-200 p-3 text-center text-xs font-bold text-amber-900 shadow-lg">انتهت الفترة التجريبية — عرض البيانات فقط. لتجديد الاشتراك افتح «المزيد».</div>}
+      {subscriptionGate.notice && <SubscriptionReadOnlyNotice isAdmin onClose={()=>subscriptionGate.setNotice(false)} onRenew={()=>{subscriptionGate.setNotice(false);setCurrentTab('more');}}/>}
       {/* Building Management Modal */}
       <BuildingManagementModal
         isOpen={isBuildingModalOpen}
