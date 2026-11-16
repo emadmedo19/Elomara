@@ -47,7 +47,7 @@ BEGIN
   END IF;
  END LOOP;
 END $$;
-CREATE OR REPLACE FUNCTION private.require_active_poll_subscription() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $
+CREATE OR REPLACE FUNCTION private.require_active_poll_subscription() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE target_poll uuid; target_building uuid;
 BEGIN
  target_poll:=CASE WHEN TG_OP='DELETE' THEN OLD.poll_id ELSE NEW.poll_id END;
@@ -55,13 +55,13 @@ BEGIN
  IF NOT public.building_subscription_allows_writes(target_building) THEN RAISE EXCEPTION 'انتهى اشتراك العمارة. التصويت متوقف حتى التجديد.' USING errcode='P0001'; END IF;
  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
  RETURN NEW;
-END $;
-DO $
+END $$;
+DO $$
 DECLARE tab text;
 BEGIN
  FOREACH tab IN ARRAY ARRAY['building_poll_ballots','building_poll_participation','building_poll_options'] LOOP
   EXECUTE format('DROP TRIGGER IF EXISTS subscription_poll_read_only_guard ON public.%I',tab);
   EXECUTE format('CREATE TRIGGER subscription_poll_read_only_guard BEFORE INSERT OR UPDATE OR DELETE ON public.%I FOR EACH ROW EXECUTE FUNCTION private.require_active_poll_subscription()',tab);
  END LOOP;
-END $;
+END $$;
 NOTIFY pgrst,'reload schema';
