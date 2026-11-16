@@ -1,3 +1,4 @@
+import { historicalDueMonths } from './historicalCollections';
 import { Apartment, Payment, PaymentStatus } from '../types';
 
 export interface ApartmentFinancials {
@@ -65,12 +66,9 @@ export function calculateApartmentFinancials(
   // A cached apartment summary must not resurrect a deleted receipt.
   const monthlyPaid = relevantPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
 
-  // Calculate total dues:
-  // If apartment has overdue months > 0, total dues is monthlyFee * overdueMonths
-  // Otherwise, single month due = monthlyFee
-  const dueMonthsCount = apartment.overdueMonths && apartment.overdueMonths > 0 
-    ? apartment.overdueMonths 
-    : 1;
+  // Derive calendar dues without overwriting the persisted manual arrears basis.
+  const calendarMonths = historicalDueMonths(apartment.collectionStartMonth);
+  const dueMonthsCount = Math.max(apartment.overdueMonths || 0,calendarMonths,1);
   const monthlyDue = apartment.monthlyFee * dueMonthsCount;
   // Exceptional receipts settle their own assessment, never monthly subscriptions.
   // Assessments remain outstanding until their linked receipts are recorded.
@@ -96,7 +94,7 @@ export function calculateApartmentFinancials(
   } else if (totalPaid > 0 && remaining > 0) {
     status = 'pending';
   } else {
-    status = apartment.overdueMonths && apartment.overdueMonths > 0 ? 'overdue' : 'pending';
+    status = (apartment.overdueMonths || 0)>0 || calendarMonths>1 ? 'overdue' : 'pending';
   }
 
   // Latest payment date
@@ -121,7 +119,7 @@ export function calculateApartmentFinancials(
     unitNumber: apartment.unitNumber,
     residentName: apartment.residentName,
     monthlyFee: apartment.monthlyFee,
-    overdueMonths: apartment.overdueMonths,
+    overdueMonths: Math.max(apartment.overdueMonths || 0,calendarMonths>1?calendarMonths:0),
     totalDue,
     totalPaid,
     remaining,

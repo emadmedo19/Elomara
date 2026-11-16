@@ -197,6 +197,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {!!currentBuilding.historicalExpensesTotal&&<div data-historical-expenses className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs text-amber-900"><span>المصروفات السابقة: <strong>{currentBuilding.historicalExpensesTotal.toLocaleString()} ج.م</strong></span><p className="mt-1 text-[10px]">رصيد سابق مستقل عن الفواتير المعروضة؛ يُعدّل من بيانات العمارة.</p></div>}
           <div className="text-left bg-rose-50 px-3.5 py-1.5 rounded-xl border border-rose-200 text-xs">
             <span className="text-rose-500 block text-[10px]">إجمالي المصروفات المعروضة</span>
             <span className="font-bold text-rose-700 text-sm">{totalExpenseSum.toLocaleString()} ج.م</span>

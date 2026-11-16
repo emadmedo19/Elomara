@@ -11,15 +11,33 @@ b.onResolve({filter:/^@capacitor\/app$/},()=>({path:'app',namespace:'fixture'}))
 b.onResolve({filter:/lib\/supabase$/},()=>({path:'api',namespace:'fixture'}));b.onResolve({filter:/lib\/neon$/},()=>({path:'neon',namespace:'fixture'}));
 b.onLoad({filter:/.*/,namespace:'fixture'},a=>({contents:a.path==='app'?`const listeners=[];window.nativeResume=()=>listeners.filter(l=>l.name==='appStateChange').forEach(l=>l.cb({isActive:true}));export const App={getLaunchUrl:async()=>({}),addListener:async(name,cb)=>{const l={name,cb};listeners.push(l);return{remove:async()=>{const i=listeners.indexOf(l);if(i>=0)listeners.splice(i,1)}}}};`:a.path==='neon'?`export const isNeonBackend=true;export const neonEmailRequest=async()=>({});export const startNeonGoogleSignIn=async()=>{};export const updateNeonBuilding=async()=>{};`:`
 const scenario=new URLSearchParams(location.search).get('scenario');
-const residentFixture=['tour-resident','feedback-resident','payment-destinations'].includes(scenario);
+const residentFixture=['tour-resident','feedback-resident','payment-destinations','historical-resident'].includes(scenario);
 const user={id:'manager',created_at:new URLSearchParams(location.search).has('guide')?new Date().toISOString():'2026-11-01T00:00:00Z',email:'fixture@example.invalid',user_metadata:{}};
 const state=window.mock={fixture:'elomara-membership-fixture-v1',created:false,staleReads:['error','switch'].includes(scenario)?100:2,calls:0,reads:0,currentUser:scenario==='signup'?null:user,lateRead:false,building:null,apartments:[],emit(){}};
 
-if(['review-manager','payment-filter-manager'].includes(scenario)) {
+if(['review-manager','payment-filter-manager','historical-manager'].includes(scenario)) {
  state.created=true;state.staleReads=0;
  state.building={id:'new-building',name:'عمارة الاختبار',address:'',total_units:14,total_floors:4,balance:100,monthly_target:14000,reserve_fund:0,manager_name:'مدير الاختبار',manager_phone:''};
  state.apartments=Array.from({length:14},(_,i)=>({id:'apt-'+(i+1),building_id:'new-building',unit_number:String(i+1),floor:Math.floor(i/4)+1,resident_name:'ساكن '+(i+1),resident_phone:'',is_owner:true,monthly_fee:1000,payment_status:'pending',overdue_months:i===0?3:0,paid_amount:0,credit_balance:0}));
  state.entities={payments:[],expenses:[],financial_audit_log:[],maintenance_tickets:[{id:'ticket',building_id:'new-building',apartment_id:'apt-1',unit_number:'1',resident_name:'ساكن 1',title:'عطل المصعد',description:'بلاغ اختبار',category:'مصاعد',urgency:'عاجل',status:'جديد',created_at:new Date().toISOString()}],facility_bookings:[{id:'booking',building_id:'new-building',apartment_id:'apt-1',unit_number:'1',resident_name:'ساكن 1',facility:'الروف',booking_date:'2026-11-20',time_slot:'5-7',status:'قيد المراجعة'}]};
+}
+if(scenario==='historical-manager') {
+ const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Africa/Cairo'}));
+ const month=(offset)=>new Date(Date.UTC(now.getFullYear(),now.getMonth()+offset,1)).toISOString().slice(0,10);
+ state.historyMonth=month;state.building.collection_start_month=month(-2);
+ state.building.historical_expenses_total=10000;state.building.historical_exceptional_collections_total=12000;state.building.balance=5850;state.building.total_units=2;
+ state.apartments=state.apartments.slice(0,2);state.apartments[0].overdue_months=0;state.apartments[0].unit_number='10';state.apartments[1].unit_number='2';state.apartments[1].monthly_fee=2000;
+ state.entities.historical_monthly_allocations=[{building_id:'new-building',apartment_id:'apt-1',month:month(-2),amount:1000},{building_id:'new-building',apartment_id:'apt-1',month:month(-1),amount:500},{building_id:'new-building',apartment_id:'apt-2',month:month(-2),amount:2000}];
+ if(new URLSearchParams(location.search).has('history-gap'))state.entities.historical_monthly_allocations[1].month=month(0);
+ state.entities.payments=[{id:'real-receipt',building_id:'new-building',apartment_id:'apt-1',unit_number:'10',resident_name:'ساكن 1',amount:300,payment_date:month(0),month:month(0).slice(0,7),method:'نقدي',payment_type:'monthly'}];
+ state.entities.expenses=[{id:'real-expense',building_id:'new-building',title:'فاتورة فعلية',category:'كهرباء',amount:50,expense_date:month(0)}];
+}
+if(scenario==='historical-resident') {
+ const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Africa/Cairo'}));
+ const month=(offset)=>new Date(Date.UTC(now.getFullYear(),now.getMonth()+offset,1)).toISOString().slice(0,10);
+ state.residentBuilding={id:'resident-building',name:'عمارة الاختبار',balance:5850,collection_start_month:month(-2)};
+ state.residentApartment={id:'resident-apartment',unit_number:'10',monthly_fee:1000,overdue_months:0};
+ state.entities={payments:[{id:'real',building_id:'resident-building',apartment_id:'resident-apartment',amount:300,payment_date:month(0),month:month(0).slice(0,7),method:'نقدي',payment_type:'monthly'}],historical_monthly_allocations:[{building_id:'resident-building',apartment_id:'resident-apartment',month:month(-2),amount:1000},{building_id:'resident-building',apartment_id:'resident-apartment',month:month(-1),amount:500},{building_id:'resident-building',apartment_id:'other-apartment',month:month(-2),amount:2000}]};
 }
 if(scenario==='payment-filter-manager') {
  state.apartments[3].overdue_months=4;state.apartments[4].overdue_months=3;state.apartments[5].monthly_fee=0;
@@ -43,8 +61,8 @@ if(scenario==='feedback-resident'&&table==='building_polls')return Promise.resol
 if(scenario==='feedback-resident'&&table==='building_poll_options')return Promise.resolve({data:[{id:'yes',poll_id:'poll',label:'موافق',sort_order:0},{id:'no',poll_id:'poll',label:'غير موافق',sort_order:1}],error:null}).then(resolve,reject);
 if(scenario==='feedback-resident'&&table==='maintenance_tickets')return Promise.resolve({data:state.ticketCount?[{...state.lastTicket,id:'ticket',created_at:new Date().toISOString()}]:[],error:null}).then(resolve,reject);
 if(table==='profiles'){state.reads++;if(!authoritative){state.profileGets=(state.profileGets||0)+1;if(state.badProfileGet)return Promise.resolve({data:row(true),error:null}).then(resolve,reject)}else{state.membershipRpcs=(state.membershipRpcs||0)+1;if(state.membershipMissing)return Promise.resolve({data:null,error:null}).then(resolve,reject);if(state.membershipFault)return Promise.resolve({data:null,error:{message:'Profile offline'}}).then(resolve,reject)}if(['hang','switch-inflight'].includes(scenario)&&state.created&&!state.unhang&&filters.id==='manager')return new Promise(()=>{}).then(resolve,reject);const id=filters.id||state.currentUser.id;if(id!=='manager')result={data:row(true,id),error:null};else if(state.lateRead){state.lateRead=false;return new Promise(r=>setTimeout(()=>r({data:row(true),error:null}),180)).then(resolve,reject)}else if(state.created&&state.staleReads>0){state.staleReads--;result={data:row(true),error:null}}else result={data:row(scenario==='pending'&&!state.created),error:null};}
-else if(residentFixture&&single&&table==='apartments')result={data:{id:'resident-apartment',unit_number:'1',monthly_fee:1000},error:null};
-else if(residentFixture&&single&&table==='buildings')result={data:{id:'resident-building',name:'عمارة تجريبية',total_units:14,balance:0},error:null};
+else if(residentFixture&&single&&table==='apartments')result={data:{id:'resident-apartment',unit_number:'1',monthly_fee:1000,...state.residentApartment},error:null};
+else if(residentFixture&&single&&table==='buildings')result={data:{id:'resident-building',name:'عمارة تجريبية',total_units:14,balance:0,...state.residentBuilding},error:null};
 else result={data:table==='apartments'?state.apartments:table==='buildings'?(single?state.building:state.building?[state.building]:[]):single?null:[],error:null,count:0};return Promise.resolve(result).then(resolve,reject)}};return q}
 export const supabase={from:query,auth:{
 async signUp(args){state.signup=args;await new Promise(r=>setTimeout(r,80));return{data:{session:null},error:null}},
@@ -54,6 +72,21 @@ async signInWithPassword(args){state.signin=args;await new Promise(r=>setTimeout
 onAuthStateChange(cb){state.emit=(event,who=state.currentUser)=>{state.currentUser=who;cb(event,who?{user:who}:null)};return{data:{subscription:{unsubscribe(){}}}}},async getSession(){return{data:{session:state.currentUser?{user:state.currentUser}:null}}},async refreshSession(){state.refreshes=(state.refreshes||0)+1;await new Promise(r=>setTimeout(r,40));if(state.sessionRefreshFail)return{data:{session:null},error:{message:'Session offline'}};state.emit('TOKEN_REFRESHED');return{data:{session:{user:state.currentUser}},error:null}},async signOut(){state.emit('SIGNED_OUT',null);return{error:null}}},channel(){const q={on(){return q},subscribe(){return q}};return q},removeChannel(){},functions:{async invoke(name){if(name==='get-building-payment-methods')return{data:state.paymentResponse||{building_id:'resident-building',methods:scenario==='payment-destinations'?[{name:'إنستا باي',account:'building@instapay'},{name:'محفظة إلكترونية',account:'01001234567'}]:[]},error:null};return{data:{},error:null}}},rpc(name,args){(state.rpcCalls||=[]).push({name,args});
 if(scenario==='feedback-resident'&&name==='get_building_poll_results')return Promise.resolve({data:{has_voted:!!state.voteCount,is_closed:false,results_visible:false,participants_count:null,targeted_count:null,non_participants_count:null,turnout_percentage:null,options:null},error:null});
 if(scenario==='feedback-resident'&&name==='cast_building_poll_vote'){state.voteAttempts=(state.voteAttempts||0)+1;if(!state.voteFail)state.voteCount=(state.voteCount||0)+1;return Promise.resolve({data:null,error:state.voteFail?{message:'Fixture vote failed'}:null});}
+if(name==='get_building_financial_summary'&&scenario==='historical-resident')return Promise.resolve({data:{total_collected:15800,total_expenses:10050,outstanding_amount:1200,treasury_balance:5850,apartments:[{unit_number:'10',total_paid:1800,remaining:1200,status:'partial'}],historical_monthly_collections:3500,historical_exceptional_collections:12000,historical_expenses:10000},error:null});
+if(name==='save_building_historical_settings_v3'&&scenario==='historical-manager') {
+ const delta=Number(args.p_exceptional_collections)-Number(args.p_expenses)-(state.building.historical_exceptional_collections_total-state.building.historical_expenses_total);
+ Object.assign(state.building,{balance:state.building.balance+delta,collection_start_month:args.p_start_month?args.p_start_month+'-01':null,historical_expenses_total:args.p_expenses,historical_exceptional_collections_total:args.p_exceptional_collections});
+ return Promise.resolve({data:null,error:null});
+}
+if(name==='save_historical_monthly_allocations'&&scenario==='historical-manager') {
+ const run=()=>{if(state.historySaveFail)return {data:null,error:{message:'تعذر حفظ التوزيع التجريبي'}};
+ const previous=state.entities.historical_monthly_allocations.reduce((n,r)=>n+Number(r.amount),0);
+ state.entities.historical_monthly_allocations=args.p_allocations.map(r=>({building_id:args.p_building_id,apartment_id:r.apartmentId,month:r.month,amount:r.amount}));
+ state.building.balance+=args.p_allocations.reduce((n,r)=>n+Number(r.amount),0)-previous;
+ return {data:null,error:null};};
+ if(state.historySavePending)return new Promise(resolve=>state.finishHistorySave=()=>resolve(run()));
+ return Promise.resolve(run());
+}
 if(name==='mutate_financial_entry'&&state.entities){
  const run=()=>{if(state.failFinancial)return Promise.resolve({data:null,error:{message:'تعذر الحفظ التجريبي'}});
  const{p_kind:kind,p_action:action,p_values:v,p_entry_id:id}=args;const table=kind==='payment'?'payments':'expenses';const rows=state.entities[table];const old=rows.find(x=>x.id===id);const sign=kind==='payment'?1:-1;

@@ -71,7 +71,7 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
     const text = encodeURIComponent(
       `السلام عليكم ${apartment.residentName} المحترم،\nتحية طيبة من إدارة ${buildingName}.\nموقف حساب ${apartment.unitNumber}:\n• المستحق: ${fin.totalDue.toLocaleString()} ج.م\n• المسدد: ${fin.totalPaid.toLocaleString()} ج.م\n• المتبقي: ${fin.remaining.toLocaleString()} ج.م${
         fin.creditBalance > 0 ? `\n• رصيد دائن (مقدم): ${fin.creditBalance.toLocaleString()} ج.م` : ''
-      }\n• الحالة: ${fin.status === 'paid' ? 'خالص السداد ✓' : fin.status === 'overdue' ? `متأخر (${apartment.overdueMonths || 1} شهر)` : 'سداد جزئي'}\nشكراً لتعاونكم وحرصكم الدائم.`
+      }\n• الحالة: ${fin.status === 'paid' ? 'خالص السداد ✓' : fin.status === 'overdue' ? `متأخر (${fin.overdueMonths || 1} شهر)` : 'سداد جزئي'}\nشكراً لتعاونكم وحرصكم الدائم.`
     );
     window.open(`https://wa.me/${apartment.residentPhone.replace('+', '')}?text=${text}`, '_blank');
   };
@@ -241,8 +241,8 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
               {fin.totalDue.toLocaleString()} ج.م
             </span>
             <span className="text-[10px] text-slate-400 block mt-0.5">
-              {apartment.overdueMonths && apartment.overdueMonths > 1
-                ? `${apartment.overdueMonths} شهور متأخرات`
+              {fin.overdueMonths > 1
+                ? `${fin.overdueMonths} شهور اشتراك`
                 : 'الاشتراك الشهري'}
             </span>
           </div>
@@ -275,7 +275,7 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
               {fin.status === 'pending' && <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />}
               <span className="font-bold text-xs">
                 {fin.status === 'paid' && 'خالص السداد ✓'}
-                {fin.status === 'overdue' && `متأخر (${apartment.overdueMonths || 1} شهر)`}
+                {fin.status === 'overdue' && `متأخر (${fin.overdueMonths || 1} شهر)`}
                 {fin.status === 'pending' && 'سداد جزئي'}
               </span>
             </div>
@@ -398,7 +398,7 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
                         {p.method}
                       </span>
                       <span className="text-[10px] text-slate-400 font-mono">
-                        {p.receiptNumber || 'بدون إيصال'}
+                        {p.isHistorical ? 'رصيد سابق' : p.receiptNumber || 'بدون إيصال'}
                       </span>
                       <span className="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-semibold">
                         دورة {p.month}
@@ -415,7 +415,7 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
                     </div>
                   </div>
 
-                  {isManager && (
+                  {isManager && !p.isHistorical && (
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         onClick={() => onEditPayment(p)}

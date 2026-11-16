@@ -107,31 +107,33 @@ export const ResidentPortal: React.FC = () => {
     if (quiet) setRefreshing(true); else setLoading(true);
     setError('');
     try {
-    const [apt, bld, pay, news, maintenance, facility, report] = await Promise.all([
+    const [apt, bld, pay, news, maintenance, facility, report, historical] = await Promise.all([
       supabase.from('apartments').select('id,unit_number,floor,resident_name,resident_phone,is_owner,monthly_fee,payment_status,overdue_months,paid_amount,credit_balance,last_payment_date').eq('id', userProfile.apartmentId).single(),
-      supabase.from('buildings').select('id,name,address,manager_name,manager_phone,balance,monthly_target,reserve_fund,total_units,total_floors').eq('id', userProfile.buildingId).single(),
+      supabase.from('buildings').select('id,name,address,manager_name,manager_phone,balance,monthly_target,reserve_fund,total_units,total_floors,collection_start_month').eq('id', userProfile.buildingId).single(),
       supabase.from('payments').select('id,amount,payment_date,month,method,receipt_number,notes,payment_type,is_assessment,exceptional_charge_id,assessment_cancelled').eq('apartment_id', userProfile.apartmentId).order('payment_date',{ascending:false}),
       supabase.from('announcements').select('id,title,content,announcement_type,created_at,pinned').eq('building_id', userProfile.buildingId).order('pinned',{ascending:false}).order('created_at',{ascending:false}),
       supabase.from('maintenance_tickets').select('id,category,title,description,urgency,status,created_at,updated_at,manager_note').eq('apartment_id', userProfile.apartmentId).order('created_at',{ascending:false}),
       supabase.from('facility_bookings').select('id,facility,booking_date,time_slot,status,created_at,updated_at,manager_note').eq('apartment_id', userProfile.apartmentId).order('booking_date',{ascending:false}),
       supabase.rpc('get_building_financial_summary', { p_building_id: userProfile.buildingId }),
+      supabase.from('historical_monthly_allocations').select('apartment_id,building_id,month,amount').eq('building_id',userProfile.buildingId).eq('apartment_id',userProfile.apartmentId),
     ]);
+    const paymentError = pay.error || historical.error || apt.error || bld.error;
     const firstError = apt.error || bld.error;
     if (firstError) setError('تعذر تحميل بيانات الحساب: ' + firstError.message);
-    setSectionErrors({ payments: pay.error ? 'تعذر تحميل السداد. اسحب للتحديث أو اضغط تحديث البيانات.' : '', maintenance: maintenance.error ? 'تعذر تحميل البلاغات. حاول تحديث البيانات.' : '', bookings: facility.error ? 'تعذر تحميل الحجوزات. حاول تحديث البيانات.' : '', reports: report.error ? 'تعذر تحميل التقرير. حاول تحديث البيانات.' : '' });
-    const rows = pay.error ? payments : pay.data || [];
+    setSectionErrors({ payments: paymentError ? 'تعذر تحميل السداد. اسحب للتحديث أو اضغط تحديث البيانات.' : '', maintenance: maintenance.error ? 'تعذر تحميل البلاغات. حاول تحديث البيانات.' : '', bookings: facility.error ? 'تعذر تحميل الحجوزات. حاول تحديث البيانات.' : '', reports: report.error ? 'تعذر تحميل التقرير. حاول تحديث البيانات.' : '' });
+    const rows = paymentError ? payments : [...(pay.data || []), ...(historical.data || []).map((row: {apartment_id:string;month:string;amount:number})=>({id:'historical:'+row.apartment_id+':'+row.month,amount:Number(row.amount),payment_date:row.month,month:row.month.slice(0,7),method:'رصيد افتتاحي سابق',notes:'توزيع رصيد سابق',payment_type:'monthly',isHistorical:true}))];
     const totals = apt.data ? calculateApartmentFinancials({
       ...apt.data, buildingId: userProfile.buildingId, unitNumber: apt.data.unit_number,
       residentName: apt.data.resident_name, residentPhone: apt.data.resident_phone, isOwner: apt.data.is_owner,
-      status: apt.data.payment_status, monthlyFee: Number(apt.data.monthly_fee || 0), overdueMonths: apt.data.overdue_months,
+      status: apt.data.payment_status, monthlyFee: Number(apt.data.monthly_fee || 0), overdueMonths: Number(apt.data.overdue_months||0),collectionStartMonth:bld.data?.collection_start_month?.slice(0,7),
     }, rows.map((p: any) => ({ ...p, apartmentId: apt.data.id, paymentType: p.payment_type,
       isAssessment: p.is_assessment, assessmentCancelled: p.assessment_cancelled, exceptionalChargeId: p.exceptional_charge_id,
       date: p.payment_date, amount: Number(p.amount || 0) }))) : null;
-    if (!apt.error) setApartment((previous: Record<string, unknown> | null) => apt.data ? { ...apt.data, paid_amount: pay.error ? previous?.paid_amount : totals?.totalPaid || 0,
-      remaining: pay.error ? previous?.remaining : totals?.remaining || 0, credit_balance: pay.error ? previous?.credit_balance : totals?.creditBalance || 0, payment_status: pay.error ? previous?.payment_status : totals?.status } : null);
+    if (!apt.error) setApartment((previous: Record<string, unknown> | null) => apt.data ? { ...apt.data, dues_months: totals?.overdueMonths || (Number(apt.data.monthly_fee)>0?1:0), paid_amount: paymentError ? previous?.paid_amount : totals?.totalPaid || 0,
+      remaining: paymentError ? previous?.remaining : totals?.remaining || 0, credit_balance: paymentError ? previous?.credit_balance : totals?.creditBalance || 0, payment_status: paymentError ? previous?.payment_status : totals?.status } : null);
     if (quiet) setPaymentMethodsRevision(value=>value+1);
     if (!bld.error) setBuilding(bld.data);
-    if (!pay.error) setPayments(rows.filter((p: any) => !p.is_assessment));
+    if (!paymentError) setPayments(rows.filter((p: any) => !p.is_assessment));
     if (news.error) {
       console.error('[Elomara resident announcements]', news.error);
       setError(previous => previous || 'تعذر تحميل الإعلانات: ' + news.error.message);
@@ -319,7 +321,7 @@ export const ResidentPortal: React.FC = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
           <div className="rounded-xl bg-slate-50 border p-3"><div className="text-xs text-slate-500">الاشتراك الشهري</div><b>{money(apartment?.monthly_fee)} جنيه</b></div>
           <div className="rounded-xl bg-slate-50 border p-3"><div className="text-xs text-slate-500">إجمالي المسدد</div><b>{sectionErrors.payments ? '—' : money(apartment?.paid_amount)} جنيه</b></div>
-          <div className="rounded-xl bg-slate-50 border p-3 col-span-2 sm:col-span-1"><div className="text-xs text-slate-500">المتأخرات بالشهور</div><b>{Number(apartment?.overdue_months || 0)} شهر</b></div>
+          <div className="rounded-xl bg-slate-50 border p-3 col-span-2 sm:col-span-1"><div className="text-xs text-slate-500">عدد شهور الاشتراك المحتسبة</div><b>{Number(apartment?.dues_months || 0)} شهر</b></div>
           <div className="rounded-xl bg-slate-50 border p-3 col-span-2 sm:col-span-3"><div className="text-xs text-slate-500">المتبقي شامل التحصيل الاستثنائي</div><b>{sectionErrors.payments ? '—' : money(apartment?.remaining)} جنيه</b></div>
         </div>
         <MemberPaymentMethods buildingId={userProfile.buildingId} revision={paymentMethodsRevision}/>
@@ -337,6 +339,7 @@ export const ResidentPortal: React.FC = () => {
             <div className="rounded-xl bg-sky-50 border border-sky-100 p-3"><div className="text-xs text-sky-800">رصيد الخزينة</div><b className="text-lg text-sky-900">{money(financialReport.treasury_balance)} ج.م</b></div>
           </div> : <p className="text-sm text-slate-500">التقرير غير متاح حاليًا. اسحب للتحديث وحاول مرة أخرى.</p>}
         </div>
+        {financialReport && (financialReport.historical_monthly_collections>0 || financialReport.historical_exceptional_collections>0 || financialReport.historical_expenses>0) && <p className="rounded-xl border bg-slate-50 p-3 text-xs leading-7 text-slate-600">الإجماليات تشمل الأرصدة السابقة: شهري {money(financialReport.historical_monthly_collections)} ج.م، استثنائي {money(financialReport.historical_exceptional_collections)} ج.م، مصروفات {money(financialReport.historical_expenses)} ج.م. حركة الشهور تعرض الإيصالات والمصروفات المسجلة فقط.</p>}
         {financialReport?.apartments?.length > 0 && <div className="bg-white rounded-2xl border p-4 sm:p-5 shadow-sm">
           <h3 className="font-bold mb-3">موقف السداد لكل شقة</h3>
           <div className="overflow-x-auto">

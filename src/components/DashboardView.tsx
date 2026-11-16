@@ -73,7 +73,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <article data-tour="dashboard-collected" className="light-stat light-stat-collected">
           <div><span>إجمالي المحصل</span><span className="light-stat-icon settings-icon-teal"><ArrowDownRight size={21} /></span></div>
           <strong>{money(fin.totalCollected + historicalExceptionalCollections)} <small>ج.م</small></strong>
-          <p>الإيصالات + التحصيلات الاستثنائية السابقة ({money(historicalExceptionalCollections)} ج.م)</p>
+          <p>السداد المسجل والأرصدة السابقة؛ الاستثنائي السابق ({money(historicalExceptionalCollections)} ج.م)</p>
         </article>
         <button type="button" className="light-stat light-stat-due light-stat-button" aria-label="عرض الشقق التي عليها مستحقات" onClick={() => onOpenOutstanding ? onOpenOutstanding() : onNavigate('collections')}>
           <div><span>المتبقي للتحصيل</span><span className="light-stat-icon settings-icon-gold"><Wallet size={21} /></span></div>

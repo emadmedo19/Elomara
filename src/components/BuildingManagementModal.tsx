@@ -3,6 +3,7 @@ import { Building } from '../types';
 import { supabase } from '../lib/supabase';
 import { Building2, Save, X, Phone, MapPin, Layers } from 'lucide-react';
 import { BuildingDataDeletionButton } from './BuildingDataDeletionButton';
+import { currentCollectionMonth } from '../services/historicalCollections';
 import { HistoricalMonthlyDistribution } from './HistoricalMonthlyDistribution';
 
 interface BuildingManagementModalProps {
@@ -14,10 +15,11 @@ interface BuildingManagementModalProps {
   onAddBuilding?: (newBuilding: Omit<Building, 'id'>) => Promise<void>;
   onUpdateBuilding: (id: string, updatedBuilding: Partial<Building>) => Promise<void>;
   onDeleteBuilding?: (id: string) => void;
+  onRefreshData?: () => Promise<void>;
 }
 
 export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = ({
-  isOpen, onClose, buildings = [], currentBuilding, onAddBuilding, onUpdateBuilding,
+  isOpen, onClose, buildings = [], currentBuilding, onAddBuilding, onUpdateBuilding, onRefreshData,
 }) => {
   const isNewBuilding = buildings.length === 0;
   const [saving, setSaving] = useState(false);
@@ -70,7 +72,8 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
       setManager3Name(currentBuilding.manager3Name || '');
       setManager3Phone(currentBuilding.manager3Phone || '');
     }
-  }, [isOpen, isNewBuilding, currentBuilding]);
+  // Refreshing balances must not erase edits already typed in this form.
+  }, [isOpen, isNewBuilding, currentBuilding.id]);
 
   // Building counts may change on the server while this modal or an OTA is open.
   // Always fetch the persisted count before displaying/editing it.
@@ -88,6 +91,16 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
   }, [isOpen, isNewBuilding, currentBuilding.id]);
 
   if (!isOpen) return null;
+
+  const hasUnsavedBuildingDetails = [
+    [name,currentBuilding.name],[address,currentBuilding.address],[totalFloors,currentBuilding.totalFloors||1],[totalUnits,currentBuilding.totalUnits||0],
+    [monthlyTarget,currentBuilding.monthlyTarget||0],[reserveFund,currentBuilding.reserveFund||0],
+    [collectionStartMonth,currentBuilding.collectionStartMonth||''],[historicalExpensesTotal,currentBuilding.historicalExpensesTotal||0],
+    [historicalExceptionalCollectionsTotal,currentBuilding.historicalExceptionalCollectionsTotal||0],
+    [managerName,currentBuilding.managerName||''],[managerPhone,currentBuilding.managerPhone||''],
+    [manager2Name,currentBuilding.manager2Name||''],[manager2Phone,currentBuilding.manager2Phone||''],
+    [manager3Name,currentBuilding.manager3Name||''],[manager3Phone,currentBuilding.manager3Phone||'']
+  ].some(([value,saved])=>value!==saved);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,8 +121,9 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
       manager2Name: manager2Name.trim(), manager2Phone: manager2Phone.trim(),
       manager3Name: manager3Name.trim(), manager3Phone: manager3Phone.trim(),
     };
-    if (!Number.isFinite(historicalExpensesTotal) || historicalExpensesTotal < 0 || !Number.isFinite(historicalExceptionalCollectionsTotal) || historicalExceptionalCollectionsTotal < 0) { setSaveError('راجع مبلغ المصروفات السابقة'); return; }
-    if (!isNewBuilding && (historicalExpensesTotal !== (currentBuilding.historicalExpensesTotal || 0) || historicalExceptionalCollectionsTotal !== (currentBuilding.historicalExceptionalCollectionsTotal || 0) || (collectionStartMonth || '') !== (currentBuilding.collectionStartMonth || '')) && !window.confirm('تأكيد تعديل الأرصدة السابقة؟ سيتم حفظ القيمة الجديدة دون إضافة مصروف جديد للخزنة.')) return;
+    if ([historicalExpensesTotal,historicalExceptionalCollectionsTotal].some(value=>!Number.isFinite(value)||value<0||value>999999999999.99||Math.abs(Math.round(value*100)-value*100)>.00001)) { setSaveError('راجع الأرصدة السابقة: مبالغ غير سالبة وبحد أقصى رقمين عشريين.'); return; }
+    if(collectionStartMonth && (collectionStartMonth<'1900-01'||collectionStartMonth>currentCollectionMonth())) {setSaveError('شهر بداية التحصيل لا يمكن أن يكون في المستقبل.');return;}
+    if (!isNewBuilding && (historicalExpensesTotal !== (currentBuilding.historicalExpensesTotal || 0) || historicalExceptionalCollectionsTotal !== (currentBuilding.historicalExceptionalCollectionsTotal || 0) || (collectionStartMonth || '') !== (currentBuilding.collectionStartMonth || '')) && !window.confirm('تأكيد تعديل الأرصدة السابقة؟ سيتم تعديل الخزينة والرصيد الافتتاحي بالفرق فقط؛ لن يتم إنشاء إيصالات أو مصروفات جديدة.')) return;
     setSaving(true); setSaveError('');
     try {
       if (isNewBuilding) {
@@ -171,12 +185,13 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
           </div>
           <section className="space-y-3 rounded-xl border border-teal-100 bg-teal-50/50 p-3">
             <h3 className="text-sm font-bold text-slate-800">الأرصدة السابقة — قابلة للتعديل</h3>
-            <div><label className={label}>شهر بداية التحصيل</label><input type="month" value={collectionStartMonth} onChange={e => setCollectionStartMonth(e.target.value)} className={field} /></div>
-            <div><label className={label}>إجمالي المصروفات السابقة (جنيه)</label><input type="number" min="0" step="0.01" value={historicalExpensesTotal} onChange={e => setHistoricalExpensesTotal(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
-            <div><label className={label}>إجمالي التحصيلات الاستثنائية السابقة (جنيه)</label><input type="number" min="0" step="0.01" value={historicalExceptionalCollectionsTotal} onChange={e => setHistoricalExceptionalCollectionsTotal(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
+            <div><label className={label}>شهر بداية التحصيل</label><input aria-label="شهر بداية التحصيل" type="month" max={currentCollectionMonth()} value={collectionStartMonth} onChange={e => setCollectionStartMonth(e.target.value)} className={field} /></div>
+            <div><label className={label}>إجمالي المصروفات السابقة (جنيه)</label><input aria-label="إجمالي المصروفات السابقة" type="number" min="0" step="0.01" value={historicalExpensesTotal} onChange={e => setHistoricalExpensesTotal(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
+            <div><label className={label}>إجمالي التحصيلات الاستثنائية السابقة (جنيه)</label><input aria-label="إجمالي التحصيلات الاستثنائية السابقة" type="number" min="0" step="0.01" value={historicalExceptionalCollectionsTotal} onChange={e => setHistoricalExceptionalCollectionsTotal(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
             <p className="text-[11px] text-slate-600">التحصيلات الاستثنائية السابقة مستقلة عن اشتراكات الشهور الرجعية، وتظهر أيضًا في قسم التحصيلات الاستثنائية. يمكن تصحيح هذه القيم لاحقًا. لا يتم خصمها من الخزنة الحالية مرة ثانية؛ تسوية الرصيد الافتتاحي تتم منفصلة.</p>
           </section>
-          {!isNewBuilding && <HistoricalMonthlyDistribution buildingId={currentBuilding.id} startMonth={collectionStartMonth} onSaved={() => { window.location.reload(); }} />}
+          {!isNewBuilding && collectionStartMonth!==(currentBuilding.collectionStartMonth||'') && <button type="button" className="min-h-11 text-xs text-teal-800 underline" onClick={()=>setCollectionStartMonth(currentBuilding.collectionStartMonth||'')}>استعادة شهر البداية المحفوظ</button>}
+          {!isNewBuilding && <HistoricalMonthlyDistribution buildingId={currentBuilding.id} key={currentBuilding.id} startMonth={currentBuilding.collectionStartMonth || ''} disabledReason={hasUnsavedBuildingDetails ? 'احفظ تعديلات بيانات العمارة أولًا أو ألغها، ثم عدّل التوزيع.' : undefined} onSaved={async () => { await onRefreshData?.(); }} />}
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={label}>اسم المسؤول الأول</label><input data-tour="building-manager" value={managerName} onChange={e => setManagerName(e.target.value)} className={field} /></div>

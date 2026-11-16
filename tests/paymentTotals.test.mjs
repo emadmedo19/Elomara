@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { transform } from 'esbuild';
+import { build } from 'esbuild';
 
-const { code } = await transform(await readFile('src/services/financialAccounting.ts', 'utf8'), { loader: 'ts', format: 'esm' });
+const compiled = await build({entryPoints:['src/services/financialAccounting.ts'],bundle:true,write:false,format:'esm',platform:'node'});
+const code = compiled.outputFiles[0].text;
 const { calculateApartmentFinancials: apartmentTotals, calculateBuildingFinancials: buildingTotals, reconcileApartment, classifyApartmentPayment } =
   await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
 const apartment = { id: 'a', buildingId: 'b', monthlyFee: 100, overdueMonths: 0, paidAmount: 2000, creditBalance: 1900, lastPaymentDate: '2026-11-09' };
@@ -144,4 +144,17 @@ test('payment filters distinguish complete, zero and partial settlements using r
 test('an unpaid exceptional assessment keeps a prepaid monthly account in the partial group', () => {
   const unit = { ...apartment, monthlyFee: 1000 };
   assert.equal(classifyApartmentPayment(apartmentTotals(unit, [{ ...receipt, amount: 1500 }, { ...charge, amount: 5000 }])), 'partial');
+});
+
+test('calendar dues do not become persisted manual arrears after reconciling history',()=>{
+ const month=new Intl.DateTimeFormat('en',{timeZone:'Africa/Cairo',year:'numeric',month:'2-digit'}).formatToParts(new Date());
+ const year=Number(month.find(p=>p.type==='year').value), m=Number(month.find(p=>p.type==='month').value);
+ const start=new Date(Date.UTC(year,m-3,1)).toISOString().slice(0,7);
+ const apt={...apartment,monthlyFee:1000,overdueMonths:0,collectionStartMonth:start};
+ const history={...receipt,amount:1500,isHistorical:true};
+ assert.equal(apartmentTotals(apt,[history]).totalDue,3000);
+ assert.equal(apartmentTotals(apt,[history]).remaining,1500);
+ assert.equal(reconcileApartment(apt,[history]).overdueMonths,0);
+ assert.equal(apartmentTotals(reconcileApartment(apt,[history]),[history]).totalDue,3000);
+ assert.equal(apartmentTotals({...apt,collectionStartMonth:undefined},[]).totalDue,1000);
 });

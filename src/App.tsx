@@ -1,10 +1,3 @@
-const historicalDueMonths = (start?: string): number => {
-  if (!start || !/^\d{4}-(0[1-9]|1[0-2])$/.test(start)) return 0;
-  const now = new Date();
-  const [year, month] = start.split('-').map(Number);
-  return Math.max(0, (now.getFullYear() - year) * 12 + now.getMonth() + 2 - month);
-};
-
 import { isNeonBackend, updateNeonBuilding } from './lib/neon';
 import { useBuildingReadOnly, SubscriptionReadOnlyNotice } from './components/SubscriptionReadOnlyNotice';
 import { IntroWindowLights } from './components/IntroWindowLights';
@@ -202,7 +195,7 @@ export default function App() {
             setApartments((apartmentRows || []).map((r: any) => ({
               id:r.id, buildingId:r.building_id, unitNumber:r.unit_number, floor:r.floor,
               residentName:r.resident_name, residentPhone:r.resident_phone, isOwner:r.is_owner,
-              monthlyFee:Number(r.monthly_fee || 0), status:r.payment_status, overdueMonths:Math.max(Number(r.overdue_months||0), historicalDueMonths(rows.find(b=>b.id===r.building_id)?.collectionStartMonth)),
+              monthlyFee:Number(r.monthly_fee || 0), status:r.payment_status, overdueMonths:Number(r.overdue_months||0), collectionStartMonth:rows.find(b=>b.id===r.building_id)?.collectionStartMonth,
               lastPaymentDate:r.last_payment_date || undefined, paidAmount:Number(r.paid_amount || 0),
               creditBalance:Number(r.credit_balance || 0),
             })));
@@ -257,6 +250,15 @@ export default function App() {
             })));
             if (cancelled || timedOut) return;
             if (expenseResult.error) throw expenseResult.error;
+      // Commit one complete financial snapshot; never mix fresh cash with stale expenses.
+      setBuildings(refreshedBuildings);
+      setApartments(refreshedApartments);
+      setPayments(refreshedPayments);
+      if (!refreshedBuildings.some(b => b.id === currentBuildingId)) {
+        setCurrentBuildingIdState(refreshedBuildings[0]?.id || '');
+      }
+
+
             setExpenses((expenseResult.data || []).map((r: any) => ({
               id:r.id, buildingId:r.building_id, title:r.title, category:r.category,
               amount:Number(r.amount || 0), date:r.expense_date, vendor:r.vendor || '',
@@ -456,7 +458,7 @@ export default function App() {
         refreshedApartments = (apartmentRows || []).map((r: any) => ({
           id:r.id, buildingId:r.building_id, unitNumber:r.unit_number, floor:r.floor,
           residentName:r.resident_name, residentPhone:r.resident_phone, isOwner:r.is_owner,
-          monthlyFee:Number(r.monthly_fee || 0), status:r.payment_status, overdueMonths:r.overdue_months,
+          monthlyFee:Number(r.monthly_fee || 0), status:r.payment_status, overdueMonths:Number(r.overdue_months||0),collectionStartMonth:refreshedBuildings.find(b=>b.id===r.building_id)?.collectionStartMonth,
           lastPaymentDate:r.last_payment_date || undefined, paidAmount:Number(r.paid_amount || 0),
           creditBalance:Number(r.credit_balance || 0),
         }));
@@ -489,13 +491,6 @@ export default function App() {
 
       }
       if (managerScopeRef.current !== refreshScope) return;
-      setBuildings(refreshedBuildings);
-      setApartments(refreshedApartments);
-      setPayments(refreshedPayments);
-      if (!refreshedBuildings.some(b => b.id === currentBuildingId)) {
-        setCurrentBuildingIdState(refreshedBuildings[0]?.id || '');
-      }
-
       // Expenses and settings are shared Supabase records, not device-local data.
       await loadSharedWorkflows(refreshedBuildings.map(b => b.id));
 
@@ -585,6 +580,9 @@ export default function App() {
       if (newBldData.collectionStartMonth || newBldData.historicalExpensesTotal || newBldData.historicalExceptionalCollectionsTotal) {
         const { error: openingError } = await supabase.rpc('save_building_historical_settings_v3', { p_building_id: newBld.id, p_start_month: newBldData.collectionStartMonth || null, p_expenses: newBldData.historicalExpensesTotal || 0, p_exceptional_collections: newBldData.historicalExceptionalCollectionsTotal || 0 });
         if (openingError) throw new Error('تم إنشاء العمارة لكن تعذر حفظ الأرصدة السابقة: ' + openingError.message);
+        const {data: openingBuilding,error: openingBalanceError} = await supabase.from('buildings').select('balance').eq('id',newBld.id).single();
+        if(openingBalanceError || !openingBuilding) throw new Error('تم الإنشاء والحفظ لكن تعذر تأكيد رصيد العمارة. حدّث البيانات.');
+        newBld.balance=Number(openingBuilding.balance);
       }
       setBuildings(rows => [...rows, newBld]);
       setCurrentBuildingIdState(newBld.id);
@@ -623,12 +621,14 @@ export default function App() {
       id:r.id, buildingId:r.building_id, unitNumber:r.unit_number, floor:r.floor,
       residentName:r.resident_name || '', residentPhone:r.resident_phone || '',
       isOwner:Boolean(r.is_owner), monthlyFee:Number(r.monthly_fee || 0),
-      status:r.payment_status, overdueMonths:Math.max(Number(r.overdue_months || 0),historicalDueMonths(next.collectionStartMonth)),
+      status:r.payment_status, overdueMonths:Number(r.overdue_months || 0),collectionStartMonth:next.collectionStartMonth,
       lastPaymentDate:r.last_payment_date || undefined, paidAmount:Number(r.paid_amount || 0),
       creditBalance:Number(r.credit_balance || 0),
     }));
     setApartments(rows => [...rows.filter(a => a.buildingId !== id), ...refreshedApartments]);
-    setBuildings(rows => rows.map(b => b.id === id ? next : b));
+    const {data: savedBuilding,error: savedBuildingError} = await supabase.from('buildings').select('balance,collection_start_month,historical_expenses_total,historical_exceptional_collections_total').eq('id',id).single();
+    if(savedBuildingError || !savedBuilding) throw new Error('تم الحفظ لكن تعذر تأكيد رصيد العمارة. حدّث البيانات.');
+    setBuildings(rows => rows.map(b => b.id === id ? {...next,balance:Number(savedBuilding.balance),collectionStartMonth:savedBuilding.collection_start_month?.slice(0,7),historicalExpensesTotal:Number(savedBuilding.historical_expenses_total||0),historicalExceptionalCollectionsTotal:Number(savedBuilding.historical_exceptional_collections_total||0)} : b));
     showToast('تم تحديث بيانات العمارة والشقق والحسابات بنجاح!');
   };
 
@@ -682,7 +682,7 @@ export default function App() {
     const apt: Apartment = {
       id:data.id, buildingId:data.building_id, unitNumber:data.unit_number, floor:data.floor,
       residentName:data.resident_name, residentPhone:data.resident_phone, isOwner:data.is_owner,
-      monthlyFee:Number(data.monthly_fee || 0), status:data.payment_status, overdueMonths:data.overdue_months,
+      monthlyFee:Number(data.monthly_fee || 0), status:data.payment_status, overdueMonths:data.overdue_months,collectionStartMonth:currentBuilding.collectionStartMonth,
       lastPaymentDate:data.last_payment_date || undefined, paidAmount:Number(data.paid_amount || 0),
       creditBalance:Number(data.credit_balance || 0),
     };
@@ -715,6 +715,7 @@ export default function App() {
     const aptToDelete = apartments.find((a) => a.id === id);
     if (!aptToDelete) return;
 
+    if (payments.some(p=>p.apartmentId===id&&p.isHistorical)) { showToast('امسح توزيع الرصيد السابق لهذه الشقة من بيانات العمارة قبل حذفها.', 'error'); return; }
     // Payments reference apartments with ON DELETE RESTRICT, so remove their ledger rows first.
     const { error: paymentsDeleteError } = await supabase.from('payments').delete().eq('apartment_id', id);
     if (paymentsDeleteError) { showToast('تعذر حذف مدفوعات الشقة: ' + paymentsDeleteError.message, 'error'); return; }
@@ -1461,6 +1462,7 @@ export default function App() {
           onSelectBuilding={handleSelectBuilding}
           onAddBuilding={handleAddBuilding}
           onUpdateBuilding={handleUpdateBuilding}
+          onRefreshData={refreshAppData}
           onDeleteBuilding={handleDeleteBuilding}
         />
       </div>
@@ -1659,6 +1661,7 @@ export default function App() {
         onSelectBuilding={handleSelectBuilding}
         onAddBuilding={handleAddBuilding}
         onUpdateBuilding={handleUpdateBuilding}
+        onRefreshData={refreshAppData}
         onDeleteBuilding={handleDeleteBuilding}
       />
 

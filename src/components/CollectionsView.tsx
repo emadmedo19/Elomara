@@ -266,7 +266,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
 
         {/* Collected */}
         <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-[11px] text-emerald-600 block font-medium">إجمالي المحصل الفعلي</span>
+          <span className="text-[11px] text-emerald-600 block font-medium">إجمالي السداد المرتبط بالشقق</span>
           <span className="font-bold text-lg sm:text-xl text-emerald-700 block mt-1">
             {buildingFin.totalCollected.toLocaleString()} <span className="text-xs text-slate-500">ج.م</span>
           </span>
@@ -567,7 +567,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
                   {filteredPayments.map((p) => (
                     <tr key={p.id} className="hover:bg-slate-50/70 transition">
                       <td className="p-3 font-mono font-bold text-slate-800">
-                        {p.receiptNumber || 'بدون إيصال'}
+                        {p.isHistorical ? 'رصيد سابق' : p.receiptNumber || 'بدون إيصال'}
                       </td>
                       <td className="p-3">
                         <span className="font-bold text-slate-900 block">{p.unitNumber}</span>
@@ -590,7 +590,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
                       <td className="p-3 text-slate-500 max-w-xs truncate">{p.notes || '-'}</td>
                       {isManager && (
                         <td className="p-3 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
+                          {p.isHistorical ? <span className="text-xs text-slate-500">يُعدّل من توزيع الرصيد السابق في بيانات العمارة</span> : <div className="flex items-center justify-center gap-1.5">
                             <button
                               onClick={() => handleOpenEditPayment(p)}
                               className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-teal-50 hover:text-teal-700 text-slate-700 font-bold text-[11px] flex items-center gap-1 transition"
@@ -606,7 +606,7 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
                             >
                               <Trash2 className="w-3.5 h-3.5 text-rose-500" />
                             </button>
-                          </div>
+                          </div>}
                         </td>
                       )}
                     </tr>

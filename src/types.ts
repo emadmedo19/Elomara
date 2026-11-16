@@ -33,6 +33,8 @@ export interface Apartment {
   isOwner: boolean;
   monthlyFee: number;
   status: PaymentStatus;
+  /** Calendar basis is derived separately; never persist it as manual arrears. */
+  collectionStartMonth?: string;
   overdueMonths: number;
   lastPaymentDate?: string;
   paidAmount?: number;

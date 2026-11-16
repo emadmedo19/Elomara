@@ -1,3 +1,4 @@
+import { HistoricalOpeningSummary } from './HistoricalOpeningSummary';
 import React, { useState } from 'react';
 import { buildStatementPrintHtml } from '../services/statementPrinting';
 import { Printer as NativePrinter } from '@capgo/capacitor-printer';
@@ -30,7 +31,7 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
   const startDate = reportRange?.startDate || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString('en-CA');
   const endDate = reportRange?.endDate || new Date().toLocaleDateString('en-CA');
   const inRange = (date: string) => date.slice(0, 10) >= startDate && date.slice(0, 10) <= endDate;
-  const receipts = payments.filter(p => !p.isAssessment);
+  const receipts = payments.filter(p => !p.isAssessment && !p.isHistorical);
   const periodPayments = receipts.filter(p => inRange(p.date));
   const periodExpenses = expenses.filter(e => inRange(e.date));
   const totalInflow = periodPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
@@ -159,6 +160,7 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
           </div>
 
           <p className="text-[11px] text-slate-500">الرصيد الافتتاحي المحسوب: {openingBalance.toLocaleString()} ج.م (يُراجع عند وجود أرصدة أو تسويات غير مسجلة).</p>
+          <HistoricalOpeningSummary building={building} payments={payments}/>
           {/* Section 1: Collections Table */}
           <div>
             <h3 className="font-bold text-sm text-[#0f2537] mb-2 flex items-center gap-1.5">
@@ -201,7 +203,7 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
                         {fin.status === 'paid' ? (
                           <span className="text-emerald-700 font-bold">خالص السداد ✓</span>
                         ) : fin.status === 'overdue' ? (
-                          <span className="text-rose-600 font-bold">متأخر ({apt.overdueMonths || 1} شهر)</span>
+                          <span className="text-rose-600 font-bold">متأخر ({fin.overdueMonths || 1} شهر)</span>
                         ) : (
                           <span className="text-amber-700 font-bold">سداد جزئي</span>
                         )}
