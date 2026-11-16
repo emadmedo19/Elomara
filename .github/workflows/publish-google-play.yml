@@ -1,0 +1,98 @@
+name: Publish Elomara AAB to Google Play (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: elomara-google-play-main
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Install image tools
+        run: python -m pip install cairosvg pillow
+
+      - name: Generate current branding assets
+        run: python .github/scripts/generate_brand_assets.py
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npm run lint
+
+      - name: Verify signing safeguards
+        run: PYTHONDONTWRITEBYTECODE=1 python tests/test_android_signing.py
+
+      - name: Build web app
+        run: npm run build
+        env:
+          VITE_BUILD_ID: ${{ github.sha }}
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      - name: Restore original signing identity from Neon
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          SIGNING_WORKDIR: ${{ runner.temp }}/elomara-android-signing
+        run: |
+          npm ci --prefix neon
+          node neon/scripts/download-signing.mjs
+
+      - name: Configure stable Android signing
+        env:
+          SIGNING_WORKDIR: ${{ runner.temp }}/elomara-android-signing
+        run: python .github/scripts/prepare_android_signing.py
+
+      - name: Build signed release AAB
+        working-directory: android
+        run: bash ./gradlew :app:bundleRelease
+
+      - name: Verify signed AAB
+        run: |
+          set -euo pipefail
+          BUNDLE=android/app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify "$BUNDLE"
+          test -s "$BUNDLE"
+
+      - name: Upload AAB to Google Play closed testing
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.ELOMARA_PLAY_PUBLISHER_JSON }}
+          packageName: app.bunyan.residential
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          track: alpha
+          status: completed
+
+      - name: Remove private signing files
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/elomara-android-signing"
