@@ -245,7 +245,7 @@ async function buildingJsonRpc(name: string, params: object, completedId?:string
   if(response.status===401)throw new Error('انتهت جلسة الدخول. أعد تسجيل الدخول ثم حاول الحفظ.');
   if(!response.ok){
     if(result?.code==='PGRST202')throw new Error('تعذر بدء حفظ بيانات العمارة على الخادم. أعد فتح التطبيق بعد التحديث وحاول مرة أخرى.');
-    throw new Error(typeof result?.message==='string'?result.message:'تعذر تأكيد حفظ بيانات العمارة.');
+    throw Object.assign(new Error(typeof result?.message==='string'?result.message:'تعذر تأكيد حفظ بيانات العمارة.'),{httpStatus:response.status});
   }
   if(payload===null&&completedId)return {id:completedId};
   if(!result||typeof result.id!=='string')throw new Error('لم تصل نتيجة مؤكدة لحفظ بيانات العمارة. أعد تحميل الأرصدة قبل المحاولة مجددًا.');
@@ -262,6 +262,9 @@ export function saveNeonHistoricalMonthlyAllocations(buildingId:string,allocatio
   return buildingJsonRpc('save_historical_monthly_allocations',{p_building_id:buildingId,p_allocations:allocations},buildingId);
 }
 
+export function completeNeonBuildingSetup(requestId:string,details:object,history:object,buildingId:string|null){
+ return buildingJsonRpc('complete_guided_building_setup',{p_request_id:requestId,p_details:details,p_history:history,p_building_id:buildingId});
+}
 export const neonClient = {
   from: data.from.bind(data), rpc: data.rpc.bind(data),
   channel: (_name: string) => new RefreshChannel(),

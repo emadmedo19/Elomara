@@ -44,6 +44,7 @@ function setup() {
         if (mock.identityFailure) return Response.json({ message: mock.identityFailure }, { status: 403 });
         return Response.json(mock.resolvedId);
       }
+      if(url.endsWith('/rpc/complete_guided_building_setup')){const args=JSON.parse(options.body);assert.ok(args.p_request_id);assert.ok(args.p_history);assert.equal(options.headers['Content-Type'],'application/json');return Response.json({id:'guided-building'});}
       if(url.endsWith('/rpc/save_historical_monthly_allocations')){
         const args=JSON.parse(options.body);assert.ok(Array.isArray(args.p_allocations));
         assert.equal(options.headers['Content-Type'],'application/json');return new Response(null,{status:204});
@@ -338,4 +339,11 @@ test('historical allocation sends explicit native JSON and accepts confirmed voi
  await api.saveNeonHistoricalMonthlyAllocations('building',allocations);
  const writes=requests.filter(r=>r.url.endsWith('/rpc/save_historical_monthly_allocations'));
  assert.equal(writes.length,1);assert.deepEqual(JSON.parse(writes[0].options.body),{p_building_id:'building',p_allocations:allocations});
+});
+
+test('guided setup sends all accounting inputs and a stable idempotency key in native JSON',async()=>{
+ const {api,requests}=setup();const details={name:'عمارة',monthlyTarget:100,totalUnits:14};const history={mode:'transfer',cash:3000,exceptionalPerUnit:6000,units:[]};
+ await api.completeNeonBuildingSetup('request',details,history,null);
+ const r=requests.find(r=>r.url.endsWith('/rpc/complete_guided_building_setup'));
+ assert.deepEqual(JSON.parse(r.options.body),{p_request_id:'request',p_details:details,p_history:history,p_building_id:null});
 });

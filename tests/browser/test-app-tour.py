@@ -84,13 +84,14 @@ with sync_playwright() as p:
         for journey in ['أنا مدير عمارة','أنا ساكن أو عضو']:
             page=open_page(browser,width,height,'pending')
             ready(page,width,height).get_by_role('button',name=journey,exact=True).click()
-            for i in range(1,6):
+            setup_total=1 if journey=='أنا مدير عمارة' else 5
+            for i in range(1,setup_total+1):
                 dialog=ready(page,width,height)
                 if i==2:
                     dialog.get_by_role('button',name='السابق',exact=True).click()
                     ready(page,width,height).get_by_role('button',name='التالي',exact=True).click()
                     dialog=ready(page,width,height)
-                dialog.get_by_role('button',name='التالي' if i<5 else 'ابدأ الاستخدام',exact=True).click()
+                dialog.get_by_role('button',name='التالي' if i<setup_total else 'ابدأ الاستخدام',exact=True).click()
             expect(page.locator('[data-app-tour]')).to_have_count(0)
             assert page.evaluate('window.mock.calls')==0
             assert not page.evaluate("window.mock.rpcCalls.some(c=>/create|join_request|set_|insert|delete|update/.test(c.name))")
@@ -102,7 +103,8 @@ with sync_playwright() as p:
             page.go_back()
             expect(page.locator('[data-app-tour]')).to_have_count(0)
             page.close()
-        print('PASS',width,'setup: actual fields, next/back, remembered completion, replay and browser Back; no writes')
+        print('PASS',width,'setup: actual fields, next/back, remembered completion, replay and browser Back; no writes',flush=True)
+        if os.environ.get('TOUR_SETUP_ONLY'):continue
         page=open_page(browser,width,height,'normal')
         assert walk(page,width,height)==5
         assert page.evaluate('window.mock.calls')==0

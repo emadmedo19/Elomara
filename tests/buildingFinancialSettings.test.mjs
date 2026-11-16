@@ -27,3 +27,9 @@ test('opening deficit is visible and bad snapshot numbers are rejected',()=>{
  assert.equal(preview(reset,{baseOpening:0,expenses:10000,exceptional:8000,openingAlreadyIncluded:null}),-2000);
  assert.throws(()=>map({balance:'bad'}));
 });
+
+test('net opening cash already includes imported monthly and exceptional payments',()=>{
+ const imported=map({balance:3100,opening_balance:3000,reserve_fund:500,historical_adjustment_applied:2700,historical_monthly_collections_total:1700,historical_exceptional_collections_total:8000,historical_expenses_total:7000,opening_cash_includes_history:true});
+ assert.equal(base(imported),3000);assert.equal(preview(imported,{baseOpening:3000,expenses:6500,exceptional:8000,openingAlreadyIncluded:null}),3100);
+ assert.equal(preview(imported,{baseOpening:4000,expenses:6500,exceptional:8000,openingAlreadyIncluded:null}),4100);
+});

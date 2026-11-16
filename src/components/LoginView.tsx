@@ -1,3 +1,4 @@
+import {BuildingSetupWizard} from './BuildingSetupWizard';
 import { PasswordInput } from './PasswordInput';
 import { AppTour, TourHelpButton } from './AppTour';
 import React, { useEffect, useState } from 'react';
@@ -10,6 +11,7 @@ type JoinRequestStatus = 'pending' | 'approved' | 'rejected' | null;
 
 export const LoginView: React.FC = () => {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, sendPasswordReset, updatePassword, isPasswordRecovery, clearPasswordRecovery, needsEmailVerification, verifyEmail, cancelEmailVerification, authError, isLoading, clearError, user, userProfile, isAdmin, signOut, refreshProfile, holdMembership, restoreSession } = useAuth();
+  const [setupOpen,setSetupOpen]=useState(false);
   const [buildingName, setBuildingName] = useState('');
   const [buildingAddress, setBuildingAddress] = useState('');
   const [unitsCount, setUnitsCount] = useState('0');
@@ -225,6 +227,9 @@ export const LoginView: React.FC = () => {
               {notice && <p className="fotouh-message success"><CheckCircle2/>{notice}</p>}
               <AppTour key={`${user.id}:setup`} mode="setup" />
               <TourHelpButton />
+              <button data-tour="setup-guided" type="button" onClick={()=>setSetupOpen(true)} className="min-h-12 w-full rounded-xl bg-teal-700 p-4 font-bold text-white">أنا مدير — تسجيل عمارة جديدة أو نقل حسابات عمارتك</button>
+              {setupOpen&&<div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-100 p-3"><BuildingSetupWizard onCancel={()=>setSetupOpen(false)} onDone={()=>setSetupOpen(false)}/></div>}
+              <details><summary className="min-h-11 cursor-pointer py-3 text-sm text-slate-500">التسجيل المباشر بدون الخطوات</summary>
               <form data-tour="setup-manager" onSubmit={createBuilding} className="space-y-3 rounded-2xl border border-slate-200 p-4">
                 <h3 className="font-bold text-slate-800">أنا مدير عمارة — إنشاء عمارة</h3>
                 <label className="fotouh-field"><span>اسم العمارة</span><div><Building2/><input data-tour="setup-building-name" value={buildingName} onChange={e=>setBuildingName(e.target.value)} placeholder="اسم العمارة" required/></div></label>
@@ -237,6 +242,7 @@ export const LoginView: React.FC = () => {
                 <p id="opening-balance-help" className="text-xs leading-6 text-slate-500">المبلغ الموجود في خزينة العمارة قبل بدء استخدام التطبيق. يُحفظ مرة واحدة عند الإنشاء، ولا يُحسب ضمن تحصيل الشقق. اتركه فارغًا لو الخزينة بدون رصيد.</p>
                 <button type="submit" data-tour="setup-create-submit" disabled={busy} className="fotouh-primary-button w-full">{busy ? 'جارٍ إنشاء العمارة...' : 'إنشاء العمارة'}</button>
               </form>
+              </details>
               <form data-tour="setup-resident" onSubmit={submitJoinRequest} className="space-y-3 rounded-2xl border border-teal-200 bg-teal-50/50 p-4">
                 <h3 className="font-bold text-slate-800">أنا ساكن — الانضمام لعمارة</h3>
                 <label className="fotouh-field"><span>كود العمارة العام</span><div><Building2/><input dir="ltr" data-tour="setup-join-code" value={inviteCode} onChange={e=>setInviteCode(e.target.value)} placeholder="أدخل كود العمارة"/></div></label>

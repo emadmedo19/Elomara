@@ -78,7 +78,7 @@ export const HistoricalMonthlyDistribution: React.FC<Props> = ({buildingId,start
   if(loading||loadError||saving||disabledReason)return;
   if(allocations.warning){setError(allocations.warning);return;}
   if(!validTotal){setError('لازم إجمالي الموزع يساوي الرصيد اللي أدخلته بالضبط، وبحد أقصى رقمين عشريين.');return;}
-  if(!window.confirm('تأكيد حفظ توزيع الرصيد السابق؟ سيتم تعديل الرصيد الافتتاحي والخزينة بالفرق فقط دون إنشاء إيصالات جديدة.'))return;
+  if(!window.confirm('تأكيد حفظ توزيع الرصيد السابق؟ سيتم حفظ تسوية الحسابات السابقة دون إنشاء إيصالات جديدة، مع الحفاظ على طريقة احتساب الخزينة المحفوظة.'))return;
   setSaving(true);
   try {
    if(isNeonBackend)await saveNeonHistoricalMonthlyAllocations(buildingId,allocations.all);

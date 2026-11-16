@@ -8,6 +8,7 @@ with sync_playwright() as p:
   page.goto((sys.argv[1] if len(sys.argv)>1 else 'http://127.0.0.1:5188')+'/?scenario='+scenario)
   page.wait_for_function("window.mock?.fixture==='elomara-membership-fixture-v1'")
   if scenario=='pending':
+   page.get_by_text('التسجيل المباشر بدون الخطوات',exact=True).click()
    page.get_by_placeholder('اسم العمارة',exact=True).fill('عمارة جديدة')
    page.get_by_role('button',name='إنشاء العمارة',exact=True).click()
   else:

@@ -110,7 +110,7 @@ export const ResidentPortal: React.FC = () => {
     const [apt, bld, pay, news, maintenance, facility, report, historical] = await Promise.all([
       supabase.from('apartments').select('id,unit_number,floor,resident_name,resident_phone,is_owner,monthly_fee,payment_status,overdue_months,paid_amount,credit_balance,last_payment_date').eq('id', userProfile.apartmentId).single(),
       supabase.from('buildings').select('id,name,address,manager_name,manager_phone,balance,monthly_target,reserve_fund,total_units,total_floors,collection_start_month').eq('id', userProfile.buildingId).single(),
-      supabase.from('payments').select('id,amount,payment_date,month,method,receipt_number,notes,payment_type,is_assessment,exceptional_charge_id,assessment_cancelled').eq('apartment_id', userProfile.apartmentId).order('payment_date',{ascending:false}),
+      supabase.from('payments').select('id,amount,payment_date,month,method,receipt_number,notes,payment_type,is_assessment,exceptional_charge_id,assessment_cancelled,is_opening_entry').eq('apartment_id', userProfile.apartmentId).order('payment_date',{ascending:false}),
       supabase.from('announcements').select('id,title,content,announcement_type,created_at,pinned').eq('building_id', userProfile.buildingId).order('pinned',{ascending:false}).order('created_at',{ascending:false}),
       supabase.from('maintenance_tickets').select('id,category,title,description,urgency,status,created_at,updated_at,manager_note').eq('apartment_id', userProfile.apartmentId).order('created_at',{ascending:false}),
       supabase.from('facility_bookings').select('id,facility,booking_date,time_slot,status,created_at,updated_at,manager_note').eq('apartment_id', userProfile.apartmentId).order('booking_date',{ascending:false}),
@@ -121,7 +121,7 @@ export const ResidentPortal: React.FC = () => {
     const firstError = apt.error || bld.error;
     if (firstError) setError('تعذر تحميل بيانات الحساب: ' + firstError.message);
     setSectionErrors({ payments: paymentError ? 'تعذر تحميل السداد. اسحب للتحديث أو اضغط تحديث البيانات.' : '', maintenance: maintenance.error ? 'تعذر تحميل البلاغات. حاول تحديث البيانات.' : '', bookings: facility.error ? 'تعذر تحميل الحجوزات. حاول تحديث البيانات.' : '', reports: report.error ? 'تعذر تحميل التقرير. حاول تحديث البيانات.' : '' });
-    const rows = paymentError ? payments : [...(pay.data || []), ...(historical.data || []).map((row: {apartment_id:string;month:string;amount:number})=>({id:'historical:'+row.apartment_id+':'+row.month,amount:Number(row.amount),payment_date:row.month,month:row.month.slice(0,7),method:'رصيد افتتاحي سابق',notes:'توزيع رصيد سابق',payment_type:'monthly',isHistorical:true}))];
+    const rows = paymentError ? payments : [...(pay.data || []).map((r:Record<string,unknown>)=>({...r,isHistorical:r.is_opening_entry===true})), ...(historical.data || []).map((row: {apartment_id:string;month:string;amount:number})=>({id:'historical:'+row.apartment_id+':'+row.month,amount:Number(row.amount),payment_date:row.month,month:row.month.slice(0,7),method:'رصيد افتتاحي سابق',notes:'توزيع رصيد سابق',payment_type:'monthly',isHistorical:true}))];
     const totals = apt.data ? calculateApartmentFinancials({
       ...apt.data, buildingId: userProfile.buildingId, unitNumber: apt.data.unit_number,
       residentName: apt.data.resident_name, residentPhone: apt.data.resident_phone, isOwner: apt.data.is_owner,

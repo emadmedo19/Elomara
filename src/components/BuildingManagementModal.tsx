@@ -1,3 +1,4 @@
+import {BuildingSetupWizard} from './BuildingSetupWizard';
 import React, { useEffect, useState } from 'react';
 import { Building } from '../types';
 import { supabase } from '../lib/supabase';
@@ -23,6 +24,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
   isOpen, onClose, buildings = [], currentBuilding, onAddBuilding, onUpdateBuilding, onRefreshData,
 }) => {
   const isNewBuilding = buildings.length === 0;
+  const [guidedSetup,setGuidedSetup]=useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [name, setName] = useState('');
@@ -106,7 +108,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
     let active=true;setFinanceLoading(true);setFinanceError('');
     void (async()=>{
       try {
-        const {data,error}=await supabase.from('buildings').select('balance,opening_balance,reserve_fund,historical_adjustment_applied,historical_monthly_collections_total,historical_expenses_total,historical_exceptional_collections_total,collection_start_month').eq('id',currentBuilding.id).single();
+        const {data,error}=await supabase.from('buildings').select('opening_cash_includes_history,balance,opening_balance,reserve_fund,historical_adjustment_applied,historical_monthly_collections_total,historical_expenses_total,historical_exceptional_collections_total,collection_start_month').eq('id',currentBuilding.id).single();
         if(!active)return;
         if(error||!data)throw new Error('تعذر تحميل أرصدة العمارة. أعد المحاولة قبل الحفظ.');
         const snapshot=mapBuildingFinancialSnapshot(data);
@@ -193,6 +195,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
   const field = 'w-full bg-white text-slate-900 placeholder:text-slate-400 text-sm px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500';
   const label = 'block text-xs font-bold text-slate-700 mb-1.5';
 
+  if(guidedSetup)return <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-100 p-3"><BuildingSetupWizard buildingId={isNewBuilding?undefined:currentBuilding.id} onCancel={()=>setGuidedSetup(false)} onDone={()=>{setGuidedSetup(false);void onRefreshData?.();onClose();}}/></div>;
   return (
     <div className="fixed inset-0 z-50 bg-[#0f2537]/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
       <div className="bg-white text-slate-800 rounded-3xl max-w-xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto">
@@ -209,6 +212,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
           <button type="button" data-tour="building-close" disabled={saving} onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100"><X className="w-5 h-5" /></button>
         </div>
 
+        <button type="button" onClick={()=>setGuidedSetup(true)} className="my-4 min-h-12 w-full rounded-xl border border-teal-200 bg-teal-50 p-3 text-sm font-bold text-teal-800">تسجيل الحسابات خطوة بخطوة</button>
         <form data-tour="building-form" onSubmit={handleSubmit} className="mt-4">
           {financeError&&<p role="alert" className="rounded-xl bg-rose-50 p-3 text-xs text-rose-800">{financeError}</p>}
           {!isNewBuilding&&<button type="button" disabled={saving||financeLoading} className="min-h-11 text-xs text-teal-800 underline" onClick={()=>{if(!financialChanged||window.confirm('سيتم إعادة تحميل الأرصدة المحفوظة وإلغاء تعديلات الأرصدة غير المحفوظة. هل تريد المتابعة؟'))setFinanceReload(v=>v+1);}}>إعادة تحميل أرصدة العمارة</button>}
@@ -241,17 +245,17 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
           <section className="space-y-3 rounded-xl border border-sky-100 bg-sky-50/50 p-3" data-tour="treasury-page">
             <h3 className="text-sm font-bold text-slate-800">الرصيد المبدئي وصندوق الطوارئ</h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className={label}>الرصيد المبدئي (جنيه)<input data-tour="treasury-opening" type="number" min="0" max="9999999999.99" step="0.01" value={openingBase} onChange={e=>setOpeningBase(e.target.value)} className={field}/></label>
+              <label className={label}>{financialSnapshot?.openingIncludesHistory?'رصيد الخزينة عند بدء استخدام التطبيق (جنيه)':'الرصيد المبدئي (جنيه)'}<input data-tour="treasury-opening" type="number" min="0" max="9999999999.99" step="0.01" value={openingBase} onChange={e=>setOpeningBase(e.target.value)} className={field}/></label>
               <label className={label}>رصيد صندوق الطوارئ (جنيه)<input data-tour="treasury-reserve" type="number" min="0" max="9999999999.99" step="0.01" value={reserveFund} onChange={e=>setReserveFund(Number(e.target.value))} className={field}/></label>
             </div>
-            <p className="text-[11px] leading-6 text-slate-600">الرصيد المبدئي قبل إضافة التحصيلات السابقة وخصم المصروفات السابقة. صندوق الطوارئ مبلغ مخصص منفصل، ولا يُضاف تلقائيًا للخزينة أو لتحصيل الشقق.</p>
+            <p className="text-[11px] leading-6 text-slate-600">{financialSnapshot?.openingIncludesHistory?'هذا الرصيد يشمل الحسابات القديمة؛ تعديل توزيعها لا يضيفها للخزينة مرة ثانية.':'الرصيد المبدئي قبل إضافة التحصيلات السابقة وخصم المصروفات السابقة.'} صندوق الطوارئ مبلغ مخصص منفصل، ولا يُضاف تلقائيًا للخزينة أو لتحصيل الشقق.</p>
             {!isNewBuilding&&financialSnapshot?.openingBalance===null&&<fieldset className="space-y-2 rounded-lg border bg-white p-3 text-xs"><legend className="font-bold">هل الرصيد المبدئي موجود ضمن الخزينة الحالية؟</legend><label className="block"><input type="radio" name="opening-included" checked={openingIncluded==='included'} onChange={()=>setOpeningIncluded('included')}/> نعم، تسجيله دون إضافته مرة ثانية</label><label className="block"><input type="radio" name="opening-included" checked={openingIncluded==='add'} onChange={()=>setOpeningIncluded('add')}/> لا، إضافته إلى الخزينة الحالية</label></fieldset>}
           </section>
           <section className="space-y-3 rounded-xl border border-teal-100 bg-teal-50/50 p-3">
             <h3 className="text-sm font-bold text-slate-800">الأرصدة السابقة — قابلة للتعديل</h3>
             <div><label className={label}>شهر بداية التحصيل</label><input aria-label="شهر بداية التحصيل" type="month" max={currentCollectionMonth()} value={collectionStartMonth} onChange={e => setCollectionStartMonth(e.target.value)} className={field} /></div>
             <div><label className={label}>إجمالي المصروفات السابقة (جنيه)</label><input aria-label="إجمالي المصروفات السابقة" type="number" min="0" step="0.01" value={historicalExpensesTotal} onChange={e => setHistoricalExpensesTotal(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
-            <div><label className={label}>المحصل فعليًا من التحصيلات الاستثنائية السابقة (جنيه)</label><input aria-label="المحصل فعليًا من التحصيلات الاستثنائية السابقة" type="number" min="0" step="0.01" value={historicalExceptionalCollectionsTotal} onChange={e => setHistoricalExceptionalCollectionsTotal(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /><p className="mt-1 text-[11px] leading-5 text-amber-800">اكتب المبالغ التي استلمتها العمارة بالفعل، وليس إجمالي المطلوب على الشقق. مثال: ١٤ شقة × ٦٬٠٠٠ = ٨٤٬٠٠٠ جنيه مستحق؛ إذا دفع ١٠ فقط، أدخل ٦٠٬٠٠٠ جنيه. تسجيل المتبقي على كل شقة يتم في سجل التحصيلات الاستثنائية، وليس توزيع التحصيلات الشهرية.</p></div>
+            <div><label className={label}>المحصل فعليًا من التحصيلات الاستثنائية السابقة (جنيه)</label><input aria-label="المحصل فعليًا من التحصيلات الاستثنائية السابقة" readOnly={financialSnapshot?.openingIncludesHistory===true} type="number" min="0" step="0.01" value={historicalExceptionalCollectionsTotal} onChange={e => setHistoricalExceptionalCollectionsTotal(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /><p className="mt-1 text-[11px] leading-5 text-amber-800">{financialSnapshot?.openingIncludesHistory?'هذا الإجمالي محسوب من مدفوعات الشقق المسجلة في نقل الحسابات. المدفوعات السابقة محفوظة كتسويات، وليست إيصالات جديدة.':'اكتب مجموع المبالغ التي استلمتها العمارة بالفعل من الشقق، وليس إجمالي المطلوب عليها. في خطوات نقل الحسابات، يُسجّل المطلوب والمدفوع لكل شقة بصورة منفصلة عن الاشتراكات الشهرية.'}</p></div>
             {historicalExpensesTotal>historicalExceptionalCollectionsTotal && <p data-historical-deficit role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs leading-6 text-amber-900">المصروفات السابقة أعلى من التحصيل الاستثنائي السابق بـ {(historicalExpensesTotal-historicalExceptionalCollectionsTotal).toLocaleString('ar-EG',{maximumFractionDigits:2})} ج.م. سيظهر عجز إذا لم تغطّه التحصيلات الشهرية السابقة أو الأرصدة الأخرى.</p>}
             <p className="text-[11px] text-slate-600">التحصيلات الاستثنائية السابقة مستقلة عن اشتراكات الشهور الرجعية، وتظهر أيضًا في قسم التحصيلات الاستثنائية. يمكن تصحيح هذه القيم لاحقًا. لا يتم خصمها من الخزنة الحالية مرة ثانية؛ تسوية الرصيد الافتتاحي تتم منفصلة.</p>
           </section>

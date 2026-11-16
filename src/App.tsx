@@ -36,6 +36,7 @@ import { ResidentPortal } from './components/ResidentPortal';
 import { AiChatView } from './components/AiChatView';
 import { AiStudioView } from './components/AiStudioView';
 import { PdfStatementModal } from './components/PdfStatementModal';
+import {BuildingSetupWizard} from './components/BuildingSetupWizard';
 import { BuildingManagementModal } from './components/BuildingManagementModal';
 import { SettingsModal } from './components/SettingsModal';
 import { MoreView } from './components/MoreView';
@@ -204,7 +205,7 @@ export default function App() {
             // never from this device's localStorage cache.
             const { data: paymentRows, error: paymentError } = await supabase
               .from('payments')
-              .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at,payment_type,is_assessment,exceptional_charge_id,assessment_cancelled')
+              .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at,payment_type,is_assessment,exceptional_charge_id,assessment_cancelled,is_opening_entry')
               .in('building_id', rows.map(b => b.id))
               .order('payment_date', { ascending: false }).abortSignal(requestController.signal);
             if (cancelled || timedOut) return;
@@ -225,7 +226,7 @@ export default function App() {
               unitNumber:r.unit_number, residentName:r.resident_name || '',
               amount:Number(r.amount || 0), date:r.payment_date, month:r.month,
               method:r.method, notes:r.notes || undefined,
-              receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined, paymentType:r.payment_type || 'monthly', isAssessment:r.is_assessment, assessmentCancelled:r.assessment_cancelled, exceptionalChargeId:r.exceptional_charge_id || undefined,
+              receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined, paymentType:r.payment_type || 'monthly', isHistorical:r.is_opening_entry===true, isAssessment:r.is_assessment, assessmentCancelled:r.assessment_cancelled, exceptionalChargeId:r.exceptional_charge_id || undefined,
             }))),...historicalPayments]);
 
             const [ticketResult, announcementResult, expenseResult, settingsResult] = await Promise.all([
@@ -349,6 +350,7 @@ export default function App() {
   };
 
   // 4. Modals State
+  const [isSetupWizardOpen,setIsSetupWizardOpen]=useState(false);
   const [isBuildingModalOpen, setIsBuildingModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
@@ -456,7 +458,7 @@ export default function App() {
         }));
         const { data: paymentRows, error: paymentError } = await supabase
           .from('payments')
-          .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at,payment_type,is_assessment,exceptional_charge_id,assessment_cancelled')
+          .select('id,apartment_id,building_id,unit_number,resident_name,amount,payment_date,month,method,notes,receipt_number,recorded_at,payment_type,is_assessment,exceptional_charge_id,assessment_cancelled,is_opening_entry')
           .in('building_id', refreshedBuildings.map(b => b.id))
           .order('payment_date', { ascending: false });
         if (paymentError) throw paymentError;
@@ -466,7 +468,7 @@ export default function App() {
           amount:Number(r.amount || 0), date:r.payment_date, month:r.month,
           method:r.method, notes:r.notes || undefined,
           receiptNumber:r.receipt_number || undefined, recordedAt:r.recorded_at || undefined,
-          paymentType:r.payment_type || 'monthly', isAssessment:r.is_assessment, assessmentCancelled:r.assessment_cancelled, exceptionalChargeId:r.exceptional_charge_id || undefined,
+          paymentType:r.payment_type || 'monthly', isHistorical:r.is_opening_entry===true, isAssessment:r.is_assessment, assessmentCancelled:r.assessment_cancelled, exceptionalChargeId:r.exceptional_charge_id || undefined,
         }));
         const {data:historicalRows,error:historicalError}=await supabase.from('historical_monthly_allocations').select('building_id,apartment_id,month,amount').in('building_id',refreshedBuildings.map(b=>b.id));
         if(historicalError && historicalError.code !== 'PGRST205' && historicalError.code !== '42P01') throw historicalError;
@@ -1460,6 +1462,7 @@ export default function App() {
             حسابك جاهز، لكن لسه مفيش أي عمارات أو شقق أو سكان مسجلين.
             ابدأ بإضافة بيانات أول عمارة وعدد الشقق والأدوار، وسيتم تجهيز الشقق تلقائيًا.
           </p>
+          <button type="button" onClick={()=>setIsSetupWizardOpen(true)} className="mb-3 min-h-12 w-full rounded-xl bg-teal-500 p-3 font-bold text-slate-900">تسجيل عمارة جديدة أو نقل حسابات عمارتك</button>
           <button
             data-tour="create-building"
             onClick={() => setIsBuildingModalOpen(true)}
@@ -1470,6 +1473,7 @@ export default function App() {
           <p className="text-[11px] text-slate-400 mt-4">تُنشأ أرقام الشقق تلقائيًا؛ أضف بيانات السكان والاشتراكات لاحقًا.</p>
           <div className="mt-4"><TourHelpButton /></div>
         </div>
+        {isSetupWizardOpen&&<div className="fixed inset-0 z-50 overflow-y-auto bg-slate-100 p-3"><BuildingSetupWizard onCancel={()=>setIsSetupWizardOpen(false)} onDone={()=>setIsSetupWizardOpen(false)}/></div>}
         <AppTour key={`${user.id}:empty-manager`} mode="empty-manager" />
         <BuildingManagementModal
           isOpen={isBuildingModalOpen}

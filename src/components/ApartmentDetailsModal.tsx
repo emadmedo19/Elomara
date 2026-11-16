@@ -398,7 +398,7 @@ export const ApartmentDetailsModal: React.FC<ApartmentDetailsModalProps> = ({
                         {p.method}
                       </span>
                       <span className="text-[10px] text-slate-400 font-mono">
-                        {p.isHistorical ? 'رصيد سابق' : p.receiptNumber || 'بدون إيصال'}
+                        {p.isHistorical ? (p.paymentType==='exceptional'?'سداد استثنائي سابق':'رصيد سابق') : p.receiptNumber || 'بدون إيصال'}
                       </span>
                       <span className="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-semibold">
                         دورة {p.month}
