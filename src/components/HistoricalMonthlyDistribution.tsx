@@ -22,7 +22,7 @@ export const HistoricalMonthlyDistribution: React.FC<Props> = ({buildingId,start
    ]);
    if(!active)return;
    if(apartments.error || (rows.error && !['PGRST205','42P01'].includes(rows.error.code||''))){setError(apartments.error?.message||rows.error?.message||'تعذر تحميل التوزيع');setLoading(false);return;}
-   const apt=(apartments.data||[]) as Unit[];setUnits(apt);
+   const apt=[...((apartments.data||[]) as Unit[])].sort((a,b)=>a.unit_number.localeCompare(b.unit_number,'ar',{numeric:true,sensitivity:'base'}));setUnits(apt);
    const amounts:Record<string,number>={};
    for(const item of (rows.data||[]) as any[]){amounts[item.apartment_id]=(amounts[item.apartment_id]||0)+Number(item.amount);}
    setValues(Object.fromEntries(Object.entries(amounts).map(([k,v])=>[k,String(v)])));
