@@ -30,6 +30,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
   const [totalFloors, setTotalFloors] = useState(1);
   const [totalUnits, setTotalUnits] = useState(0);
   const [monthlyTarget, setMonthlyTarget] = useState(0);
+  const [applyMonthlyFeeToAll,setApplyMonthlyFeeToAll]=useState(false);
   const [reserveFund, setReserveFund] = useState(0);
   const [collectionStartMonth, setCollectionStartMonth] = useState('');
   const [historicalExpensesTotal, setHistoricalExpensesTotal] = useState(0);
@@ -46,10 +47,12 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
   const [financeLoading,setFinanceLoading]=useState(false);
   const [financeError,setFinanceError]=useState('');
   const [financeReload,setFinanceReload]=useState(0);
+  const [distributionReload,setDistributionReload]=useState(0);
 
   useEffect(() => {
     if (!isOpen) return;
     setSaveError('');
+    setApplyMonthlyFeeToAll(false);
     if (isNewBuilding) {
       setName('');
       setAddress('');
@@ -131,7 +134,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
     [managerName,currentBuilding.managerName||''],[managerPhone,currentBuilding.managerPhone||''],
     [manager2Name,currentBuilding.manager2Name||''],[manager2Phone,currentBuilding.manager2Phone||''],
     [manager3Name,currentBuilding.manager3Name||''],[manager3Phone,currentBuilding.manager3Phone||'']
-  ].some(([value,saved])=>value!==saved)||financialChanged;
+  ].some(([value,saved])=>value!==saved)||financialChanged||applyMonthlyFeeToAll;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,6 +148,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
       totalFloors: Math.max(1, Number(totalFloors) || 1),
       totalUnits: Math.max(0, Number(totalUnits) || 0),
       balance: 0,
+      applyMonthlyFeeToAll,
       monthlyTarget: Math.max(0, Number(monthlyTarget) || 0),
       collectionStartMonth: collectionStartMonth || undefined,
       historicalExpensesTotal,
@@ -173,7 +177,9 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
       } else {
         await onUpdateBuilding(currentBuilding.id, data,finance);
       }
+      setApplyMonthlyFeeToAll(false);
       if(continueToDistribution){
+        setDistributionReload(v=>v+1);
         setName(data.name);setAddress(data.address);setTotalFloors(data.totalFloors||1);setTotalUnits(data.totalUnits);setMonthlyTarget(data.monthlyTarget);
         setManagerName(data.managerName);setManagerPhone(data.managerPhone);setManager2Name(data.manager2Name||'');setManager2Phone(data.manager2Phone||'');setManager3Name(data.manager3Name||'');setManager3Phone(data.manager3Phone||'');
         setFinanceReload(v=>v+1);
@@ -231,6 +237,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
             <div><label className={label}>الاشتراك الشهري الافتراضي للشقة</label><input type="number" min="0" value={monthlyTarget} onChange={e => setMonthlyTarget(Number(e.target.value))} onFocus={e => e.currentTarget.select()} className={field} /></div>
 
           </div>
+          {!isNewBuilding&&<label className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-xs text-slate-700"><input type="checkbox" checked={applyMonthlyFeeToAll} onChange={e=>setApplyMonthlyFeeToAll(e.target.checked)} className="mt-1 h-5 w-5 shrink-0"/><span>تطبيق الاشتراك على كل الشقق الحالية عند الحفظ ({monthlyTarget.toLocaleString('ar-EG')} جنيه شهريًا). سيستبدل أي اشتراك مخصص ويعيد حساب المستحقات؛ المدفوعات المسجلة تبقى كما هي.</span></label>}
           <section className="space-y-3 rounded-xl border border-sky-100 bg-sky-50/50 p-3" data-tour="treasury-page">
             <h3 className="text-sm font-bold text-slate-800">الرصيد المبدئي وصندوق الطوارئ</h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -255,7 +262,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
             <p className="text-[11px]">الحساب يشمل الرصيد المبدئي والأرصدة السابقة وحركات السداد والمصروفات المسجلة. تغيير صندوق الطوارئ وحده لا يغيّر إجمالي الخزينة.</p>
           </div>
           {!isNewBuilding && collectionStartMonth!==(financialSnapshot?.startMonth||'') && <button type="button" className="min-h-11 text-xs text-teal-800 underline" onClick={()=>setCollectionStartMonth(financialSnapshot?.startMonth||'')}>استعادة شهر البداية المحفوظ</button>}
-          {!isNewBuilding && <HistoricalMonthlyDistribution buildingId={currentBuilding.id} key={currentBuilding.id} canSaveBuilding startMonth={financialSnapshot?.startMonth || ''} disabledReason={hasUnsavedBuildingDetails ? 'احفظ بيانات العمارة أولًا لفتح خانات التوزيع.' : undefined} onSaved={async () => { await onRefreshData?.(); setFinanceReload(v=>v+1); }} />}
+          {!isNewBuilding && <HistoricalMonthlyDistribution buildingId={currentBuilding.id} key={currentBuilding.id} canSaveBuilding reloadKey={distributionReload} defaultMonthlyFee={currentBuilding.monthlyTarget||0} startMonth={financialSnapshot?.startMonth || ''} disabledReason={hasUnsavedBuildingDetails ? 'احفظ بيانات العمارة أولًا لفتح خانات التوزيع.' : undefined} onSaved={async () => { await onRefreshData?.(); setFinanceReload(v=>v+1); }} />}
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={label}>اسم المسؤول الأول</label><input data-tour="building-manager" value={managerName} onChange={e => setManagerName(e.target.value)} className={field} /></div>

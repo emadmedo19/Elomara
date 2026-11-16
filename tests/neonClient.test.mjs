@@ -44,6 +44,10 @@ function setup() {
         if (mock.identityFailure) return Response.json({ message: mock.identityFailure }, { status: 403 });
         return Response.json(mock.resolvedId);
       }
+      if(url.endsWith('/rpc/save_historical_monthly_allocations')){
+        const args=JSON.parse(options.body);assert.ok(Array.isArray(args.p_allocations));
+        assert.equal(options.headers['Content-Type'],'application/json');return new Response(null,{status:204});
+      }
       if(url.endsWith('/rpc/save_building_management')||url.endsWith('/rpc/create_manager_building_with_finances')){
         if(mock.buildingRpcUnauthorized)return Response.json({message:'JWT expired'},{status:401});
         if(mock.buildingRpcSchemaError)return Response.json({code:'PGRST202',message:'Could not find function without parameters'},{status:404});
@@ -326,4 +330,12 @@ test('native building failures remain visible in Arabic and never retry a mutati
  await assert.rejects(api.saveNeonBuildingManagement('b',{name:'اختبار'},null),/انتهت جلسة/);
  assert.equal(mock.refreshCount,0);
  assert.equal(requests.filter(r=>r.url.endsWith('/rpc/save_building_management')).length,2);
+});
+
+test('historical allocation sends explicit native JSON and accepts confirmed void response',async()=>{
+ const {api,requests}=setup();
+ const allocations=[{apartmentId:'apt',month:'2025-01-01',amount:200}];
+ await api.saveNeonHistoricalMonthlyAllocations('building',allocations);
+ const writes=requests.filter(r=>r.url.endsWith('/rpc/save_historical_monthly_allocations'));
+ assert.equal(writes.length,1);assert.deepEqual(JSON.parse(writes[0].options.body),{p_building_id:'building',p_allocations:allocations});
 });

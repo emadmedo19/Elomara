@@ -24,3 +24,11 @@ Follow-up: native saving and distribution access
 The unified save now sends explicit JSON through the established native-compatible transport, including all named RPC parameters. Creation uses the same transport; session errors do not automatically retry financial writes. Tests assert the exact nested request body, explicit null finance, authentication errors and parameter-cache failures.
 
 An inline “حفظ بيانات العمارة وفتح التوزيع” button saves pending changes, refreshes the confirmed snapshot and keeps the dialog open before enabling allocation. Normal save retains its close behavior. Browser checks reproduce base 10000, expenses 5000 and exceptional collections 8000: cash becomes 13000, then allocating 1000 from January 2025 makes cash 14000 without creating ordinary receipts. Verification uses synthetic native transport and Chromium, not a physical Android device.
+
+Follow-up: total distribution and apartment subscriptions
+
+Editing the historical monthly total now drafts equal shares in integer cents, limited by each apartment's monthly fee and the saved collection period. Apartments with zero dues are excluded. Managers can edit each share or explicitly redistribute again; invalid totals and unallocated overflow remain visible and block saving. Loading existing allocations preserves their months and amounts until edited.
+
+An explicit checkbox in Building Details applies the entered default subscription to all existing apartments, including customized rates. Leaving it unchecked preserves existing positive fees. Migration 029 changes only the function definition; installation does not modify customer rows. The existing unified save performs fee changes and ledger reconciliation atomically. Saving from the distribution panel reloads confirmed apartment rates immediately.
+
+The historical-allocation mutation now uses explicit native JSON as well, with a confirmed void HTTP response and no automatic mutation retry. Verification includes cents/capacity/zero-fee unit tests; native request serialization; reported 20000 over 15 apartments at 200; manual edits, reopening, overflow and mobile/desktop UI; and isolated SQL tests for opt-in fee changes, cash preservation, repeat saves and authorization. No physical Android device was used.

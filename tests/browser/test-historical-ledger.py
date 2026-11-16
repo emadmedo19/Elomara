@@ -57,7 +57,7 @@ with sync_playwright() as p:
   unit.fill('1500.001');expect(save).to_be_disabled()
   unit.fill('1500');unit.press('Enter');expect(panel).to_be_visible()
   assert not page.evaluate("window.mock.rpcCalls.some(r=>r.name==='save_building_historical_settings_v3')")
-  target.fill('4000');expect(save).to_be_disabled()
+  target.fill('4000');expect(save).to_be_enabled()
   unit.fill('2000');expect(save).to_be_enabled()
   page.evaluate('window.mock.historySavePending=true')
   save.click();page.wait_for_function('!!window.mock.finishHistorySave')
@@ -72,6 +72,7 @@ with sync_playwright() as p:
   save.click();expect(panel.get_by_text('تم حفظ توزيع الرصيد السابق.',exact=True)).to_be_visible()
   assert page.evaluate('window.mock.building.balance')==6350
   panel.get_by_label('إجمالي الرصيد الشهري السابق (جنيه)',exact=True).fill('3500')
+  panel.get_by_label('المبلغ السابق للشقة 2',exact=True).fill('2000')
   panel.get_by_label('المبلغ السابق للشقة 10',exact=True).fill('1500')
   page.evaluate('window.mock.historySaveFail=true');save.click()
   expect(panel.get_by_role('alert')).to_contain_text('تعذر حفظ التوزيع')

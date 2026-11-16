@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { isNeonBackend, saveNeonHistoricalMonthlyAllocations } from '../lib/neon';
 import { supabase } from '../lib/supabase';
-import { allocateHistoricalMonthlyPayments, currentCollectionMonth } from '../services/historicalCollections';
+import { allocateHistoricalMonthlyPayments, currentCollectionMonth, historicalDueMonths, spreadHistoricalTotal } from '../services/historicalCollections';
 
 type Unit = { id: string; unit_number: string; monthly_fee: number };
 type Allocation = { apartmentId: string; month: string; amount: number };
 type StoredAllocation = { apartment_id: string; month: string; amount: number };
-type Props = { buildingId: string; startMonth: string; disabledReason?: string; canSaveBuilding?: boolean; onSaved: () => Promise<void> | void };
+type Props = { buildingId: string; startMonth: string; disabledReason?: string; canSaveBuilding?: boolean; reloadKey?: number; defaultMonthlyFee?: number; onSaved: () => Promise<void> | void };
 const money = (n: number) => n.toLocaleString('ar-EG', {maximumFractionDigits:2});
 const isMoney = (n:number) => Number.isFinite(n) && n>=0 && Math.abs(Math.round(n*100)-n*100)<0.00001;
-export const HistoricalMonthlyDistribution: React.FC<Props> = ({buildingId,startMonth,disabledReason,canSaveBuilding=false,onSaved}) => {
+export const HistoricalMonthlyDistribution: React.FC<Props> = ({buildingId,startMonth,disabledReason,canSaveBuilding=false,reloadKey=0,defaultMonthlyFee,onSaved}) => {
  const [units,setUnits]=useState<Unit[]>([]);
  const [stored,setStored]=useState<StoredAllocation[]>([]);
  const [values,setValues]=useState<Record<string,string>>({});
@@ -40,7 +41,15 @@ export const HistoricalMonthlyDistribution: React.FC<Props> = ({buildingId,start
    finally {if(active)setLoading(false);}
   })();
   return()=>{active=false};
- },[buildingId,revision]);
+ },[buildingId,revision,reloadKey]);
+ const distribute=(input:string)=>{
+  setTarget(input);setSuccess('');setError('');
+  try {
+   const result=spreadHistoricalTotal(Number(input||0),units,historicalDueMonths(startMonth,currentMonth));
+   setValues(result.values);
+   if(result.remainder>0)setError('الإجمالي أكبر من اشتراكات الشهور المتاحة. راجع المبلغ وشهر البداية؛ المتبقي '+money(result.remainder)+' جنيه.');
+  }catch(failure){setError(failure instanceof Error?failure.message:'راجع الإجمالي.');}
+ };
  const allocations=useMemo(()=>{
   const all:Allocation[]=[];
   if(!startMonth||startMonth>currentMonth)return {all,warning:'حدد شهر بداية التحصيل الصحيح من بيانات العمارة واحفظه أولًا.'};
@@ -72,8 +81,11 @@ export const HistoricalMonthlyDistribution: React.FC<Props> = ({buildingId,start
   if(!window.confirm('تأكيد حفظ توزيع الرصيد السابق؟ سيتم تعديل الرصيد الافتتاحي والخزينة بالفرق فقط دون إنشاء إيصالات جديدة.'))return;
   setSaving(true);
   try {
-   const {error:failure}=await supabase.rpc('save_historical_monthly_allocations',{p_building_id:buildingId,p_allocations:allocations.all});
-   if(failure)throw new Error(failure.message);
+   if(isNeonBackend)await saveNeonHistoricalMonthlyAllocations(buildingId,allocations.all);
+   else {
+    const {error:failure}=await supabase.rpc('save_historical_monthly_allocations',{p_building_id:buildingId,p_allocations:allocations.all});
+    if(failure)throw new Error(failure.message);
+   }
    setStored(allocations.all.map(row=>({apartment_id:row.apartmentId,month:row.month,amount:row.amount})));
    setSuccess('تم حفظ توزيع الرصيد السابق.');
    await onSaved();
@@ -86,11 +98,15 @@ export const HistoricalMonthlyDistribution: React.FC<Props> = ({buildingId,start
   {loading?<p role="status" className="text-xs">جارٍ تحميل التوزيع السابق...</p>:loadError?<div role="alert" className="text-xs text-rose-700"><p>{loadError}</p><button type="button" className="mt-2 min-h-11 underline" onClick={()=>setRevision(v=>v+1)}>إعادة تحميل التوزيع</button></div>:<>
    {disabledReason&&<div className="space-y-2"><p role="status" className="text-xs text-amber-800">{disabledReason}</p>{canSaveBuilding&&<button type="submit" data-save-building-for-distribution className="min-h-11 w-full rounded-xl bg-teal-700 px-3 py-2 text-sm font-bold text-white">حفظ بيانات العمارة وفتح التوزيع</button>}</div>}
    <fieldset disabled={saving||!!disabledReason} className="space-y-3 disabled:opacity-60">
-    <label className="block text-xs font-bold">إجمالي الرصيد الشهري السابق (جنيه)<input className="mt-1 min-h-11 w-full rounded-lg border p-2" type="number" min="0" step="0.01" value={target} onChange={e=>{setTarget(e.target.value);setSuccess('');}}/></label>
+    <label className="block text-xs font-bold">إجمالي الرصيد الشهري السابق (جنيه)<input className="mt-1 min-h-11 w-full rounded-lg border p-2" type="number" min="0" step="0.01" value={target} onChange={e=>distribute(e.target.value)}/></label>
+    <p className="text-[11px] text-slate-600">عند تغيير الإجمالي، يتوزع بالتساوي على الشقق ذات الاشتراك، في حدود الشهور المتاحة. راجع نصيب كل شقة وعدّله حسب ما دفعته فعلًا قبل الحفظ.</p>
+    {defaultMonthlyFee!==undefined&&units.some(unit=>Number(unit.monthly_fee)!==defaultMonthlyFee)&&<p className="text-xs text-amber-800">بعض الشقق لها اشتراك مختلف عن الافتراضي ({money(defaultMonthlyFee)} جنيه). لتوحيدها، فعّل «تطبيق الاشتراك على كل الشقق الحالية» أعلى الصفحة ثم احفظ بيانات العمارة.</p>}
+    <button type="button" onClick={()=>distribute(target)} className="min-h-11 text-xs font-bold text-teal-800 underline">إعادة التوزيع بالتساوي</button>
     <div className="max-h-52 space-y-2 overflow-y-auto">
      {units.map(unit=><div key={unit.id} className="grid grid-cols-2 items-center gap-2 text-xs"><label htmlFor={'historical-'+unit.id}>شقة {unit.unit_number} — {money(Number(unit.monthly_fee))} ج/شهر</label><input id={'historical-'+unit.id} className="min-h-11 min-w-0 rounded-lg border p-2" aria-label={'المبلغ السابق للشقة '+unit.unit_number} type="number" min="0" step="0.01" value={values[unit.id]||''} placeholder="المبلغ المسدد" onChange={e=>{setValues(v=>({...v,[unit.id]:e.target.value}));setSuccess('');}}/></div>)}
     </div>
     <div data-historical-summary className="rounded-lg bg-slate-50 p-2 text-xs">الموزع: {money(assignedCents/100)} ج — المتبقي: {money(total-assignedCents/100)} ج — عدد الشهور المسددة/الجزئية: {allocations.all.length}</div>
+    {!validTotal&&<p role="status" className="text-xs text-amber-800">الحفظ متاح عندما يساوي مجموع أنصبة الشقق الإجمالي. عدّل الأنصبة أو اضغط إعادة التوزيع بالتساوي.</p>}
     {allocations.warning&&<p className="text-xs text-rose-700">{allocations.warning}</p>}
     <button type="button" className="min-h-11 text-xs text-rose-700 underline" onClick={()=>{setValues({});setTarget('0');setError('');setSuccess('');}}>مسح التوزيع من النموذج</button>
     <p className="text-[11px] text-slate-500">المسح والتعديل لا يؤثران على السجلات إلا بعد الضغط على حفظ وتأكيد العملية.</p>

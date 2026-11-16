@@ -232,7 +232,7 @@ export async function updateNeonBuilding(buildingId: string, details: Record<str
 
 // Building mutations use a literal JSON request, matching the established native
 // update path. Do not pass these through an SDK request builder or replay writes.
-async function buildingJsonRpc(name: string, params: object): Promise<Record<string,unknown>&{id:string}> {
+async function buildingJsonRpc(name: string, params: object, completedId?:string): Promise<Record<string,unknown>&{id:string}> {
   await nativeReady();
   const session=(await CapacitorNeon.getSession()).session;
   if(!session)throw new Error('سجّل الدخول أولًا.');
@@ -247,6 +247,7 @@ async function buildingJsonRpc(name: string, params: object): Promise<Record<str
     if(result?.code==='PGRST202')throw new Error('تعذر بدء حفظ بيانات العمارة على الخادم. أعد فتح التطبيق بعد التحديث وحاول مرة أخرى.');
     throw new Error(typeof result?.message==='string'?result.message:'تعذر تأكيد حفظ بيانات العمارة.');
   }
+  if(payload===null&&completedId)return {id:completedId};
   if(!result||typeof result.id!=='string')throw new Error('لم تصل نتيجة مؤكدة لحفظ بيانات العمارة. أعد تحميل الأرصدة قبل المحاولة مجددًا.');
   return {...result,id:result.id};
 }
@@ -255,6 +256,10 @@ export function saveNeonBuildingManagement(buildingId:string,details:object,fina
 }
 export function createNeonBuildingWithFinances(details:object,finance:object|null) {
   return buildingJsonRpc('create_manager_building_with_finances',{p_details:details,p_finance:finance});
+}
+
+export function saveNeonHistoricalMonthlyAllocations(buildingId:string,allocations:object[]) {
+  return buildingJsonRpc('save_historical_monthly_allocations',{p_building_id:buildingId,p_allocations:allocations},buildingId);
 }
 
 export const neonClient = {

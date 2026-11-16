@@ -9,7 +9,7 @@ mkdirSync(output, { recursive: true });
 await build({entryPoints:[join(root,'tests/browser/membership-fixture.tsx')],bundle:true,format:'esm',outfile:join(output,'check.js'),define:{'import.meta.env':'{}'},plugins:[{name:'synthetic-api-only',setup(b){
 b.onResolve({filter:/^@capacitor\/app$/},()=>({path:'app',namespace:'fixture'}));
 b.onResolve({filter:/lib\/supabase$/},()=>({path:'api',namespace:'fixture'}));b.onResolve({filter:/lib\/neon$/},()=>({path:'neon',namespace:'fixture'}));
-b.onLoad({filter:/.*/,namespace:'fixture'},a=>({contents:a.path==='app'?`const listeners=[];window.nativeResume=()=>listeners.filter(l=>l.name==='appStateChange').forEach(l=>l.cb({isActive:true}));export const App={getLaunchUrl:async()=>({}),addListener:async(name,cb)=>{const l={name,cb};listeners.push(l);return{remove:async()=>{const i=listeners.indexOf(l);if(i>=0)listeners.splice(i,1)}}}};`:a.path==='neon'?`export const isNeonBackend=true;export const neonEmailRequest=async()=>({});export const startNeonGoogleSignIn=async()=>{};export const updateNeonBuilding=async()=>{};const invoke=async(name,args)=>{const r=await window.fixtureRpc(name,args);if(r.error)throw new Error(r.error.message);return r.data;};export const saveNeonBuildingManagement=(id,details,finance)=>invoke('save_building_management',{p_building_id:id,p_details:details,p_finance:finance});export const createNeonBuildingWithFinances=(details,finance)=>invoke('create_manager_building_with_finances',{p_details:details,p_finance:finance});`:`
+b.onLoad({filter:/.*/,namespace:'fixture'},a=>({contents:a.path==='app'?`const listeners=[];window.nativeResume=()=>listeners.filter(l=>l.name==='appStateChange').forEach(l=>l.cb({isActive:true}));export const App={getLaunchUrl:async()=>({}),addListener:async(name,cb)=>{const l={name,cb};listeners.push(l);return{remove:async()=>{const i=listeners.indexOf(l);if(i>=0)listeners.splice(i,1)}}}};`:a.path==='neon'?`export const isNeonBackend=true;export const neonEmailRequest=async()=>({});export const startNeonGoogleSignIn=async()=>{};export const updateNeonBuilding=async()=>{};const invoke=async(name,args)=>{const r=await window.fixtureRpc(name,args);if(r.error)throw new Error(r.error.message);return r.data;};export const saveNeonHistoricalMonthlyAllocations=(id,allocations)=>invoke('save_historical_monthly_allocations',{p_building_id:id,p_allocations:allocations});export const saveNeonBuildingManagement=(id,details,finance)=>invoke('save_building_management',{p_building_id:id,p_details:details,p_finance:finance});export const createNeonBuildingWithFinances=(details,finance)=>invoke('create_manager_building_with_finances',{p_details:details,p_finance:finance});`:`
 const scenario=new URLSearchParams(location.search).get('scenario');
 const residentFixture=['tour-resident','feedback-resident','payment-destinations','historical-resident'].includes(scenario);
 const user={id:'manager',created_at:new URLSearchParams(location.search).has('guide')?new Date().toISOString():'2026-11-01T00:00:00Z',email:'fixture@example.invalid',user_metadata:{}};
@@ -33,6 +33,7 @@ if(scenario==='historical-manager') {
  state.entities.expenses=[{id:'real-expense',building_id:'new-building',title:'فاتورة فعلية',category:'كهرباء',amount:50,expense_date:month(0)}];
  if(new URLSearchParams(location.search).has('opening-deficit')){Object.assign(state.building,{balance:0,opening_balance:0,historical_adjustment_applied:0,historical_monthly_collections_total:0,collection_start_month:month(0),historical_expenses_total:0,historical_exceptional_collections_total:0});state.entities.historical_monthly_allocations=[];state.entities.payments=[];state.entities.expenses=[];}
 }
+if(new URLSearchParams(location.search).has('equal-distribution')){state.apartments=Array.from({length:15},(_,i)=>({id:'apt-'+(i+1),building_id:'new-building',unit_number:String(i+1),floor:1,resident_name:'',monthly_fee:1000,payment_status:'pending',overdue_months:0,paid_amount:0,credit_balance:0}));Object.assign(state.building,{total_units:15,monthly_target:200,collection_start_month:'2025-01-01'});}
 if(scenario==='historical-resident') {
  const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Africa/Cairo'}));
  const month=(offset)=>new Date(Date.UTC(now.getFullYear(),now.getMonth()+offset,1)).toISOString().slice(0,10);
@@ -78,7 +79,7 @@ if(name==='get_building_financial_summary'&&scenario==='historical-resident')ret
 if(name==='save_building_management'){
  const run=()=>{if(state.financeSaveFail)return {data:null,error:{message:'تعذر حفظ أرصدة العمارة التجريبية'}};
  if(args.p_finance&&args.p_finance.expected.balance!==state.building.balance)return {data:null,error:{message:'تغيرت أرصدة العمارة منذ فتح الصفحة. أعد تحميل الأرصدة.'}};
- const d=args.p_details;Object.assign(state.building,{name:d.name,address:d.address,total_units:d.totalUnits,total_floors:d.totalFloors,monthly_target:d.monthlyTarget,manager_name:d.managerName||'',manager_phone:d.managerPhone||''});applyUnifiedFinance(state.building,args.p_finance);return {data:{...state.building},error:null};};
+ const d=args.p_details;if(d.applyMonthlyFeeToAll)for(const a of state.apartments)a.monthly_fee=d.monthlyTarget;Object.assign(state.building,{name:d.name,address:d.address,total_units:d.totalUnits,total_floors:d.totalFloors,monthly_target:d.monthlyTarget,manager_name:d.managerName||'',manager_phone:d.managerPhone||''});applyUnifiedFinance(state.building,args.p_finance);return {data:{...state.building},error:null};};
  if(state.financeSavePending)return new Promise(resolve=>state.finishFinanceSave=()=>resolve(run()));return Promise.resolve(run());
 }
 if(name==='save_building_historical_settings_v3'&&scenario==='historical-manager') {
@@ -88,9 +89,9 @@ if(name==='save_building_historical_settings_v3'&&scenario==='historical-manager
 }
 if(name==='save_historical_monthly_allocations'&&scenario==='historical-manager') {
  const run=()=>{if(state.historySaveFail)return {data:null,error:{message:'تعذر حفظ التوزيع التجريبي'}};
- const previous=state.entities.historical_monthly_allocations.reduce((n,r)=>n+Number(r.amount),0);
+ const previous=state.entities.historical_monthly_allocations.reduce((n,r)=>n+Math.round(Number(r.amount)*100),0)/100;
  state.entities.historical_monthly_allocations=args.p_allocations.map(r=>({building_id:args.p_building_id,apartment_id:r.apartmentId,month:r.month,amount:r.amount}));
- const total=args.p_allocations.reduce((n,r)=>n+Number(r.amount),0),delta=total-previous;state.building.balance+=delta;state.building.opening_balance=Number(state.building.opening_balance||0)+delta;state.building.historical_monthly_collections_total=total;state.building.historical_adjustment_applied=total+Number(state.building.historical_exceptional_collections_total||0)-Number(state.building.historical_expenses_total||0);
+ const total=args.p_allocations.reduce((n,r)=>n+Math.round(Number(r.amount)*100),0)/100,delta=total-previous;state.building.balance+=delta;state.building.opening_balance=Number(state.building.opening_balance||0)+delta;state.building.historical_monthly_collections_total=total;state.building.historical_adjustment_applied=total+Number(state.building.historical_exceptional_collections_total||0)-Number(state.building.historical_expenses_total||0);
  return {data:null,error:null};};
  if(state.historySavePending)return new Promise(resolve=>state.finishHistorySave=()=>resolve(run()));
  return Promise.resolve(run());

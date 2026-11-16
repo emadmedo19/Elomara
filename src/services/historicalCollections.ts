@@ -26,3 +26,20 @@ export function allocateHistoricalMonthlyPayments(startMonth: string, monthlyFee
   }
   return { allocations, unallocatedCredit: remaining / 100 };
 }
+
+/** Equal draft shares in cents, capped by each apartment's available monthly dues. */
+export function spreadHistoricalTotal(total: number, units: {id:string; monthly_fee:number}[], months:number): {values:Record<string,string>; remainder:number} {
+ if(!Number.isFinite(total)||total<0||Math.abs(cents(total)-total*100)>.00001) throw new Error('اكتب مبلغًا صحيحًا بحد أقصى رقمين عشريين.');
+ const shares=units.map(unit=>({id:unit.id,amount:0,capacity:Number.isFinite(unit.monthly_fee)&&unit.monthly_fee>0?cents(unit.monthly_fee)*Math.max(0,months):0}));
+ let remaining=cents(total);
+ while(remaining>0){
+  const available=shares.filter(share=>share.capacity>share.amount);
+  if(!available.length)break;
+  const each=Math.floor(remaining/available.length),extra=remaining%available.length;
+  for(let i=0;i<available.length;i++){
+   const share=available[i],added=Math.min(share.capacity-share.amount,each+(i<extra?1:0));
+   share.amount+=added;remaining-=added;
+  }
+ }
+ return {values:Object.fromEntries(shares.map(share=>[share.id,String(share.amount/100)])),remainder:remaining/100};
+}

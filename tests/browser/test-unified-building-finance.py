@@ -106,7 +106,7 @@ with sync_playwright() as p:
  expect(form.get_by_label('الرصيد المبدئي (جنيه)',exact=True)).to_have_value('10000')
  expect(panel.get_by_text('يبدأ السداد من',exact=False)).to_contain_text('2025-01')
  assert page.evaluate('window.mock.building.balance')==13000
- total.fill('1000');panel.get_by_label('المبلغ السابق للشقة 10',exact=True).fill('1000')
+ total.fill('1000');panel.get_by_label('المبلغ السابق للشقة 2',exact=True).fill('0');panel.get_by_label('المبلغ السابق للشقة 10',exact=True).fill('1000')
  panel.get_by_role('button',name='حفظ توزيع الرصيد السابق',exact=True).click()
  expect(panel.get_by_text('تم حفظ توزيع الرصيد السابق.',exact=True)).to_be_visible()
  page.wait_for_function('window.mock.building.balance===14000')
@@ -115,5 +115,33 @@ with sync_playwright() as p:
  assert page.evaluate("window.mock.rpcCalls.filter(r=>r.name==='save_building_management').length")==1
  assert page.evaluate('window.mock.entities.payments.length')==0
  page.close();print('PASS reported inputs 10000/5000/8000: save and unlock distribution without closing; January allocations; no duplicate receipts',flush=True)
+ for width,height in [(390,844),(1280,900)]:
+  page=fresh(b,width,height,'&equal-distribution=1');cash(page,'0');form=open_form(page)
+  panel=form.locator('[data-historical-distribution]')
+  expect(panel.get_by_label('المبلغ السابق للشقة 1',exact=True).locator('..')).to_contain_text('١٬٠٠٠')
+  form.get_by_role('checkbox',name='تطبيق الاشتراك على كل الشقق الحالية',exact=False).check()
+  panel.get_by_role('button',name='حفظ بيانات العمارة وفتح التوزيع',exact=True).click()
+  total=panel.get_by_label('إجمالي الرصيد الشهري السابق (جنيه)',exact=True)
+  expect(total).to_be_enabled(timeout=15000)
+  expect(panel.get_by_label('المبلغ السابق للشقة 1',exact=True).locator('..')).to_contain_text('٢٠٠')
+  assert page.evaluate('window.mock.apartments.every(a=>a.monthly_fee===200)')
+  total.fill('20000')
+  save=panel.get_by_role('button',name='حفظ توزيع الرصيد السابق',exact=True)
+  expect(save).to_be_enabled()
+  expect(panel.get_by_label('المبلغ السابق للشقة 1',exact=True)).to_have_value('1333.34')
+  expect(panel.get_by_label('المبلغ السابق للشقة 15',exact=True)).to_have_value('1333.33')
+  assert panel.locator('input[aria-label^="المبلغ السابق للشقة"]').evaluate_all('(nodes)=>nodes.reduce((sum,n)=>sum+Math.round(Number(n.value)*100),0)')==2000000
+  panel.get_by_label('المبلغ السابق للشقة 1',exact=True).fill('0');expect(save).to_be_disabled()
+  expect(panel.get_by_role('status').filter(has_text='الحفظ متاح')).to_be_visible()
+  panel.get_by_role('button',name='إعادة التوزيع بالتساوي',exact=True).click();expect(save).to_be_enabled()
+  save.click();expect(panel.get_by_text('تم حفظ توزيع الرصيد السابق.',exact=True)).to_be_visible()
+  page.wait_for_function('window.mock.building.balance===20000')
+  assert page.evaluate('window.mock.entities.payments.length')==0
+  page.locator('[data-tour=building-close]').click();open_form(page)
+  expect(page.get_by_label('المبلغ السابق للشقة 1',exact=True)).to_have_value('1333.34')
+  total=page.get_by_label('إجمالي الرصيد الشهري السابق (جنيه)',exact=True);total.fill('999999')
+  expect(page.get_by_role('button',name='حفظ توزيع الرصيد السابق',exact=True)).to_be_disabled()
+  expect(page.get_by_role('alert').filter(has_text='أكبر من اشتراكات')).to_be_visible()
+  page.close();print('PASS',width,'reported 20000 auto shares; 1000→200 explicit fees; save enabled; editable shares; cash once; reopen; overflow blocked',flush=True)
  b.close()
 server.shutdown()
