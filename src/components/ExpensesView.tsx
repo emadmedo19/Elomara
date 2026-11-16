@@ -133,7 +133,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
 
     const revision = ++scanRevision.current;
     setIsScanningReceipt(true);
-    setScanMessage('جاري تحليل الفاتورة واستخراج البنود والمبالغ بواسطة Gemini...');
+    setScanMessage('جارٍ قراءة الفاتورة واستخراج البنود والمبالغ...');
 
     try {
       const reader = new FileReader();
@@ -385,7 +385,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-teal-600" />
-                    <span className="text-xs font-bold text-slate-800">قارئ الفواتير الذكي (Gemini OCR)</span>
+                    <span className="text-xs font-bold text-slate-800">قارئ الفواتير الذكي</span>
                   </div>
                   <div className="flex items-center gap-2">
 

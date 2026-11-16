@@ -21,7 +21,7 @@ export const AiChatView: React.FC<AiChatViewProps> = ({ buildingName }) => {
 
   const personaInstructions: Record<string, { title: string; instruction: string }> = {
     'legal-finance': {
-      title: 'مستشار مالي وقانوني لاتحادات الشاغلين',
+      title: 'معلومات مالية وقانونية لاتحادات الشاغلين',
       instruction: `أنت مساعد لتوضيح المعلومات المالية والقانونية العامة لاتحاد شاغلي عمارة ${buildingName}. أنت خبير بالقانون المصري رقم 119 لسنة 2008 (قانون البناء الموحد - باب اتحادات الشاغلين)، واللوائح التنفيذية لحساب نسب الشقق في المصروفات المشتركة، غرامات التأخير، صندوق الطوارئ والاحتياطي، وإجراءات الجمعية العمومية. أجب بالعربية، ووضح حدود المعلومات وما يحتاج مراجعة محامٍ أو محاسب، ولا تقدم نفسك كجهة اعتماد أو تذكر نصوصًا غير متحقق منها.`,
     },
     'maintenance-engineer': {
@@ -150,7 +150,7 @@ export const AiChatView: React.FC<AiChatViewProps> = ({ buildingName }) => {
             onChange={(e) => setRolePersona(e.target.value)}
             className="bg-white/10 hover:bg-white/15 text-white text-xs font-medium py-1.5 px-2.5 rounded-xl border border-white/20 focus:outline-none cursor-pointer"
           >
-            <option value="legal-finance" className="text-slate-900 bg-white">⚖️ مستشار قانوني ومالي</option>
+            <option value="legal-finance" className="text-slate-900 bg-white">⚖️ معلومات قانونية ومالية</option>
             <option value="maintenance-engineer" className="text-slate-900 bg-white">🔧 مهندس صيانة ومرافق</option>
             <option value="concierge-assistant" className="text-slate-900 bg-white">📝 مساعد إداري وإعلانات</option>
           </select>

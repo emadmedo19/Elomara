@@ -23,7 +23,7 @@ Scope: the twenty findings in the application review, on the existing Neon app.
 | 17. Misleading copy | Reports describe recorded data without claiming an approval process; login copy includes email; the assistant describes informational support and prompts review of legal/financial information. |
 | 18. Missing Other category | Expense category breakdown includes Other and unknown categories in Other. |
 | 19. Empty service grids/single language | An empty directory has one clear message and a manager add action. Only populated categories are listed. Arabic is displayed as information rather than a one-choice settings page. |
-| 20. Long first-run guide | Manager/resident first use has 5/4 steps. Help retains the full 41/22-step guide. |
+| 20. Long first-run guide | Manager/resident first use and manual Help replay have 5/4 steps. Detailed Help is optional and limited to the selected section; its 41/22 underlying steps are no longer a single walkthrough. The earlier implementation shortened automatic first use only, leaving manual Help unresolved until this follow-up. |
 
 ## Verification
 
@@ -40,3 +40,11 @@ Apply `neon/migrations/014_financial_transactions_and_shared_workflows.sql` to N
 SQL rehearsal and browser tests do not verify a physical Android installation, actual Google/email delivery, Play Billing, or push delivery to a real device. No fictional production event is sent for testing. Shared service workflows and server transactions are Neon changes; no legacy provider migration is included.
 
 Deployment verification: the migration was applied transactionally to the existing Neon production branch before client publication. Read-only verification confirmed the audit table, enabled row security, authenticated read access, no client DELETE privilege, authenticated financial RPC access, no anonymous RPC access, and both service-note columns. No production receipts, expenses, bookings or balances were created or rewritten during verification.
+
+## Follow-up after owner verification
+
+The owner correctly reported that manual Help still opened the old 41-step guide. Follow-up source inspection also found residual certification claims in ReportsView and the statement preview, and the financial/legal consultant label. These were missed in the earlier completion report.
+
+Manual Help now starts the short manager/resident walkthrough. Users explicitly choose a detailed section; completing it ends that section rather than continuing across the whole app. Unsaved form edits remain protected when switching guides. Reports describe recorded data and the selected period, without claiming an audit, certification or period closure. The printable statement uses an empty stamp placeholder for subsequent manual review. Assistant and receipt-reader labels use task-oriented wording; the settings card no longer asserts a live connection without checking one.
+
+The Arabic follow-up checklist is in [review-recheck-2026-11-15.ar.md](review-recheck-2026-11-15.ar.md). It distinguishes current browser/source checks from the earlier isolated Neon SQL rehearsal. No production database changes are part of this follow-up.

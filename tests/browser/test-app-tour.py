@@ -56,6 +56,27 @@ def walk(page,width,height):
     assert page.evaluate('document.body.style.overflow')==''
     return total
 
+def choose_section(page,width,height,section):
+    dialog=ready(page,width,height)
+    dialog.get_by_role('button',name='شرح قسم بالتفصيل',exact=True).click()
+    page.get_by_label('أقسام الشرح التفصيلي',exact=True).get_by_role('button',name=section,exact=True).click()
+    return ready(page,width,height)
+
+def walk_sections(page,width,height):
+    dialog=ready(page,width,height)
+    dialog.get_by_role('button',name='شرح قسم بالتفصيل',exact=True).click()
+    sections=page.get_by_label('أقسام الشرح التفصيلي',exact=True).get_by_role('button').all_text_contents()
+    total=0
+    for section in sections:
+        page.get_by_label('أقسام الشرح التفصيلي',exact=True).get_by_role('button',name=section,exact=True).click()
+        count=int(ready(page,width,height).get_by_role('progressbar').get_attribute('aria-valuemax'))
+        assert count<=8,(section,count)
+        total+=walk(page,width,height)
+        page.get_by_role('button',name='دليل التطبيق',exact=True).click()
+        ready(page,width,height).get_by_role('button',name='شرح قسم بالتفصيل',exact=True).click()
+    ready(page,width,height).get_by_role('button',name='إغلاق الجولة',exact=True).click()
+    return total
+
 with sync_playwright() as p:
     browser=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
     for width,height in [(390,640),(1280,900)]:
@@ -93,17 +114,17 @@ with sync_playwright() as p:
         assert total==5,total
         page.get_by_role('button',name='المزيد',exact=True).click()
         page.get_by_role('button',name='دليل التطبيق',exact=True).click()
-        total=walk(page,width,height)
-        assert total>=35,total
+        assert walk(page,width,height)==5
+        page.get_by_role('button',name='دليل التطبيق',exact=True).click()
+        total=walk_sections(page,width,height)
+        assert total==41,total
         assert page.evaluate('window.mock.calls')==1
         assert not page.evaluate("window.mock.rpcCalls.some(c=>/^(set_|delete_|update_|submit_|vote_)/.test(c.name))")
         # Every automatically opened real dialog must be closed without saving.
         expect(page.locator('[data-tour=apartment-form],[data-tour=payment-form],[data-tour=expense-form],[data-tour=building-form]')).to_have_count(0)
         page.get_by_role('button',name='المزيد',exact=True).click()
         page.get_by_role('button',name='دليل التطبيق',exact=True).click()
-        dialog=ready(page,width,height)
-        dialog.get_by_role('button',name='فهرس الجولة',exact=True).click()
-        page.locator('.app-tour-index').get_by_role('button',name='السداد',exact=True).click()
+        choose_section(page,width,height,'السداد')
         dialog=ready(page,width,height)
         expect(page.locator('[data-tour-active=true]')).to_have_attribute('data-tour','collections-pay')
         dialog.get_by_role('button',name='عرض الصفحة كاملة',exact=True).click()
@@ -116,9 +137,7 @@ with sync_playwright() as p:
         page.keyboard.press('Escape')
         expect(page.locator('[data-app-tour]')).to_have_count(0)
         page.get_by_role('button',name='دليل التطبيق',exact=True).click()
-        dialog=ready(page,width,height)
-        dialog.get_by_role('button',name='فهرس الجولة',exact=True).click()
-        page.locator('.app-tour-index').get_by_role('button',name='الشقق',exact=True).click()
+        choose_section(page,width,height,'الشقق')
         ready(page,width,height).get_by_role('button',name='التالي',exact=True).click()
         ready(page,width,height).get_by_role('button',name='عرض الصفحة كاملة',exact=True).click()
         page.locator('[data-tour=apartment-name]').fill('بيانات لم يتم حفظها')
@@ -135,8 +154,10 @@ with sync_playwright() as p:
         assert total==4,total
         page.get_by_role('button',name='المزيد',exact=True).click()
         page.get_by_role('button',name='دليل التطبيق',exact=True).click()
-        total=walk(page,width,height)
-        assert total>=20
+        assert walk(page,width,height)==4
+        page.get_by_role('button',name='دليل التطبيق',exact=True).click()
+        total=walk_sections(page,width,height)
+        assert total==22
         assert page.evaluate('window.mock.calls')==0
         assert not page.evaluate("window.mock.rpcCalls.some(c=>/^(create_|set_|insert|delete|update|submit_|vote_)/.test(c.name))")
         page.close()
@@ -146,5 +167,28 @@ with sync_playwright() as p:
     expect(page.locator('[data-app-tour]')).to_have_count(0)
     page.close()
     print('PASS existing accounts do not get an automatic tour')
+    page=open_page(browser,390,640,'review-manager',guide=False)
+    page.get_by_role('button',name='المزيد',exact=True).click()
+    page.get_by_role('button',name='دليل التطبيق',exact=True).click()
+    assert ready(page,390,640).get_by_role('progressbar').get_attribute('aria-valuemax')=='5'
+    choose_section(page,390,640,'الرئيسية')
+    choose_section(page,390,640,'الرئيسية')
+    ready(page,390,640).get_by_role('button',name='شرح قسم بالتفصيل',exact=True).click()
+    page.get_by_label('أقسام الشرح التفصيلي',exact=True).get_by_role('button',name='الجولة المختصرة',exact=True).click()
+    assert ready(page,390,640).get_by_role('progressbar').get_attribute('aria-valuemax')=='5'
+    choose_section(page,390,640,'الشقق')
+    ready(page,390,640).get_by_role('button',name='التالي',exact=True).click()
+    ready(page,390,640).get_by_role('button',name='عرض الصفحة كاملة',exact=True).click()
+    page.locator('[data-tour=apartment-name]').fill('بيانات غير محفوظة')
+    page.get_by_role('button',name='متابعة الجولة',exact=True).click()
+    ready(page,390,640).get_by_role('button',name='شرح قسم بالتفصيل',exact=True).click()
+    page.get_by_label('أقسام الشرح التفصيلي',exact=True).get_by_role('button',name='السداد',exact=True).click()
+    expect(page.locator('[data-app-tour]')).to_have_attribute('data-tour-state','dirty')
+    expect(page.locator('[data-tour=apartment-name]')).to_have_value('بيانات غير محفوظة')
+    page.get_by_role('button',name='إغلاق الجولة',exact=True).click()
+    expect(page.locator('[data-tour=apartment-name]')).to_have_value('بيانات غير محفوظة')
+    page.close()
+    print('PASS manual Help stays short for existing accounts; switching back to summary; section switch protects unsaved fields')
+
     browser.close()
 server.shutdown()

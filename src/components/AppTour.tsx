@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, ArrowRight, BookOpen, Building2, Check, Eye, List, Play, Users, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -15,7 +15,7 @@ export function TourHelpButton() {
 }
 export function AppTour({mode,onNavigate,currentPage}:{mode:TourMode;onNavigate?:(page:string)=>void;currentPage?:string}) {
   const {user} = useAuth();
-  const [fullGuide,setFullGuide] = useState(false);
+  const [guideSection,setGuideSection] = useState<string|null>(null);
   const [open,setOpen] = useState(false);
   const [paused,setPaused] = useState(false);
   const [index,setIndex] = useState(0);
@@ -23,8 +23,10 @@ export function AppTour({mode,onNavigate,currentPage}:{mode:TourMode;onNavigate?
   const [spot,setSpot] = useState<Rect|null>(null);
   const [position,setPosition] = useState<React.CSSProperties>({bottom:12,left:12,right:12});
   const [status,setStatus] = useState<'loading'|'ready'|'missing'|'dirty'>('loading');
-  const [menu,setMenu] = useState(false);
+  const [menu,setMenu] = useState<'quick'|'sections'|null>(null);
   const panel = useRef<HTMLElement>(null);
+  const measurePanel = useRef<(()=>void)|null>(null);
+  useLayoutEffect(()=>{measurePanel.current?.();},[menu]);
   const targetRef = useRef<HTMLElement|null>(null);
   const owned = useRef<{kind:TourDialog;root:HTMLElement}|null>(null);
   const dirty = useRef(false);
@@ -32,10 +34,12 @@ export function AppTour({mode,onNavigate,currentPage}:{mode:TourMode;onNavigate?
   const exploring = useRef(paused);exploring.current=paused;
   const navigation = useRef(onNavigate);navigation.current=onNavigate;
   const titleId=useId(),maskId=useId().replace(/:/g,'');
-  const steps = mode==='setup'&&journey ? [...tourSteps.setup,...setupSteps[journey]] : (!fullGuide && quickTourSteps[mode] ? quickTourSteps[mode]! : tourSteps[mode]);
+  const steps = mode==='setup'&&journey ? [...tourSteps.setup,...setupSteps[journey]] : (guideSection ? tourSteps[mode].filter(item=>item.section===guideSection) : quickTourSteps[mode] || tourSteps[mode]);
   const step=steps[index]||steps[0];
   const choosing=mode==='setup'&&index===0;
   const chapters=steps.flatMap((item,i)=>i===0||item.section!==steps[i-1].section?[{label:item.section,index:i}]:[]);
+  const detailedSections = [...new Set(tourSteps[mode].map(item=>item.section))];
+  const hasQuickGuide = !!quickTourSteps[mode];
   useBodyScrollLock(open&&!paused);
   const closeOwned=() => {
     const active=owned.current;
@@ -55,17 +59,22 @@ export function AppTour({mode,onNavigate,currentPage}:{mode:TourMode;onNavigate?
       if(mode==='manager'&&currentPage)url.searchParams.set('tab',currentPage);
       window.history.replaceState({...state,...(mode==='resident'?{residentPage:currentPage}:{})},'',url);
     }
-    setOpen(false);setPaused(false);setMenu(false);setSpot(null);
+    setOpen(false);setPaused(false);setMenu(null);setSpot(null);
     if(cleaned&&originalPage.current)navigation.current?.(originalPage.current);
   };
   const closeRef=useRef(close);closeRef.current=close;
   const move=(next:number) => {
     if(owned.current?.kind!==steps[next]?.dialog&&!closeOwned()){setStatus('dirty');return;}
-    setMenu(false);setStatus('loading');setIndex(next);
+    setMenu(null);setStatus('loading');setIndex(next);
+  };
+  const changeGuide=(section:string|null) => {
+    if(section===guideSection&&index===0){setMenu(null);return;}
+    if(!closeOwned()){setStatus('dirty');setMenu(null);return;}
+    setGuideSection(section);setIndex(0);setStatus('loading');setMenu(null);
   };
   useEffect(()=>{
     if(!user)return;
-    const start=()=>{setFullGuide(false);if(!owned.current?.root.isConnected){owned.current=null;dirty.current=false;}originalPage.current=currentPage;setIndex(0);setJourney(null);setPaused(false);setOpen(true);setMenu(false);};
+    const start=()=>{setStatus('loading');setGuideSection(null);if(!owned.current?.root.isConnected){owned.current=null;dirty.current=false;}originalPage.current=currentPage;setIndex(0);setJourney(null);setPaused(false);setOpen(true);setMenu(null);};
     window.addEventListener('elomara:open-tour',start);
     return()=>window.removeEventListener('elomara:open-tour',start);
   },[user?.id,currentPage]);
@@ -111,7 +120,7 @@ export function AppTour({mode,onNavigate,currentPage}:{mode:TourMode;onNavigate?
       if(!node&&!choosing)return;
       const vw=window.innerWidth,vh=window.innerHeight;
       const w=Math.min(vw-24,vw>=1024?360:420);
-      const ph=Math.min(panel.current?.offsetHeight||240,vh*.48);
+      const ph=Math.min(panel.current?.offsetHeight||240,vh-24);
       const rect=node?.isConnected?node.getBoundingClientRect():null;
       let left=(vw-w)/2,top=vh-ph-14;
       if(rect){
@@ -122,8 +131,9 @@ export function AppTour({mode,onNavigate,currentPage}:{mode:TourMode;onNavigate?
         else if(rect.top+rect.height/2>vh/2)top=12;
         setSpot({left:rect.left-7,top:rect.top-7,width:rect.width+14,height:rect.height+14});
       }else setSpot(null);
-      setPosition({left:Math.max(12,Math.min(vw-w-12,left)),top:Math.max(12,top),width:w});
+      setPosition({left:Math.max(12,Math.min(vw-w-12,left)),top:Math.max(12,Math.min(vh-ph-12,top)),width:w});
     };
+    measurePanel.current=measure;
     const waitFor=async(name:string)=>{
       for(let retry=0;active&&retry<40;retry++){const node=find(name);if(node)return node;await sleep(60);}
       return undefined;
@@ -170,8 +180,8 @@ export function AppTour({mode,onNavigate,currentPage}:{mode:TourMode;onNavigate?
     void show();
     const observer=new ResizeObserver(measure);if(panel.current)observer.observe(panel.current);
     window.addEventListener('resize',measure);window.addEventListener('scroll',measure,true);
-    return()=>{active=false;if(targetRef.current)delete targetRef.current.dataset.tourActive;observer.disconnect();window.removeEventListener('resize',measure);window.removeEventListener('scroll',measure,true);};
-  },[open,paused,index,journey,step.page,step.dialog,step.target]);
+    return()=>{active=false;measurePanel.current=null;if(targetRef.current)delete targetRef.current.dataset.tourActive;observer.disconnect();window.removeEventListener('resize',measure);window.removeEventListener('scroll',measure,true);};
+  },[open,paused,index,journey,guideSection,step.page,step.dialog,step.target]);
   // A role change or navigation may remove this guide while it owns a dialog.
   useEffect(()=>()=>{if(!dirty.current&&owned.current?.root.isConnected)find(tourDialogs[owned.current.kind].close)?.click();},[]);
   if(!open||!user)return null;
@@ -186,8 +196,9 @@ export function AppTour({mode,onNavigate,currentPage}:{mode:TourMode;onNavigate?
       {status==='dirty'&&<p role="status" className="app-tour-message">كتبت بيانات في النموذج. احفظها أو ألغِها من الصفحة قبل الانتقال لجزء تاني.</p>}
       {status==='missing'&&<p role="status" className="app-tour-message">الجزء ده مش ظاهر حاليًا. تقدر تشوف الصفحة كاملة أو تنتقل للخطوة التالية.</p>}
       {choosing?<div className="app-tour-choices"><button type="button" onClick={()=>{setJourney('manager');move(1);}}><Building2 size={18}/>أنا مدير عمارة</button><button type="button" onClick={()=>{setJourney('resident');move(1);}}><Users size={18}/>أنا ساكن أو عضو</button></div>:<div className="app-tour-controls"><button type="button" disabled={index===0} onClick={()=>move(index-1)} aria-label="السابق"><ArrowRight size={18}/></button><span>{index+1} <small>من {steps.length}</small></span><button type="button" className="app-tour-next" disabled={status==='loading'} onClick={()=>index===steps.length-1?close():move(index+1)}>{index===steps.length-1?'ابدأ الاستخدام':'التالي'}{index===steps.length-1?<Check size={17}/>:<ArrowLeft size={17}/>}</button></div>}
-      <div className="app-tour-tools">{!choosing&&quickTourSteps[mode]&&<button type="button" onClick={()=>{setFullGuide(value=>!value);setIndex(0);setMenu(false);setStatus('loading');}}>{fullGuide?'الجولة المختصرة':'الدليل التفصيلي'}</button>}<button type="button" onClick={()=>{setPaused(true);setMenu(false);}}><Eye size={14}/>عرض الصفحة كاملة</button>{!choosing&&<button type="button" onClick={()=>setMenu(value=>!value)} aria-expanded={menu}><List size={14}/>فهرس الجولة</button>}<button type="button" onClick={close}>تخطي الجولة</button></div>
-      {menu&&<div className="app-tour-index">{chapters.map(chapter=><button type="button" key={chapter.index} aria-current={step.section===chapter.label?'step':undefined} onClick={()=>move(chapter.index)}>{chapter.label}<ArrowLeft size={14}/></button>)}</div>}
+      <div className="app-tour-tools"><button type="button" onClick={()=>{setPaused(true);setMenu(null);}}><Eye size={14}/>عرض الصفحة كاملة</button>{!choosing&&<button type="button" onClick={()=>setMenu(value=>value?null:(hasQuickGuide?'sections':'quick'))} aria-expanded={menu!==null}><List size={14}/>{hasQuickGuide?'شرح قسم بالتفصيل':'فهرس الجولة'}</button>}<button type="button" onClick={close}>تخطي الجولة</button></div>
+      {menu==='sections'&&<div className="app-tour-index" aria-label="أقسام الشرح التفصيلي">{guideSection&&<button type="button" onClick={()=>changeGuide(null)}>الجولة المختصرة<ArrowLeft size={14}/></button>}{detailedSections.map(section=><button type="button" key={section} aria-current={guideSection===section?'step':undefined} onClick={()=>changeGuide(section)}>{section}<ArrowLeft size={14}/></button>)}</div>}
+      {menu==='quick'&&<div className="app-tour-index">{chapters.map(chapter=><button type="button" key={chapter.index} aria-current={step.section===chapter.label?'step':undefined} onClick={()=>move(chapter.index)}>{chapter.label}<ArrowLeft size={14}/></button>)}</div>}
     </section>
   </div>,document.body);
 }

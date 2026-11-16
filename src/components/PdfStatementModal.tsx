@@ -85,7 +85,7 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
               <Printer className="w-5 h-5" />
             </span>
             <div>
-              <h2 className="font-bold text-base text-slate-900">معاينة وطباعة كشف الحساب المالي المعتمد</h2>
+              <h2 className="font-bold text-base text-slate-900">معاينة وطباعة كشف الحساب المالي</h2>
               <p className="text-xs text-slate-500">جاهز للتصدير كملف PDF والطباعة لأعضاء اتحاد الشاغلين</p>
             </div>
           </div>
@@ -100,7 +100,8 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+              aria-label="إغلاق معاينة كشف الحساب"
+              className="min-h-11 min-w-11 p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
             >
               <X className="w-4 h-4" />
             </button>
@@ -247,7 +248,7 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
             </table></div>
           </div>
 
-          {/* Signatures & Accreditation Footer */}
+          {/* Spaces for signatures after manual review */}
           <div data-statement-signatures className="pt-6 border-t border-slate-300 grid grid-cols-3 gap-6 text-center text-xs">
             <div>
               <span className="text-slate-500 block mb-6">أمين صندوق العمارة:</span>
@@ -262,9 +263,9 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
               </p>
             </div>
             <div>
-              <span className="text-slate-500 block mb-6">خاتم وتصديق اتحاد الشاغلين:</span>
-              <div className="w-20 h-20 mx-auto rounded-full border-2 border-teal-600/40 flex items-center justify-center text-[10px] text-teal-800 font-bold p-1">
-                اتحاد شاغلي {building.name}
+              <span className="text-slate-500 block mb-6">ختم الاتحاد بعد المراجعة:</span>
+              <div className="w-20 h-20 mx-auto rounded-full border-2 border-dashed border-teal-600/40 flex items-center justify-center text-[10px] text-teal-800 font-bold p-1">
+                مكان الختم
               </div>
             </div>
           </div>

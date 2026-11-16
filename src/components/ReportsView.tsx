@@ -209,24 +209,24 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </div>
         </div>
 
-        {/* Statement certification box */}
+        {/* Recorded statement summary */}
         <div className="bg-gradient-to-br from-[#0f2537] to-[#1c3f5e] text-white p-5 rounded-2xl shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2 mb-3">
               <span className="w-3 h-3 rounded-full bg-emerald-400" />
-              <h3 className="font-bold text-sm text-white">إقرار اعتماد الحسابات المالية</h3>
+              <h3 className="font-bold text-sm text-white">بيانات كشف الحساب</h3>
             </div>
             <p className="text-xs text-slate-200 leading-relaxed mb-4">
-              تمت مراجعة جميع القيود المالية والإيصالات والفواتير المرفقة بمعرفة أمين صندوق اتحاد شاغلي عقار {building.name} طبقاً للقانون رقم 119 لسنة 2008 ولائحته التنفيذية المنظمة لاتحادات الشاغلين في جمهورية مصر العربية.
+              يعرض هذا الكشف التحصيلات والمصروفات المسجلة لعمارة {building.name} خلال الفترة المختارة. راجع القيود والمستندات قبل مشاركة الكشف أو طباعته؛ لا يعني إنشاؤه اعتماد الحسابات أو إغلاقها.
             </p>
 
             <div className="bg-white/10 p-3 rounded-xl border border-white/15 space-y-1 text-xs">
               <div className="flex justify-between">
-                <span className="text-slate-300">أمين الصندوق المسؤول:</span>
+                <span className="text-slate-300">مسؤول العمارة:</span>
                 <span className="font-bold text-white">{building.managerName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-300">تاريخ إغلاق الدورة:</span>
+                <span className="text-slate-300">نهاية فترة التقرير:</span>
                 <span className="font-mono text-white">{endDate}</span>
               </div>
               <div className="flex justify-between">

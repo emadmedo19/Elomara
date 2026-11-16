@@ -304,12 +304,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="flex items-center gap-2 text-xs">
               <Sparkles className="w-4 h-4 text-teal-700" />
               <div>
-                <span className="font-bold text-teal-900 block">المساعد الذكي (Gemini)</span>
-                <span className="text-[11px] text-teal-700">يعمل تلقائياً ومباشرة عبر الخادم الآمن دون الحاجة لمفتاح</span>
+                <span className="font-bold text-teal-900 block">المساعد الذكي</span>
+                <span className="text-[11px] text-teal-700">اطلب المساعدة من قسم المساعد الذكي، وراجع الإجابات قبل استخدامها.</span>
               </div>
             </div>
             <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full font-bold">
-              متصل ✓
+              عند الطلب
             </span>
           </div>
 
