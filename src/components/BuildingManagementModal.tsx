@@ -135,6 +135,8 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const submitter=(e.nativeEvent as SubmitEvent).submitter;
+    const continueToDistribution=submitter instanceof HTMLElement&&submitter.hasAttribute('data-save-building-for-distribution');
     if (saving || financeLoading || financeError || !name.trim()) return;
     if(!isNewBuilding&&!financialSnapshot){setSaveError('أعد تحميل أرصدة العمارة قبل الحفظ.');return;}
     const data = {
@@ -171,7 +173,11 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
       } else {
         await onUpdateBuilding(currentBuilding.id, data,finance);
       }
-      onClose();
+      if(continueToDistribution){
+        setName(data.name);setAddress(data.address);setTotalFloors(data.totalFloors||1);setTotalUnits(data.totalUnits);setMonthlyTarget(data.monthlyTarget);
+        setManagerName(data.managerName);setManagerPhone(data.managerPhone);setManager2Name(data.manager2Name||'');setManager2Phone(data.manager2Phone||'');setManager3Name(data.manager3Name||'');setManager3Phone(data.manager3Phone||'');
+        setFinanceReload(v=>v+1);
+      }else onClose();
     } catch (failure) {
       setSaveError(failure instanceof Error ? failure.message : 'تعذر حفظ بيانات العمارة. حاول مرة أخرى.');
     } finally { setSaving(false); }
@@ -249,7 +255,7 @@ export const BuildingManagementModal: React.FC<BuildingManagementModalProps> = (
             <p className="text-[11px]">الحساب يشمل الرصيد المبدئي والأرصدة السابقة وحركات السداد والمصروفات المسجلة. تغيير صندوق الطوارئ وحده لا يغيّر إجمالي الخزينة.</p>
           </div>
           {!isNewBuilding && collectionStartMonth!==(financialSnapshot?.startMonth||'') && <button type="button" className="min-h-11 text-xs text-teal-800 underline" onClick={()=>setCollectionStartMonth(financialSnapshot?.startMonth||'')}>استعادة شهر البداية المحفوظ</button>}
-          {!isNewBuilding && <HistoricalMonthlyDistribution buildingId={currentBuilding.id} key={currentBuilding.id} startMonth={financialSnapshot?.startMonth || ''} disabledReason={hasUnsavedBuildingDetails ? 'احفظ تعديلات بيانات العمارة أولًا أو ألغها، ثم عدّل التوزيع.' : undefined} onSaved={async () => { await onRefreshData?.(); setFinanceReload(v=>v+1); }} />}
+          {!isNewBuilding && <HistoricalMonthlyDistribution buildingId={currentBuilding.id} key={currentBuilding.id} canSaveBuilding startMonth={financialSnapshot?.startMonth || ''} disabledReason={hasUnsavedBuildingDetails ? 'احفظ بيانات العمارة أولًا لفتح خانات التوزيع.' : undefined} onSaved={async () => { await onRefreshData?.(); setFinanceReload(v=>v+1); }} />}
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={label}>اسم المسؤول الأول</label><input data-tour="building-manager" value={managerName} onChange={e => setManagerName(e.target.value)} className={field} /></div>

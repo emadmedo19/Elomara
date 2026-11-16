@@ -44,6 +44,15 @@ function setup() {
         if (mock.identityFailure) return Response.json({ message: mock.identityFailure }, { status: 403 });
         return Response.json(mock.resolvedId);
       }
+      if(url.endsWith('/rpc/save_building_management')||url.endsWith('/rpc/create_manager_building_with_finances')){
+        if(mock.buildingRpcUnauthorized)return Response.json({message:'JWT expired'},{status:401});
+        if(mock.buildingRpcSchemaError)return Response.json({code:'PGRST202',message:'Could not find function without parameters'},{status:404});
+        const wireHeaders=new Headers(Object.fromEntries(Object.entries(options?.headers||{})));
+        if(wireHeaders.get('content-type')!=='application/json'||!Object.hasOwn(options,'body'))return Response.json({code:'PGRST202',message:'Missing JSON parameters'},{status:404});
+        const args=JSON.parse(options.body);
+        if(!args.p_details)return Response.json({message:'Missing details'},{status:400});
+        return Response.json({id:args.p_building_id||'new-building',name:args.p_details.name,balance:13000});
+      }
       if (url.endsWith('/rpc/create_manager_building')) {
         // Native transports enumerate header fields; Headers instances expose no own fields.
         const wireHeaders = mock.nativeHeaderSerialization
@@ -288,4 +297,33 @@ test('idempotent identity mapping retries a temporary upstream 503', async () =>
   assert.equal(result.data.session.user.id,appId);
   assert.equal(mock.refreshCount,0);
   assert.equal(requests.filter(x=>x.url.endsWith('/rpc/resolve_app_identity')).length,2);
+});
+
+
+test('unified building save sends explicit native JSON with the reported balances and no replay',async()=>{
+ const {api,mock,requests}=setup();mock.nativeHeaderSerialization=true;
+ const details={name:'برج الفتوح',address:'شارع 1 من شارع 15',totalUnits:15,totalFloors:14,monthlyTarget:3000,reserveFund:0};
+ const finance={baseOpening:10000,reserve:0,expenses:5000,exceptional:8000,startMonth:'2025-01',expected:{balance:0,openingBalance:0,reserveFund:0,historicalAdjustment:0,historicalMonthly:0,expenses:0,exceptional:0,startMonth:'2026-11'},openingAlreadyIncluded:null};
+ const result=await api.saveNeonBuildingManagement('existing-building',details,finance);
+ assert.equal(result.id,'existing-building');
+ const sent=requests.filter(r=>r.url.endsWith('/rpc/save_building_management'));assert.equal(sent.length,1);
+ assert.equal(sent[0].options.method,'POST');assert.equal(sent[0].options.headers instanceof Headers,false);
+ assert.equal(new Headers(sent[0].options.headers).get('authorization'),'Bearer jwt-one');
+ assert.equal(new Headers(sent[0].options.headers).get('content-type'),'application/json');
+ assert.deepEqual(JSON.parse(sent[0].options.body),{p_building_id:'existing-building',p_details:details,p_finance:finance});
+});
+test('native building creation preserves explicit null finance and returns its confirmed row',async()=>{
+ const {api,requests}=setup();const details={name:'عمارة جديدة',totalUnits:2};
+ assert.equal((await api.createNeonBuildingWithFinances(details,null)).id,'new-building');
+ const request=requests.find(r=>r.url.endsWith('/rpc/create_manager_building_with_finances'));
+ assert.deepEqual(JSON.parse(request.options.body),{p_details:details,p_finance:null});
+});
+test('native building failures remain visible in Arabic and never retry a mutation',async()=>{
+ const {api,mock,requests}=setup();mock.buildingRpcSchemaError=true;
+ await assert.rejects(api.saveNeonBuildingManagement('b',{name:'اختبار'},null),/تعذر بدء حفظ/);
+ assert.equal(requests.filter(r=>r.url.endsWith('/rpc/save_building_management')).length,1);
+ mock.buildingRpcSchemaError=false;mock.buildingRpcUnauthorized=true;
+ await assert.rejects(api.saveNeonBuildingManagement('b',{name:'اختبار'},null),/انتهت جلسة/);
+ assert.equal(mock.refreshCount,0);
+ assert.equal(requests.filter(r=>r.url.endsWith('/rpc/save_building_management')).length,2);
 });

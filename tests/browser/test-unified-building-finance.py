@@ -92,5 +92,28 @@ with sync_playwright() as p:
  form.get_by_role('button',name='حفظ التعديلات',exact=True).click()
  expect(form).to_have_count(0);cash(page,'5,000')
  page.close();print('PASS legacy inclusion choice prevents counting opening cash twice',flush=True)
+ page=fresh(b);cash(page,'0');form=open_form(page)
+ form.get_by_label('الرصيد المبدئي (جنيه)',exact=True).fill('10000')
+ form.get_by_label('إجمالي المصروفات السابقة',exact=True).fill('5000')
+ form.get_by_label('إجمالي التحصيلات الاستثنائية السابقة',exact=True).fill('8000')
+ form.get_by_label('شهر بداية التحصيل',exact=True).fill('2025-01')
+ panel=form.locator('[data-historical-distribution]')
+ total=panel.get_by_label('إجمالي الرصيد الشهري السابق (جنيه)',exact=True)
+ expect(total).to_be_disabled()
+ panel.get_by_role('button',name='حفظ بيانات العمارة وفتح التوزيع',exact=True).click()
+ expect(form).to_be_visible()
+ expect(total).to_be_enabled(timeout=15000)
+ expect(form.get_by_label('الرصيد المبدئي (جنيه)',exact=True)).to_have_value('10000')
+ expect(panel.get_by_text('يبدأ السداد من',exact=False)).to_contain_text('2025-01')
+ assert page.evaluate('window.mock.building.balance')==13000
+ total.fill('1000');panel.get_by_label('المبلغ السابق للشقة 10',exact=True).fill('1000')
+ panel.get_by_role('button',name='حفظ توزيع الرصيد السابق',exact=True).click()
+ expect(panel.get_by_text('تم حفظ توزيع الرصيد السابق.',exact=True)).to_be_visible()
+ page.wait_for_function('window.mock.building.balance===14000')
+ expect(form.get_by_label('الرصيد المبدئي (جنيه)',exact=True)).to_have_value('10000')
+ assert page.evaluate("window.mock.entities.historical_monthly_allocations[0].month")=='2025-01-01'
+ assert page.evaluate("window.mock.rpcCalls.filter(r=>r.name==='save_building_management').length")==1
+ assert page.evaluate('window.mock.entities.payments.length')==0
+ page.close();print('PASS reported inputs 10000/5000/8000: save and unlock distribution without closing; January allocations; no duplicate receipts',flush=True)
  b.close()
 server.shutdown()

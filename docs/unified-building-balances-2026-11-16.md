@@ -18,3 +18,9 @@ Verification:
 - `neon/tests/sql/historical-ledger.sql` and `unified-building-finance.sql`: real Postgres arithmetic, delta-only updates, negative openings, bounds, authorization, stale snapshots, metadata/financial atomicity and creation rollback. Fixtures and the temporary identity shim are rolled back on the isolated branch.
 
 These checks do not constitute a physical Android or real email-delivery test. The separate pre-existing announcement-image test issue remains documented in the earlier historical review.
+
+Follow-up: native saving and distribution access
+
+The unified save now sends explicit JSON through the established native-compatible transport, including all named RPC parameters. Creation uses the same transport; session errors do not automatically retry financial writes. Tests assert the exact nested request body, explicit null finance, authentication errors and parameter-cache failures.
+
+An inline “حفظ بيانات العمارة وفتح التوزيع” button saves pending changes, refreshes the confirmed snapshot and keeps the dialog open before enabling allocation. Normal save retains its close behavior. Browser checks reproduce base 10000, expenses 5000 and exceptional collections 8000: cash becomes 13000, then allocating 1000 from January 2025 makes cash 14000 without creating ordinary receipts. Verification uses synthetic native transport and Chromium, not a physical Android device.

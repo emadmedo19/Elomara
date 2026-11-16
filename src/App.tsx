@@ -1,4 +1,4 @@
-import { isNeonBackend } from './lib/neon';
+import { isNeonBackend, saveNeonBuildingManagement, createNeonBuildingWithFinances } from './lib/neon';
 import { useBuildingReadOnly, SubscriptionReadOnlyNotice } from './components/SubscriptionReadOnlyNotice';
 import { IntroWindowLights } from './components/IntroWindowLights';
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
@@ -578,7 +578,7 @@ export default function App() {
     const release = holdMembership();
     try {
       const { data, error } = isNeonBackend
-        ? await supabase.rpc('create_manager_building_with_finances', { p_details: newBldData, p_finance: finance || null })
+        ? {data:await createNeonBuildingWithFinances(newBldData,finance||null),error:null}
         : await supabase.rpc('create_manager_building', { p_details: newBldData });
       if (error || !data?.id) throw new Error('فشل حفظ العمارة: ' + (error?.message || 'لم يتم تأكيد الحفظ'));
       if (activeUserId.current !== actorId) throw new Error('تم تغيير الحساب أثناء الحفظ.');
@@ -609,8 +609,7 @@ export default function App() {
     // Metadata and all opening inputs are committed together by Neon.
     const next = { ...current, ...updatedData, balance: current.balance };
     if (isNeonBackend) {
-      const {data,error}=await supabase.rpc('save_building_management',{p_building_id:id,p_details:next,p_finance:finance||null});
-      if(error||!data?.id)throw new Error(error?.message||'لم يتم تأكيد حفظ بيانات العمارة والأرصدة.');
+      await saveNeonBuildingManagement(id,next,finance||null);
     } else {
       const { error } = await supabase.rpc('update_manager_building', {
         p_building_id: id,

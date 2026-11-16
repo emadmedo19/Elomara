@@ -5,10 +5,10 @@ import { allocateHistoricalMonthlyPayments, currentCollectionMonth } from '../se
 type Unit = { id: string; unit_number: string; monthly_fee: number };
 type Allocation = { apartmentId: string; month: string; amount: number };
 type StoredAllocation = { apartment_id: string; month: string; amount: number };
-type Props = { buildingId: string; startMonth: string; disabledReason?: string; onSaved: () => Promise<void> | void };
+type Props = { buildingId: string; startMonth: string; disabledReason?: string; canSaveBuilding?: boolean; onSaved: () => Promise<void> | void };
 const money = (n: number) => n.toLocaleString('ar-EG', {maximumFractionDigits:2});
 const isMoney = (n:number) => Number.isFinite(n) && n>=0 && Math.abs(Math.round(n*100)-n*100)<0.00001;
-export const HistoricalMonthlyDistribution: React.FC<Props> = ({buildingId,startMonth,disabledReason,onSaved}) => {
+export const HistoricalMonthlyDistribution: React.FC<Props> = ({buildingId,startMonth,disabledReason,canSaveBuilding=false,onSaved}) => {
  const [units,setUnits]=useState<Unit[]>([]);
  const [stored,setStored]=useState<StoredAllocation[]>([]);
  const [values,setValues]=useState<Record<string,string>>({});
@@ -84,7 +84,7 @@ export const HistoricalMonthlyDistribution: React.FC<Props> = ({buildingId,start
   <h3 className="text-sm font-bold text-slate-800">توزيع التحصيلات الشهرية السابقة على الشقق</h3>
   <p className="text-xs text-slate-600">يبدأ السداد من {startMonth||'شهر البداية'}، ويُوزع على أقدم الشهور حتى الشهر الحالي. لا يدخل في التحصيلات الاستثنائية. المبالغ المحفوظة تبقى في شهورها عند الحفظ دون تعديل.</p>
   {loading?<p role="status" className="text-xs">جارٍ تحميل التوزيع السابق...</p>:loadError?<div role="alert" className="text-xs text-rose-700"><p>{loadError}</p><button type="button" className="mt-2 min-h-11 underline" onClick={()=>setRevision(v=>v+1)}>إعادة تحميل التوزيع</button></div>:<>
-   {disabledReason&&<p role="status" className="text-xs text-amber-800">{disabledReason}</p>}
+   {disabledReason&&<div className="space-y-2"><p role="status" className="text-xs text-amber-800">{disabledReason}</p>{canSaveBuilding&&<button type="submit" data-save-building-for-distribution className="min-h-11 w-full rounded-xl bg-teal-700 px-3 py-2 text-sm font-bold text-white">حفظ بيانات العمارة وفتح التوزيع</button>}</div>}
    <fieldset disabled={saving||!!disabledReason} className="space-y-3 disabled:opacity-60">
     <label className="block text-xs font-bold">إجمالي الرصيد الشهري السابق (جنيه)<input className="mt-1 min-h-11 w-full rounded-lg border p-2" type="number" min="0" step="0.01" value={target} onChange={e=>{setTarget(e.target.value);setSuccess('');}}/></label>
     <div className="max-h-52 space-y-2 overflow-y-auto">

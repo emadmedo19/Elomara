@@ -230,6 +230,33 @@ export async function updateNeonBuilding(buildingId: string, details: Record<str
   }
 }
 
+// Building mutations use a literal JSON request, matching the established native
+// update path. Do not pass these through an SDK request builder or replay writes.
+async function buildingJsonRpc(name: string, params: object): Promise<Record<string,unknown>&{id:string}> {
+  await nativeReady();
+  const session=(await CapacitorNeon.getSession()).session;
+  if(!session)throw new Error('سجّل الدخول أولًا.');
+  let response:Response;
+  try {
+    response=await fetch(dataUrl+'/rpc/'+name,{method:'POST',cache:'no-store',headers:{Authorization:`Bearer ${session.accessToken}`,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(params)});
+  }catch {throw new Error('تعذر الاتصال بخادم العمارة. لم يتم تأكيد الحفظ؛ أعد المحاولة.');}
+  const payload:unknown=await response.json().catch(()=>null);
+  const result=payload&&typeof payload==='object'&&!Array.isArray(payload)?payload as Record<string,unknown>:null;
+  if(response.status===401)throw new Error('انتهت جلسة الدخول. أعد تسجيل الدخول ثم حاول الحفظ.');
+  if(!response.ok){
+    if(result?.code==='PGRST202')throw new Error('تعذر بدء حفظ بيانات العمارة على الخادم. أعد فتح التطبيق بعد التحديث وحاول مرة أخرى.');
+    throw new Error(typeof result?.message==='string'?result.message:'تعذر تأكيد حفظ بيانات العمارة.');
+  }
+  if(!result||typeof result.id!=='string')throw new Error('لم تصل نتيجة مؤكدة لحفظ بيانات العمارة. أعد تحميل الأرصدة قبل المحاولة مجددًا.');
+  return {...result,id:result.id};
+}
+export function saveNeonBuildingManagement(buildingId:string,details:object,finance:object|null) {
+  return buildingJsonRpc('save_building_management',{p_building_id:buildingId,p_details:details,p_finance:finance});
+}
+export function createNeonBuildingWithFinances(details:object,finance:object|null) {
+  return buildingJsonRpc('create_manager_building_with_finances',{p_details:details,p_finance:finance});
+}
+
 export const neonClient = {
   from: data.from.bind(data), rpc: data.rpc.bind(data),
   channel: (_name: string) => new RefreshChannel(),
