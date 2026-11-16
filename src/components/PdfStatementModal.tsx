@@ -1,3 +1,4 @@
+import {calculateReport,type ReportSelection} from '../services/reportAccounting';
 import { HistoricalOpeningSummary } from './HistoricalOpeningSummary';
 import React, { useState } from 'react';
 import { buildStatementPrintHtml } from '../services/statementPrinting';
@@ -11,6 +12,7 @@ interface PdfStatementModalProps {
   apartments: Apartment[];
   payments?: Payment[];
   expenses: Expense[];
+  selection?:ReportSelection;
   onClose: () => void;
 }
 
@@ -19,32 +21,18 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
   apartments,
   payments = [],
   expenses,
-  onClose,
+  onClose,selection,
 }) => {
-  const reportRange = (() => {
-    try {
-      const value = JSON.parse(sessionStorage.getItem('elomara-report-range') || 'null') as { startDate?: string; endDate?: string } | null;
-      if (value && /^\d{4}-\d{2}-\d{2}$/.test(value.startDate || '') && /^\d{4}-\d{2}-\d{2}$/.test(value.endDate || '') && value.startDate! <= value.endDate!) return value;
-    } catch { /* Use current month when opened without a selected range. */ }
-    return null;
-  })();
-  const startDate = reportRange?.startDate || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toLocaleDateString('en-CA');
-  const endDate = reportRange?.endDate || new Date().toLocaleDateString('en-CA');
-  const inRange = (date: string) => date.slice(0, 10) >= startDate && date.slice(0, 10) <= endDate;
-  const receipts = payments.filter(p => !p.isAssessment && !p.isHistorical);
-  const periodPayments = receipts.filter(p => inRange(p.date));
-  const periodExpenses = expenses.filter(e => inRange(e.date));
-  const totalInflow = periodPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  const totalOutflow = periodExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  const netSurplus = totalInflow - totalOutflow;
-  const allInflow = receipts.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  const allOutflow = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  const openingBalance = building.balance - allInflow + allOutflow +
-    receipts.filter(p => p.date.slice(0, 10) < startDate).reduce((sum, p) => sum + (Number(p.amount) || 0), 0) -
-    expenses.filter(e => e.date.slice(0, 10) < startDate).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  const closingBalance = openingBalance + netSurplus;
+  const today=new Date().toLocaleDateString('en-CA');
+  const selected=selection?.buildingId===building.id?selection:{scope:'all' as const,buildingId:building.id,startDate:today,endDate:today};
+  const {startDate,endDate}=selected;
+  const report=calculateReport(building,payments,expenses,selected);
+  const {totalInflow,totalOutflow,openingBalance,closingBalance}=report;
+  const netSurplus=report.netSurplus;
+  const periodPayments=report.selectedPayments;
+  const periodExpenses=report.selectedExpenses;
   const formatDate = (date: string) => new Date(date + 'T12:00:00').toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' });
-  const statementMonth = startDate.slice(0, 7) === endDate.slice(0, 7) && startDate.endsWith('-01') &&
+  const statementMonth = report.all?'الحسابات كاملة — حتى '+formatDate(today):startDate.slice(0, 7) === endDate.slice(0, 7) && startDate.endsWith('-01') &&
     Number(endDate.slice(8)) === new Date(Number(endDate.slice(0, 4)), Number(endDate.slice(5, 7)), 0).getDate()
     ? new Date(startDate + 'T12:00:00').toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' })
     : formatDate(startDate) + ' - ' + formatDate(endDate);
@@ -150,21 +138,21 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
               <span className="text-base font-bold text-rose-600 block mt-0.5">{totalOutflow.toLocaleString()} ج.م</span>
             </div>
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-              <span className="text-[11px] text-slate-500 block">صافي حركة الفترة</span>
+              <span className="text-[11px] text-slate-500 block">{report.all?'صافي التحصيلات والمصروفات':'صافي حركة الفترة'}</span>
               <span className="text-base font-bold text-emerald-600 block mt-0.5">{netSurplus.toLocaleString()} ج.م</span>
             </div>
             <div className="p-3 rounded-xl bg-teal-50/70 border border-teal-200">
-              <span className="text-[11px] text-teal-800 block">الرصيد الختامي للفترة</span>
+              <span className="text-[11px] text-teal-800 block">{report.all?'رصيد الخزينة الحالي':'الرصيد الختامي للفترة'}</span>
               <span className="text-base font-bold text-teal-900 block mt-0.5">{closingBalance.toLocaleString()} ج.م</span>
             </div>
           </div>
 
           <p className="text-[11px] text-slate-500">الرصيد الافتتاحي المحسوب: {openingBalance.toLocaleString()} ج.م (يُراجع عند وجود أرصدة أو تسويات غير مسجلة).</p>
-          <HistoricalOpeningSummary building={building} payments={payments}/>
+          <HistoricalOpeningSummary building={building} payments={report.rows} included={report.all}/>{report.all&&<p data-print-cash-note className="text-[11px] text-slate-600">التحصيلات القديمة داخلة في رصيد الخزينة عند البداية، ولا تُضاف ثانية. الحركة النقدية بعد التسجيل: {report.cashMovement.toLocaleString()} ج.م.</p>}{report.all&&report.unassignedExceptional>0&&<p className="text-[11px] text-slate-600">يوجد سداد استثنائي سابق بإجمالي {report.unassignedExceptional.toLocaleString()} ج.م غير موزع على شقق في السجلات القديمة؛ مدرج في الإجمالي فقط.</p>}
           {/* Section 1: Collections Table */}
           <div>
             <h3 className="font-bold text-sm text-[#0f2537] mb-2 flex items-center gap-1.5">
-              <span>أولاً: بيان تحصيل اشتراكات الصيانة (الوحدات والشقق)</span>
+              <span>أولاً: بيان المستحقات والسداد لكل شقة</span>
             </h3>
             <div className="statement-table-scroll w-full max-w-full overflow-x-auto overscroll-x-contain rounded-xl" style={{ WebkitOverflowScrolling: "touch", direction: "rtl" }}><table className="w-full text-xs text-right border-collapse border border-slate-200 rounded-xl overflow-hidden min-w-[760px]" style={{ width: "100%", tableLayout: "fixed", direction: "rtl" }}>
               <thead className="bg-[#0f2537] text-white">
@@ -172,7 +160,7 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
                   <th className="p-2 border border-slate-300">الوحدة</th>
                   <th className="p-2 border border-slate-300">اسم الشاغل / المالك</th>
                   <th className="p-2 border border-slate-300">المستحق الحالي*</th>
-                  <th className="p-2 border border-slate-300">المسدد خلال الفترة</th>
+                  <th className="p-2 border border-slate-300">{report.all?'إجمالي المسدد القديم والجديد':'المسدد خلال الفترة'}</th>
                   <th className="p-2 border border-slate-300">المتبقي الحالي*</th>
                   <th className="p-2 border border-slate-300">رصيد دائن حالي*</th>
                   <th className="p-2 border border-slate-300">الحالة الحالية*</th>
@@ -181,12 +169,12 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {apartments.map((apt) => {
-                  const fin = calculateApartmentFinancials(apt, payments);
+                  const fin = calculateApartmentFinancials(apt, report.rows);
                   const aptPeriodPayments = periodPayments.filter(p => p.apartmentId === apt.id);
                   const periodPaid = aptPeriodPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
                   const lastPeriodPayment = [...aptPeriodPayments].sort((x, y) => y.date.localeCompare(x.date))[0];
                   return (
-                    <tr key={apt.id} className="hover:bg-slate-50">
+                    <tr key={apt.id} data-statement-unit={apt.unitNumber} className="hover:bg-slate-50">
                       <td className="p-2 font-bold border border-slate-200">{apt.unitNumber}</td>
                       <td className="p-2 border border-slate-200">{apt.residentName}</td>
                       <td className="p-2 border border-slate-200 font-mono">{fin.totalDue.toLocaleString()} ج.م</td>
@@ -218,7 +206,7 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
             </table></div>
           </div>
 
-          <p className="text-[11px] text-slate-500">* المستحق والمتبقي والحالة تعكس الوضع الحالي، وليست أرصدة تاريخية. المسدد وتاريخ السداد والمصروفات تخص الفترة المختارة.</p>
+          <p className="text-[11px] text-slate-500">* المستحق والمتبقي والحالة تعكس الوضع الحالي، وليست أرصدة تاريخية. {report.all?'المسدد يشمل التسويات القديمة والإيصالات الجديدة.':'المسدد وتاريخ السداد والمصروفات تخص الفترة المختارة.'}</p>
           {/* Section 2: Itemized Expenditures */}
           <div>
             <h3 className="font-bold text-sm text-[#0f2537] mb-2 flex items-center gap-1.5">
@@ -235,6 +223,7 @@ export const PdfStatementModal: React.FC<PdfStatementModalProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
+                {report.all&&report.historicalExpenses>0&&<tr data-print-historical-expenses><td className="p-2 border border-slate-200">مصروفات سابقة — إجمالي مسجل عند البداية</td><td className="p-2 border border-slate-200">حسابات قديمة</td><td className="p-2 border border-slate-200">—</td><td className="p-2 border border-slate-200">قبل التسجيل</td><td className="p-2 border border-slate-200">{report.historicalExpenses.toLocaleString()} ج.م</td></tr>}
                 {periodExpenses.map((exp) => (
                   <tr key={exp.id} className="hover:bg-slate-50">
                     <td className="p-2 font-bold border border-slate-200">{exp.title}</td>

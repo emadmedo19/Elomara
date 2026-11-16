@@ -30,6 +30,7 @@ import { AppTour, TourHelpButton } from './components/AppTour';
 import { DashboardView } from './components/DashboardView';
 import { CollectionsView } from './components/CollectionsView';
 import { ExpensesView } from './components/ExpensesView';
+import type {ReportSelection} from './services/reportAccounting';
 import { ReportsView } from './components/ReportsView';
 import { ResidentView } from './components/ResidentView';
 import { ResidentPortal } from './components/ResidentPortal';
@@ -354,6 +355,7 @@ export default function App() {
   const [isBuildingModalOpen, setIsBuildingModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
+  const [statementSelection,setStatementSelection]=useState<ReportSelection|undefined>();
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   // 5. Toast System
@@ -555,7 +557,7 @@ export default function App() {
         setIsBuildingModalOpen(false);
         setIsSettingsModalOpen(false);
         setIsAddExpenseModalOpen(false);
-        setIsPdfModalOpen(false);
+        setIsPdfModalOpen(false);setStatementSelection(undefined);
         return;
       }
       // popstate has already moved the URL to the actual previous/next entry.
@@ -1616,12 +1618,12 @@ export default function App() {
           )}
 
           {currentTab === 'reports' && (
-            <ReportsView
+            <ReportsView key={currentBuilding.id}
               building={currentBuilding}
               apartments={apartments.filter((a) => !a.buildingId || a.buildingId === currentBuilding.id)}
               payments={payments}
               expenses={expenses.filter((e) => !e.buildingId || e.buildingId === currentBuilding.id)}
-              onOpenPdfModal={() => setIsPdfModalOpen(true)}
+              onOpenPdfModal={(selection)=>{setStatementSelection(selection);setIsPdfModalOpen(true);}}
             />
           )}
 
@@ -1701,7 +1703,8 @@ export default function App() {
           apartments={apartments.filter((a) => !a.buildingId || a.buildingId === currentBuilding.id)}
           payments={payments}
           expenses={expenses.filter((e) => !e.buildingId || e.buildingId === currentBuilding.id)}
-          onClose={() => setIsPdfModalOpen(false)}
+          selection={statementSelection}
+          onClose={()=>{setIsPdfModalOpen(false);setStatementSelection(undefined);}}
         />
       )}
     </div>

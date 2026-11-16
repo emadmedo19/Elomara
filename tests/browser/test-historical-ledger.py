@@ -27,6 +27,7 @@ with sync_playwright() as p:
   # A report covering the historical months must not invent new receipt inflow.
   page.get_by_role('button',name='المزيد',exact=True).click()
   page.get_by_role('button',name='التقارير',exact=True).click()
+  page.get_by_role('button',name='حركة فترة محددة',exact=True).click()
   page.get_by_label('من تاريخ',exact=True).fill(page.evaluate('window.mock.historyMonth(-2)'))
   income=page.get_by_text('إجمالي الإيرادات المحصلة',exact=True).locator('../..')
   expect(income).to_contain_text('300');expect(income).not_to_contain_text('3,800')

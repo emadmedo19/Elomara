@@ -1,3 +1,4 @@
+import {calculateReport,type ReportSelection} from '../services/reportAccounting';
 import { HistoricalOpeningSummary } from './HistoricalOpeningSummary';
 import React, { useState } from 'react';
 import { Building, Apartment, Expense, Payment } from '../types';
@@ -12,7 +13,7 @@ interface ReportsViewProps {
   apartments: Apartment[];
   payments?: Payment[];
   expenses: Expense[];
-  onOpenPdfModal: () => void;
+  onOpenPdfModal: (selection:ReportSelection) => void;
 }
 
 export const ReportsView: React.FC<ReportsViewProps> = ({
@@ -27,17 +28,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const [endDate, setEndDate] = useState(today);
   const validRange = Boolean(startDate && endDate && startDate <= endDate);
   const inRange = (date: string) => validRange && date.slice(0, 10) >= startDate && date.slice(0, 10) <= endDate;
-  const actualPayments = payments.filter(p => !p.isAssessment && !p.isHistorical);
-  const periodPayments = actualPayments.filter(p => inRange(p.date));
-  const periodExpenses = expenses.filter(e => inRange(e.date));
-  const buildingFin = calculateBuildingFinancials(building.id, apartments, periodPayments);
-  const totalInflow = periodPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  const totalOutflow = periodExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  const netMonthlySurplus = totalInflow - totalOutflow;
-  const allInflow = actualPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-  const allOutflow = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  const openingBalance = building.balance - allInflow + allOutflow + actualPayments.filter(p => p.date.slice(0, 10) < startDate).reduce((sum, p) => sum + (Number(p.amount) || 0), 0) - expenses.filter(e => e.date.slice(0, 10) < startDate).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  const closingBalance = openingBalance + netMonthlySurplus;
+  const [scope,setScope]=useState<'all'|'period'>('all');
+  const selection:ReportSelection={scope,startDate,endDate,buildingId:building.id};
+  const report=calculateReport(building,payments,expenses,selection);
+  const {totalInflow,totalOutflow,openingBalance,closingBalance}=report;
+  const periodExpenses=report.selectedExpenses;
+  const netMonthlySurplus=report.netSurplus;
+  const buildingFin = calculateBuildingFinancials(building.id, apartments, payments);
 
   const categories = [
     { name: 'مصاعد', label: 'صيانة أسانسير', color: 'bg-indigo-500' },
@@ -47,10 +44,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     { name: 'أمن وحراسة', color: 'bg-slate-700' },
     { name: 'صيانة عامة', color: 'bg-rose-500' },
     { name: 'أخرى', color: 'bg-slate-400' },
+    ...(report.all&&report.historicalExpenses>0?[{name:'مصروفات سابقة',color:'bg-violet-500'}]:[]),
   ];
 
   const categoryTotals = categories.map((cat) => {
-    const sum = periodExpenses
+    const sum = cat.name==='مصروفات سابقة'?report.historicalExpenses:periodExpenses
       .filter((e) => cat.name === 'أخرى' ? !categories.filter(c => c.name !== 'أخرى').some(c => c.name === e.category) : e.category === cat.name)
       .reduce((acc, e) => acc + e.amount, 0);
     return {
@@ -83,18 +81,22 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex w-full gap-2" role="group" aria-label="نوع التقرير">
+            <button type="button" aria-pressed={scope==='all'} onClick={()=>setScope('all')} className={`min-h-11 rounded-xl border px-3 text-xs font-bold ${scope==='all'?'bg-teal-700 text-white':'bg-white text-slate-700'}`}>الحسابات كاملة</button>
+            <button type="button" aria-pressed={scope==='period'} onClick={()=>setScope('period')} className={`min-h-11 rounded-xl border px-3 text-xs font-bold ${scope==='period'?'bg-teal-700 text-white':'bg-white text-slate-700'}`}>حركة فترة محددة</button>
+          </div>
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <label className="flex items-center gap-1 text-slate-600 font-bold">من
-              <input aria-label="من تاريخ" type="date" value={startDate} max={today} onChange={e => setStartDate(e.target.value)} className="border border-slate-200 rounded-lg p-2 bg-white text-slate-900" />
+              <input aria-label="من تاريخ" type="date" value={startDate} max={today} onChange={e => {setStartDate(e.target.value);setScope('period');}} disabled={scope==='all'} className="border border-slate-200 rounded-lg p-2 bg-white text-slate-900" />
             </label>
             <label className="flex items-center gap-1 text-slate-600 font-bold">إلى
-              <input aria-label="إلى تاريخ" type="date" value={endDate} max={today} onChange={e => setEndDate(e.target.value)} className="border border-slate-200 rounded-lg p-2 bg-white text-slate-900" />
+              <input aria-label="إلى تاريخ" type="date" value={endDate} max={today} onChange={e => {setEndDate(e.target.value);setScope('period');}} disabled={scope==='all'} className="border border-slate-200 rounded-lg p-2 bg-white text-slate-900" />
             </label>
             {!validRange && <span className="text-rose-600">تأكد من ترتيب التاريخين</span>}
           </div>
 
           <button
-            onClick={() => { if (validRange) { sessionStorage.setItem('elomara-report-range', JSON.stringify({ startDate, endDate })); onOpenPdfModal(); } }}
+            onClick={() => { if (report.all||validRange) { onOpenPdfModal(selection); } }}
             className="bg-[#0f2537] hover:bg-[#1a3852] text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition active:scale-95 shadow-sm"
           >
             <Printer className="w-4 h-4 text-teal-300" />
@@ -103,7 +105,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         </div>
       </div>
 
-      <HistoricalOpeningSummary building={building} payments={payments}/>
+      <HistoricalOpeningSummary building={building} payments={report.rows} included={report.all}/>
+      <p data-report-cash-note className="rounded-xl bg-sky-50 p-3 text-xs leading-7 text-slate-700">{report.all?`الكشف يشمل الحسابات القديمة والجديدة. الخزينة عند البداية: ${openingBalance.toLocaleString()} ج.م، والحركة بعد التسجيل: ${report.cashMovement.toLocaleString()} ج.م. التحصيلات القديمة مشمولة بالفعل في رصيد البداية، ولا تُضاف للخزينة مرة ثانية.`:'الكروت تعرض حركة الفترة المحددة فقط. الحسابات القديمة موضحة بصورة مستقلة أعلاه.'}</p>
       {/* Financial Summary Bento Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Total Inflow */}
@@ -119,7 +122,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             <span className="text-xs text-slate-500 font-bold">ج.م</span>
           </div>
           <span className="block mt-2 text-[11px] text-emerald-600 font-bold">
-            تحصيلات الفترة المختارة
+            {report.all?'التحصيلات القديمة + الإيصالات الجديدة':'تحصيلات الفترة المختارة'}
           </span>
         </div>
 
@@ -136,14 +139,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             <span className="text-xs text-slate-500 font-bold">ج.م</span>
           </div>
           <span className="block mt-2 text-[11px] text-slate-500">
-            {periodExpenses.length} فواتير وعقود صيانة
+            {periodExpenses.length} فواتير وعقود صيانة {report.all&&report.historicalExpenses>0?' + المصروفات السابقة':''}
           </span>
         </div>
 
         {/* Net Monthly Flow */}
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
           <div className="flex items-center justify-between mb-1 text-slate-500 text-xs">
-            <span>صافي حركة الفترة (الفائض)</span>
+            <span>{report.all?'صافي التحصيلات مقابل المصروفات':'صافي حركة الفترة (الفائض)'}</span>
             <div className="w-7 h-7 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center">
               <TrendingUp className="w-4 h-4" />
             </div>
@@ -155,14 +158,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             <span className="text-xs text-slate-500 font-bold">ج.م</span>
           </div>
           <span className="block mt-2 text-[11px] text-teal-700 font-medium">
-            تغذية الرصيد التراكمي للخزينة
+            {report.all?'فرق التحصيلات والمصروفات المسجلة':'تغذية الرصيد التراكمي للخزينة'}
           </span>
         </div>
 
         {/* Closing Balance */}
         <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
           <div className="flex items-center justify-between mb-1 text-slate-500 text-xs">
-            <span>الرصيد الختامي المرحل</span>
+            <span>{report.all?'رصيد الخزينة الحالي':'الرصيد الختامي المرحل'}</span>
             <div className="w-7 h-7 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
               <ShieldCheck className="w-4 h-4" />
             </div>
@@ -172,7 +175,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             <span className="text-xs text-slate-500 font-bold">ج.م</span>
           </div>
           <span className="block mt-2 text-[11px] text-slate-500">
-            الرصيد المحسوب حتى نهاية الفترة
+            {report.all?'الرصيد المحفوظ بالخزينة بعد العمليات الجديدة':'الرصيد المحسوب حتى نهاية الفترة'}
           </span>
         </div>
       </div>
@@ -212,7 +215,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               <h3 className="font-bold text-sm text-white">بيانات كشف الحساب</h3>
             </div>
             <p className="text-xs text-slate-200 leading-relaxed mb-4">
-              يعرض هذا الكشف التحصيلات والمصروفات المسجلة لعمارة {building.name} خلال الفترة المختارة. راجع القيود والمستندات قبل مشاركة الكشف أو طباعته؛ لا يعني إنشاؤه اعتماد الحسابات أو إغلاقها.
+              يعرض هذا الكشف التحصيلات والمصروفات المسجلة لعمارة {building.name} {report.all?'بما يشمل الحسابات القديمة والجديدة':'خلال الفترة المختارة فقط'}. راجع القيود والمستندات قبل مشاركة الكشف أو طباعته؛ لا يعني إنشاؤه اعتماد الحسابات أو إغلاقها.
             </p>
 
             <div className="bg-white/10 p-3 rounded-xl border border-white/15 space-y-1 text-xs">
@@ -234,7 +237,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           <div className="mt-4 pt-3 border-t border-white/15 flex items-center justify-between">
             <span className="text-[11px] text-slate-300">متاح لجميع الملاك والشاغلين</span>
             <button
-              onClick={onOpenPdfModal}
+              onClick={()=>{if(report.all||validRange)onOpenPdfModal(selection);}}
               className="bg-teal-500 hover:bg-teal-400 text-[#0f2537] text-xs font-bold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition active:scale-95 shadow-sm"
             >
               <Printer className="w-4 h-4" />
