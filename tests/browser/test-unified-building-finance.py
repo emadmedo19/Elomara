@@ -41,7 +41,7 @@ with sync_playwright() as p:
   assert page.evaluate('window.mock.building.balance')==0
   page.evaluate('window.mock.finishFinanceSave();window.mock.financeSavePending=false')
   expect(form).to_have_count(0);cash(page,'3,000')
-  expect(page.locator('[data-tour=dashboard-collected] strong')).to_contain_text('8,000')
+  expect(page.locator('[data-tour=dashboard-collected] strong')).to_have_text('0 ج.م')
   assert page.evaluate('window.mock.entities.payments.length')==0
   form=open_form(page)
   expect(form.get_by_label('الرصيد المبدئي (جنيه)',exact=True)).to_have_value('5000')

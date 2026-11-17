@@ -21,7 +21,7 @@ with sync_playwright() as p:
   page.on('dialog',lambda dialog:dialog.accept())
   page.goto(base+'/?scenario=historical-manager')
   cash(page,'5,850')
-  expect(page.locator('[data-tour=dashboard-collected] strong')).to_contain_text('15,800')
+  expect(page.locator('[data-tour=dashboard-collected] strong')).to_have_text('3,800 ج.م')
   expect(page.locator('.light-stat-expenses strong')).to_contain_text('10,050')
   expect(page.locator('.light-stat-due strong')).to_contain_text('5,200')
   # A report covering the historical months must not invent new receipt inflow.
@@ -40,6 +40,7 @@ with sync_playwright() as p:
   page.get_by_role('button',name='المصروفات',exact=True).click()
   expect(page.locator('[data-historical-expenses]')).to_contain_text('10,000')
   page.get_by_role('button',name='الشقق والتحصيل',exact=True).click()
+  expect(page.get_by_text('إجمالي السداد المرتبط بالشقق',exact=True).locator('..')).to_contain_text('3,800 ج.م')
   page.locator('.apartment-compact-card').filter(has_text='ساكن 1').get_by_title('عرض كشف حساب وتفاصيل الشقة والإيصالات').click()
   details=page.get_by_role('dialog',name='تفاصيل الشقة',exact=True)
   expect(details.get_by_role('button',name='تعديل',exact=True)).to_have_count(1)

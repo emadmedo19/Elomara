@@ -36,7 +36,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const fin = calculateBuildingFinancials(building.id, apartments, payments);
   const recordedExpensesTotal = expenses.reduce((sum, item) => sum + item.amount, 0);
   const historicalExpenses = Number(building.historicalExpensesTotal || 0);
-  const historicalExceptionalCollections = Number(building.historicalExceptionalCollectionsTotal || 0);
   const expensesTotal = recordedExpensesTotal + historicalExpenses;
   const pendingTickets = tickets.filter(ticket => ticket.status !== 'مكتمل').length;
   const now = new Date();
@@ -72,8 +71,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </article>
         <article data-tour="dashboard-collected" className="light-stat light-stat-collected">
           <div><span>إجمالي المحصل</span><span className="light-stat-icon settings-icon-teal"><ArrowDownRight size={21} /></span></div>
-          <strong>{money(fin.totalCollected + historicalExceptionalCollections)} <small>ج.م</small></strong>
-          <p>السداد المسجل والأرصدة السابقة؛ الاستثنائي السابق ({money(historicalExceptionalCollections)} ج.م)</p>
+          <strong>{money(fin.totalCollected)} <small>ج.م</small></strong>
+          <p>إجمالي السداد المرتبط بالشقق</p>
         </article>
         <button type="button" className="light-stat light-stat-due light-stat-button" aria-label="عرض الشقق التي عليها مستحقات" onClick={() => onOpenOutstanding ? onOpenOutstanding() : onNavigate('collections')}>
           <div><span>المتبقي للتحصيل</span><span className="light-stat-icon settings-icon-gold"><Wallet size={21} /></span></div>
