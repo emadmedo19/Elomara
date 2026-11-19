@@ -379,3 +379,20 @@ test('failed writes and read-only operations do not call FCM wake-up', async()=>
   await new Promise(resolve=>setTimeout(resolve,350));
   assert.equal(requests.filter(r=>r.url.endsWith('/functions/v1/kick-mobile-delivery')).length,0);
 });
+
+test('idle poll budget is bounded without delaying incoming push and foreground refresh', async () => {
+  const { readFileSync } = await import('node:fs');
+  const neonSource = readFileSync('src/lib/neon.ts', 'utf8');
+  const bellSource = readFileSync('src/components/NotificationBell.tsx', 'utf8');
+  const methodsSource = readFileSync('src/components/MemberPaymentMethods.tsx', 'utf8');
+  assert.match(neonSource, /setInterval\(\(\) => \{ void refresh\(\)\.catch\(\(\) => \{\}\); \}, 30000\)/);
+  assert.match(neonSource, /query\.order\('created_at', \{ ascending: false \}\)\.limit\(80\)/);
+  assert.match(neonSource, /document\.addEventListener\('visibilitychange', this\.onVisible\)/);
+  assert.match(bellSource, /window\.setInterval\(periodic,120000\)/);
+  assert.match(bellSource, /if \(openRef\.current\) void refresh\(\);\s*else void refreshCount\(\)/);
+  assert.match(bellSource, /'elomara-notifications-refresh',update/);
+  assert.match(bellSource, /const show = \(\) => \{ setOpen\(true\); void refresh\(\); \}/);
+  assert.match(methodsSource, /window\.setInterval\(refresh,300000\)/);
+  assert.match(methodsSource, /'elomara-building-settings-updated',refresh/);
+  assert.match(methodsSource, /window\.addEventListener\('focus',refresh\)/);
+});

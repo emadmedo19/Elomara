@@ -26,6 +26,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (page: string) =>
   const ota = useSyncExternalStore(subscribeToOta, getOtaSnapshot, getOtaSnapshot);
   const rows = inbox.scope === scope ? inbox.rows : [];
   const unread = (inbox.scope === scope ? inbox.count : 0) + (ota.manifest ? 1 : 0);
+  const openRef = useRef(open); openRef.current = open;
   const refresh = useCallback(async () => {
     if (!userId || !buildingId) return;
     const version = ++request.current;
@@ -44,12 +45,32 @@ export function NotificationBell({ onNavigate }: { onNavigate: (page: string) =>
     } catch { if (scopeRef.current===scope && version===request.current) setError('تعذر الاتصال. الإشعارات المحفوظة ستظهر عند عودة الاتصال.'); }
     finally { if (scopeRef.current===scope && version===request.current) setLoading(false); }
   },[userId,buildingId,scope,filter,isAdmin]);
+  // When the inbox is closed, polling needs only the unread badge count.
+  const refreshCount = useCallback(async () => {
+    if (!userId || !buildingId) return;
+    const version = request.current;
+    try {
+      let query = supabase.from('app_notifications').select('id', { count: 'exact', head: true })
+        .eq('recipient_id', userId).eq('building_id', buildingId).is('read_at', null);
+      if (!isAdmin) query = query.neq('category', 'building_join_requests');
+      const { count, error: countError } = await query;
+      if (countError || scopeRef.current !== scope || version !== request.current) return;
+      setInbox(current => current.scope === scope ? { ...current, count: count || 0 } : current);
+    } catch { /* The next foreground/open refresh will recover the badge. */ }
+  }, [userId, buildingId, scope, isAdmin]);
   useEffect(() => { setOpen(false); setError(''); setFilter('all'); setSaving(false); },[scope]);
   useEffect(() => {
     void refresh();
     const update = () => { if (document.visibilityState !== 'hidden') void refresh(); };
     const show = () => { setOpen(true); void refresh(); };
-    const interval = window.setInterval(update,45000);
+    // Keep live push, the inbox change channel, opening, and resume immediate.
+    // The slower fallback avoids reloading all 80 rows while the bell is closed.
+    const periodic = () => {
+      if (document.visibilityState === 'hidden') return;
+      if (openRef.current) void refresh();
+      else void refreshCount();
+    };
+    const interval = window.setInterval(periodic,120000);
     window.addEventListener('focus',update);
     document.addEventListener('visibilitychange',update);
     window.addEventListener('elomara-notifications-refresh',update);
@@ -62,7 +83,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (page: string) =>
       window.removeEventListener('elomara-notifications-refresh',update); window.removeEventListener('elomara-open-notifications',show);
       if (channel) void supabase.removeChannel(channel);
     };
-  },[refresh,userId,buildingId]);
+  },[refresh,refreshCount,userId,buildingId]);
   useEffect(() => {
     if (!open) return;
     const previous = document.body.style.overflow; document.body.style.overflow='hidden';

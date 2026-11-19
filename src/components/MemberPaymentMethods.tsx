@@ -27,7 +27,8 @@ export function MemberPaymentMethods({buildingId,revision=0}:{buildingId:string;
   useEffect(()=>{
     void load();
     const refresh=()=>{if(document.visibilityState!=='hidden')void load();};
-    const timer=window.setInterval(refresh,45000);
+    // Changes on this device and app resume still refresh immediately.
+    const timer=window.setInterval(refresh,300000);
     window.addEventListener('focus',refresh);window.addEventListener('elomara-building-settings-updated',refresh);document.addEventListener('visibilitychange',refresh);
     return()=>{++request.current;clearInterval(timer);window.removeEventListener('focus',refresh);window.removeEventListener('elomara-building-settings-updated',refresh);document.removeEventListener('visibilitychange',refresh);};
   },[load,revision]);

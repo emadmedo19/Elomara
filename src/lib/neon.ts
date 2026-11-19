@@ -209,13 +209,15 @@ class RefreshChannel {
   private previous?: string;
   private loading = false;
   private active = false;
+  private onVisible?: () => void;
   on(_event: string, config: { table: string; filter: string }, callback: () => void) {
     this.watch = { ...config, callback }; return this;
   }
   subscribe() {
+    this.unsubscribe();
     this.active = true;
     const refresh = async () => {
-      if (!this.watch || this.loading || document.visibilityState === 'hidden') return;
+      if (!this.active || !this.watch || this.loading || document.visibilityState === 'hidden') return;
       this.loading = true;
       try {
         const { table, filter, callback } = this.watch;
@@ -223,18 +225,35 @@ class RefreshChannel {
         const match = filter.match(/^(id|recipient_id)=eq\.(.+)$/);
         if (!match) return;
         const columns = table === 'profiles' ? 'id,updated_at' : 'id,read_at';
-        const result = await data.from(table).select(columns).eq(match[1], match[2]).order('id');
+        // Only the newest inbox markers are needed for change detection.
+        // Fetch the full inbox immediately on changes, foreground, push, or opening it.
+        const query = data.from(table).select(columns).eq(match[1], match[2]);
+        const result = table === 'app_notifications'
+          ? await query.order('created_at', { ascending: false }).limit(80)
+          : await query.limit(1);
         if (result.error) return;
         const next = JSON.stringify(result.data);
         if (this.active && this.previous !== undefined && this.previous !== next) callback();
         this.previous = next;
       } finally { this.loading = false; }
     };
-    this.timer = setInterval(() => { void refresh().catch(() => {}); }, 5000);
+    // Background pages make no requests; resume/focus always refreshes promptly.
+    this.onVisible = () => { if (document.visibilityState !== 'hidden') void refresh().catch(() => {}); };
+    document.addEventListener('visibilitychange', this.onVisible);
+    window.addEventListener('focus', this.onVisible);
+    this.timer = setInterval(() => { void refresh().catch(() => {}); }, 30000);
     void refresh().catch(() => {});
     return this;
   }
-  unsubscribe() { this.active = false; clearInterval(this.timer); }
+  unsubscribe() {
+    this.active = false;
+    clearInterval(this.timer);
+    if (this.onVisible) {
+      document.removeEventListener('visibilitychange', this.onVisible);
+      window.removeEventListener('focus', this.onVisible);
+      this.onVisible = undefined;
+    }
+  }
 }
 
 // The existing app keeps its centralized client and all current query builders.
