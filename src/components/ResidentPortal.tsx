@@ -131,6 +131,7 @@ export const ResidentPortal: React.FC = () => {
       isAssessment: p.is_assessment, assessmentCancelled: p.assessment_cancelled, exceptionalChargeId: p.exceptional_charge_id,
       date: p.payment_date, amount: Number(p.amount || 0) }))) : null;
     if (!apt.error) setApartment((previous: Record<string, unknown> | null) => apt.data ? { ...apt.data, dues_months: totals?.overdueMonths || (Number(apt.data.monthly_fee)>0?1:0), paid_amount: paymentError ? previous?.paid_amount : totals?.totalPaid || 0,
+      total_due: paymentError ? previous?.total_due : totals?.totalDue || 0,
       remaining: paymentError ? previous?.remaining : totals?.remaining || 0, credit_balance: paymentError ? previous?.credit_balance : totals?.creditBalance || 0, payment_status: paymentError ? previous?.payment_status : totals?.status } : null);
     if (quiet) setPaymentMethodsRevision(value=>value+1);
     if (!bld.error) setBuilding(bld.data);
@@ -244,7 +245,10 @@ export const ResidentPortal: React.FC = () => {
     { id: 'announcements', label: 'إعلانات العمارة', icon: <Megaphone className="w-5 h-5"/> },
     { id: 'building', label: 'عن العمارة', icon: <Building2 className="w-5 h-5"/> },
   ];
-  const statusLabel = sectionErrors.payments ? 'تعذر تحديث السداد' : apartment?.payment_status === 'paid' ? 'مسدد' : apartment?.payment_status === 'overdue' ? 'متأخر' : 'قيد المتابعة';
+  const statusLabel = sectionErrors.payments ? 'تعذر تحديث السداد'
+    : apartment?.payment_status === 'paid' ? 'مسدد بالكامل'
+    : Number(apartment?.paid_amount || 0) > 0 && Number(apartment?.remaining || 0) > 0 ? 'سداد جزئي'
+    : apartment?.payment_status === 'overdue' ? 'متأخر' : 'قيد المتابعة';
   const ticketStatus = (s: string) => s === 'مكتمل' ? 'مكتمل' : s === 'قيد التنفيذ' ? 'قيد التنفيذ' : 'جديد';
 
   return <div dir="rtl" onTouchStart={handlePullStart} onTouchMove={handlePullMove} onTouchEnd={handlePullEnd} onTouchCancel={handlePullCancel} className="bunyan-resident fotouh-portal min-h-screen bg-[#f4f7fb] text-slate-800" style={{ overscrollBehaviorY: 'contain', touchAction: 'pan-y' }}>
@@ -300,7 +304,10 @@ export const ResidentPortal: React.FC = () => {
           <div data-tour="resident-financials" className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5">
             <div className="rounded-xl bg-white/10 p-3"><div className="text-xs text-slate-300">الاشتراك الشهري</div><b>{money(apartment?.monthly_fee)} جنيه</b></div>
             <div className="rounded-xl bg-white/10 p-3"><div className="text-xs text-slate-300">حالة السداد</div><b>{statusLabel}</b></div>
-            <div className="rounded-xl bg-white/10 p-3 col-span-2 sm:col-span-1"><div className="text-xs text-slate-300">رصيد الشقة</div><b>{sectionErrors.payments ? '—' : money(apartment?.credit_balance)} جنيه</b></div>
+            <div className="rounded-xl bg-white/10 p-3"><div className="text-xs text-slate-300">إجمالي المستحق</div><b>{sectionErrors.payments ? '—' : money(apartment?.total_due)} جنيه</b></div>
+            <div className="rounded-xl bg-white/10 p-3"><div className="text-xs text-slate-300">إجمالي المدفوع</div><b>{sectionErrors.payments ? '—' : money(apartment?.paid_amount)} جنيه</b></div>
+            <div className="rounded-xl bg-white/10 p-3 col-span-2 sm:col-span-1"><div className="text-xs text-slate-300">المتبقي على الشقة</div><b>{sectionErrors.payments ? '—' : money(apartment?.remaining)} جنيه</b></div>
+            {Number(apartment?.credit_balance || 0) > 0 && <div className="rounded-xl bg-white/10 p-3 col-span-2 sm:col-span-1"><div className="text-xs text-slate-300">رصيد دائن (مدفوع مقدمًا)</div><b>{sectionErrors.payments ? '—' : money(apartment?.credit_balance)} جنيه</b></div>}
           </div>
         </section>
         <section data-tour="resident-shortcuts" className="grid grid-cols-2 lg:grid-cols-4 gap-3">
