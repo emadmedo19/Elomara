@@ -27,7 +27,7 @@ const schedules: Record<string, { name: string; handler: (request: Request) => P
   '/cron/probe': { name: 'elomara-probe', handler: async () => Response.json({ ok: true }) },
   '/cron/overdue': { name: 'elomara-overdue', handler: overdue },
   '/cron/mobile': { name: 'elomara-mobile', handler: deliver },
-  '/cron/engagement': { name: 'elomara-engagement', handler: async () => {
+  '/cron/engagement': { name: 'elomara-engagement', handler: async (request: Request) => {
     const result = await createBackendClient().rpc('schedule_daily_engagement');
     if (result.error) return Response.json({ ok: false }, { status: 503 });
     // A reminder has committed to the same delivery queue. Send without
