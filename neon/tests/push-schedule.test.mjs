@@ -6,9 +6,9 @@ const triggers = JSON.parse(readFileSync(new URL('../triggers.json', import.meta
 const mobile = triggers.find(trigger => trigger.name === 'elomara-mobile');
 const engagement = triggers.find(trigger => trigger.name === 'elomara-engagement');
 
-test('mobile notification fallback runs every fifteen minutes', () => {
+test('mobile notification fallback runs hourly', () => {
   assert.equal(mobile?.enabled, true);
-  assert.equal(mobile?.cron, '*/15 * * * *');
+  assert.equal(mobile?.cron, '0 * * * *');
 });
 
 test('engagement schedule covers exactly three Cairo windows in both seasons', () => {

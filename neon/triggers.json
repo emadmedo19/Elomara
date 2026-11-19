@@ -8,7 +8,7 @@
   {
     "name": "elomara-mobile",
     "path": "/cron/mobile",
-    "cron": "*/15 * * * *",
+    "cron": "0 * * * *",
     "enabled": true
   },
   {
