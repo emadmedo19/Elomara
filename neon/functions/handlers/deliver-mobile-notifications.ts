@@ -68,6 +68,16 @@ export default async function handle(request: Request) {
   try {
     const service:FirebaseService=JSON.parse(process.env["FIREBASE_SERVICE_ACCOUNT_JSON"]||"{}");
     if(service.project_id!=="elfotoh") return json({error:"Push service unavailable"},503);
+    // Peek at the indexed queue before contacting Google OAuth.
+    // Keep authentication BEFORE the claim to avoid leasing messages on OAuth failures.
+    const { data: pending, error: pendingError } = await admin.from("notification_deliveries")
+      .select("id")
+      .is("completed_at", null)
+      .lte("available_at", new Date().toISOString())
+      .lte("attempts", 7)
+      .limit(1);
+    if (pendingError) throw new Error("Could not inspect notification queue");
+    if (!pending?.length) return json({claimed:0,sent:0,failed:0});
     const access=await firebaseAccessToken(service);
     const {data:rows,error}=await admin.rpc("claim_mobile_notifications",{batch_size:40});
     if(error) throw new Error("Could not claim notifications");
