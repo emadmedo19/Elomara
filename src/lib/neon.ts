@@ -124,6 +124,36 @@ async function currentSession(): Promise<Session | null> {
     throw new Error('تعذر استعادة جلسة الدخول تلقائيًا. تأكد من الإنترنت واضغط إعادة المحاولة.');
   }
 }
+
+const wakeTables = new Set(['payments', 'expenses', 'announcements', 'maintenance_tickets', 'apartments']);
+const wakeRpcs = new Set(['mutate_financial_entry']);
+// Notify after a successful database commit, never before or on failed writes.
+export function shouldWakeMobilePush(input: RequestInfo | URL, init?: RequestInit): boolean {
+  const method = (init?.method || 'GET').toUpperCase();
+  if (!['POST', 'PATCH', 'DELETE'].includes(method)) return false;
+  const requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  if (!requestUrl.startsWith(dataUrl + '/')) return false;
+  const path = new URL(requestUrl).pathname.slice(new URL(dataUrl).pathname.length + 1);
+  return path.startsWith('rpc/') ? method === 'POST' && wakeRpcs.has(path.slice(4)) : wakeTables.has(path);
+}
+let pushWakeTimer: ReturnType<typeof setTimeout> | undefined;
+let pushWakeToken = '';
+function queuePushWakeup(token: string): void {
+  if (!functionsUrl.startsWith('https://')) return;
+  pushWakeToken = token;
+  if (pushWakeTimer !== undefined) return;
+  pushWakeTimer = setTimeout(() => {
+    pushWakeTimer = undefined;
+    const bearer = pushWakeToken;
+    pushWakeToken = '';
+    if (!bearer) return;
+    void fetch(`${functionsUrl}/functions/v1/kick-mobile-delivery`, {
+      method: 'POST', cache: 'no-store',
+      headers: { Authorization: `Bearer ${bearer}`, 'Content-Type': 'application/json' },
+      body: '{}',
+    }).catch(() => { /* The scheduled recovery drains the queue if this fails. */ });
+  }, 250);
+}
 const data = new PostgrestClient(dataUrl, { fetch: async (input, init) => {
   await nativeReady();
   const session = (await CapacitorNeon.getSession()).session;
@@ -138,6 +168,7 @@ const data = new PostgrestClient(dataUrl, { fetch: async (input, init) => {
   // Keep headers enumerable for Android/native fetch transports. A Headers
   // instance can lose Content-Type there, making JSON RPCs appear parameterless.
   const response = await fetch(input, { ...init, cache: 'no-store', headers: Object.fromEntries(headers) });
+  if (response.ok && shouldWakeMobilePush(input, init)) queuePushWakeup(session.accessToken);
   // A cached native JWT can be rejected after resume. Retry one read with a
   // refreshed session; never replay mutations or RPCs, which may have side effects.
   if (response.status !== 401 || (init?.method || 'GET').toUpperCase() !== 'GET' || init?.signal?.aborted) return response;

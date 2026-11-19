@@ -8,12 +8,14 @@ import poll from './handlers/send-poll-push';
 import exceptional from './handlers/send-exceptional-collection-push';
 import overdue from './handlers/send-overdue-alerts';
 import deliver from './handlers/deliver-mobile-notifications';
+import kickMobileDelivery from './handlers/kick-mobile-delivery';
 import geminiChat from './handlers/gemini-chat';
 import generateAnnouncementImage from './handlers/generate-announcement-image';
 
 const handlers: Record<string, (request: Request) => Promise<Response>> = {
   'play-billing': playBilling,
   'google-play-rtdn': playNotification,
+  'kick-mobile-delivery': kickMobileDelivery,
   'get-building-payment-methods': paymentMethods,
   'send-announcement-push': announcement, 'send-poll-push': poll,
   'send-exceptional-collection-push': exceptional, 'gemini-chat': geminiChat,
@@ -27,7 +29,11 @@ const schedules: Record<string, { name: string; handler: (request: Request) => P
   '/cron/mobile': { name: 'elomara-mobile', handler: deliver },
   '/cron/engagement': { name: 'elomara-engagement', handler: async () => {
     const result = await createBackendClient().rpc('schedule_daily_engagement');
-    return Response.json({ ok: !result.error }, { status: result.error ? 503 : 200 });
+    if (result.error) return Response.json({ ok: false }, { status: 503 });
+    // A reminder has committed to the same delivery queue. Send without
+    // waiting for the periodic recovery trigger.
+    const push = await deliver(request);
+    return Response.json({ ok: push.ok }, { status: push.ok ? 200 : 503 });
   } },
 };
 export default {

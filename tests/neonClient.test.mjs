@@ -352,3 +352,30 @@ test('guided setup sends all accounting inputs and a stable idempotency key in n
 test('receipt lookup sends only its payment ID with explicit native JSON and bearer auth',async()=>{
  const {api,requests}=setup();const result=await api.fetchNeonPaymentReceipt('receipt-id');assert.equal(result.id,'receipt-id');const r=requests.find(r=>r.url.endsWith('/rpc/get_payment_receipt'));assert.deepEqual(JSON.parse(r.options.body),{p_payment_id:'receipt-id'});assert.equal(r.options.headers.Authorization,'Bearer jwt-one');
 });
+
+test('successful database writes wake FCM delivery once; read requests do not', async () => {
+  const {api,requests}=setup();
+  await api.neonClient.from('buildings').select('id');
+  await api.neonClient.rpc('read_building_subscription',{p_building_id:'building'});
+  assert.equal(requests.filter(r=>r.url.endsWith('/functions/v1/kick-mobile-delivery')).length,0);
+  const payment=await api.neonClient.rpc('mutate_financial_entry',{p_kind:'payment'});
+  const expense=await api.neonClient.from('expenses').insert({amount:100});
+  assert.equal(payment.error,null);assert.equal(expense.error,null);
+  await new Promise(resolve=>setTimeout(resolve,350));
+  const wakes=requests.filter(r=>r.url.endsWith('/functions/v1/kick-mobile-delivery'));
+  assert.equal(wakes.length,1);
+  assert.equal(wakes[0].options.method,'POST');
+  assert.equal(wakes[0].options.headers.Authorization,'Bearer jwt-one');
+});
+
+test('failed writes and read-only operations do not call FCM wake-up', async()=>{
+  const {api,mock,requests}=setup();
+  mock.unauthorizedWrites=true;
+  const failed=await api.neonClient.from('payments').insert({amount:100});
+  assert.ok(failed.error);
+  mock.unauthorizedWrites=false;
+  await api.neonClient.rpc('get_building_poll_results',{p_poll_id:'poll'});
+  await api.neonClient.from('push_devices').insert({token:'fixture'});
+  await new Promise(resolve=>setTimeout(resolve,350));
+  assert.equal(requests.filter(r=>r.url.endsWith('/functions/v1/kick-mobile-delivery')).length,0);
+});

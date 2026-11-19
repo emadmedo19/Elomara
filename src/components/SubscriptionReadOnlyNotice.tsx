@@ -10,7 +10,14 @@ export function useBuildingReadOnly(buildingId?:string){
   const {data,error}=await supabase.rpc('read_building_subscription',{p_building_id:buildingId});
   if(!error && data && typeof data.status==='string') setStatus(data.status as State);
  },[buildingId]);
- useEffect(()=>{setStatus('unknown');void refresh();const onFocus=()=>void refresh();window.addEventListener('focus',onFocus);const timer=window.setInterval(()=>void refresh(),60000);return()=>{window.removeEventListener('focus',onFocus);window.clearInterval(timer)}},[refresh]);
+ useEffect(()=>{
+  setStatus('unknown');void refresh();
+  const onVisible=()=>{if(document.visibilityState!=='hidden')void refresh();};
+  window.addEventListener('focus',onVisible);
+  document.addEventListener('visibilitychange',onVisible);
+  const timer=window.setInterval(onVisible,60000);
+  return()=>{window.removeEventListener('focus',onVisible);document.removeEventListener('visibilitychange',onVisible);window.clearInterval(timer);};
+ },[refresh]);
  const expired=status==='expired';
  const blockActions=(event:React.MouseEvent<HTMLElement>)=>{
   if(!expired)return;
