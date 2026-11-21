@@ -130,8 +130,15 @@ export const ResidentPortal: React.FC = () => {
     }, rows.map((p: any) => ({ ...p, apartmentId: apt.data.id, paymentType: p.payment_type,
       isAssessment: p.is_assessment, assessmentCancelled: p.assessment_cancelled, exceptionalChargeId: p.exceptional_charge_id,
       date: p.payment_date, amount: Number(p.amount || 0) }))) : null;
+    const monthlyFee = Number(apt.data?.monthly_fee || 0);
+    const monthlyDue = monthlyFee * Math.max(totals?.overdueMonths || 0, 1);
+    const monthlyPaid = totals?.periodPayments.reduce((sum, payment) => sum + payment.amount, 0) || 0;
+    const arrears = Math.max(0, monthlyDue - monthlyFee - monthlyPaid);
+    const currentMonthlyRemaining = Math.max(0, monthlyDue - monthlyPaid) - arrears;
     if (!apt.error) setApartment((previous: Record<string, unknown> | null) => apt.data ? { ...apt.data, dues_months: totals?.overdueMonths || (Number(apt.data.monthly_fee)>0?1:0), paid_amount: paymentError ? previous?.paid_amount : totals?.totalPaid || 0,
       total_due: paymentError ? previous?.total_due : totals?.totalDue || 0,
+      monthly_arrears: paymentError ? previous?.monthly_arrears : arrears,
+      current_monthly_remaining: paymentError ? previous?.current_monthly_remaining : currentMonthlyRemaining,
       remaining: paymentError ? previous?.remaining : totals?.remaining || 0, credit_balance: paymentError ? previous?.credit_balance : totals?.creditBalance || 0, payment_status: paymentError ? previous?.payment_status : totals?.status } : null);
     if (quiet) setPaymentMethodsRevision(value=>value+1);
     if (!bld.error) setBuilding(bld.data);
@@ -330,6 +337,9 @@ export const ResidentPortal: React.FC = () => {
           <div className="rounded-xl bg-slate-50 border p-3"><div className="text-xs text-slate-500">الاشتراك الشهري</div><b>{money(apartment?.monthly_fee)} جنيه</b></div>
           <div className="rounded-xl bg-slate-50 border p-3"><div className="text-xs text-slate-500">إجمالي المسدد</div><b>{sectionErrors.payments ? '—' : money(apartment?.paid_amount)} جنيه</b></div>
           <div className="rounded-xl bg-slate-50 border p-3 col-span-2 sm:col-span-1"><div className="text-xs text-slate-500">عدد شهور الاشتراك المحتسبة</div><b>{Number(apartment?.dues_months || 0)} شهر</b></div>
+          <div className="rounded-xl bg-slate-50 border p-3"><div className="text-xs text-slate-500">المتبقي من اشتراك الشهر</div><b>{sectionErrors.payments ? '—' : money(apartment?.current_monthly_remaining)} جنيه</b></div>
+          <div className="rounded-xl bg-slate-50 border p-3"><div className="text-xs text-slate-500">متأخرات الاشتراكات السابقة</div><b>{sectionErrors.payments ? '—' : money(apartment?.monthly_arrears)} جنيه</b></div>
+          <div className="rounded-xl bg-slate-50 border p-3"><div className="text-xs text-slate-500">الرصيد المدفوع مقدمًا</div><b>{sectionErrors.payments ? '—' : money(apartment?.credit_balance)} جنيه</b></div>
           <div className="rounded-xl bg-slate-50 border p-3 col-span-2 sm:col-span-3"><div className="text-xs text-slate-500">المتبقي شامل التحصيل الاستثنائي</div><b>{sectionErrors.payments ? '—' : money(apartment?.remaining)} جنيه</b></div>
         </div>
         <MemberPaymentMethods buildingId={userProfile.buildingId} revision={paymentMethodsRevision}/>

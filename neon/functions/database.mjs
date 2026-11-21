@@ -70,7 +70,7 @@ export function createBackendClient(authorization) {
     from(table) { assertAdmin(); return new Query(table); },
     async rpc(name, args = {}) {
       assertAdmin();
-      if (!['claim_mobile_notifications', 'schedule_daily_engagement'].includes(name)) throw new Error('Unsupported internal RPC');
+      if (!['claim_mobile_notifications', 'schedule_daily_engagement', 'schedule_collection_reminders', 'current_collection_reminders'].includes(name)) throw new Error('Unsupported internal RPC');
       try {
         const entries = Object.entries(args);
         const { rows } = await pool.query(`SELECT * FROM public.${identifier(name)}(${entries.map(([key], i) => `${identifier(key)} => $${i + 1}`).join(',')})`, entries.map(([, v]) => v));

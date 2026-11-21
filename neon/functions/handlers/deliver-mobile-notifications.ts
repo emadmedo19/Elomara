@@ -81,6 +81,15 @@ export default async function handle(request: Request) {
     const access=await firebaseAccessToken(service);
     const {data:rows,error}=await admin.rpc("claim_mobile_notifications",{batch_size:40});
     if(error) throw new Error("Could not claim notifications");
+    const reminders = (rows || []).filter((row: { category: string }) => row.category === 'collection_reminders');
+    let currentReminders: Set<string> | undefined;
+    if (reminders.length) {
+      const check = await admin.rpc('current_collection_reminders', {
+        p_notification_ids: reminders.map((row: { notification_id: string }) => row.notification_id),
+      });
+      if (check.error) throw new Error('Could not verify current collection balances');
+      currentReminders = new Set((check.data || []).map((row: { notification_id: string }) => row.notification_id));
+    }
     let sent=0,failed=0;
     const imageCache = new Map<string, string | null>();
     const getAnnouncementImage = async (notificationId: string, category: string): Promise<string | null> => {
@@ -98,6 +107,13 @@ export default async function handle(request: Request) {
     };
     await Promise.all((rows||[]).map(async (row: {delivery_id:string;lease_id:string;notification_id:string;device_id:string;token:string;title:string;body:string;category:string;building_id:string})=>{
       try {
+        if (row.category === 'collection_reminders' && !currentReminders?.has(row.notification_id)) {
+          const { error } = await admin.from('notification_deliveries')
+            .update({ completed_at: new Date().toISOString(), outcome: 'skipped' })
+            .eq('id', row.delivery_id).eq('lease_id', row.lease_id);
+          if (error) throw new Error('Could not close obsolete reminder');
+          return;
+        }
         const imageUrl = await getAnnouncementImage(row.notification_id, row.category);
         const response=await fetch("https://fcm.googleapis.com/v1/projects/elfotoh/messages:send",{
           method:"POST",headers:{Authorization:`Bearer ${access}`,"Content-Type":"application/json"},

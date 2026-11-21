@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MAX_PAYMENT_ACCOUNTS, type PaymentAccount } from '../services/paymentAccounts';
 import { AppSettings, Building } from '../types';
+import { CollectionReminderSettings } from './CollectionReminderSettings';
 import { 
   Settings, User, Phone, CreditCard, Bell, 
   Check, X, Building2, ShieldCheck, Sparkles 
@@ -298,6 +299,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <span className="text-xs text-slate-700">إظهار شارة تنبيه للوحدات المتأخرة عن موعد السداد</span>
             </label>
           </div>
+
+          <CollectionReminderSettings
+            key={currentBuilding.id}
+            buildingId={currentBuilding.id}
+            collectionStartMonth={currentBuilding.collectionStartMonth}
+          />
 
           {/* AI Status Badge */}
           <div className="p-3 rounded-2xl bg-teal-50/60 border border-teal-200 flex items-center justify-between">

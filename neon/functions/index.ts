@@ -28,12 +28,14 @@ const schedules: Record<string, { name: string; handler: (request: Request) => P
   '/cron/overdue': { name: 'elomara-overdue', handler: overdue },
   '/cron/mobile': { name: 'elomara-mobile', handler: deliver },
   '/cron/engagement': { name: 'elomara-engagement', handler: async (request: Request) => {
-    const result = await createBackendClient().rpc('schedule_daily_engagement');
-    if (result.error) return Response.json({ ok: false }, { status: 503 });
-    // A reminder has committed to the same delivery queue. Send without
-    // waiting for the periodic recovery trigger.
+    const [engagement, reminders] = await Promise.all([
+      createBackendClient().rpc('schedule_daily_engagement'),
+      overdue(),
+    ]);
+    // Both schedulers use the same delivery queue and periodic retry worker.
     const push = await deliver(request);
-    return Response.json({ ok: push.ok }, { status: push.ok ? 200 : 503 });
+    const ok = !engagement.error && reminders.ok && push.ok;
+    return Response.json({ ok }, { status: ok ? 200 : 503 });
   } },
 };
 export default {
