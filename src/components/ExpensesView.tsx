@@ -50,7 +50,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [vendor, setVendor] = useState('');
   const [notes, setNotes] = useState('');
-  const [receiptUrl, setReceiptUrl] = useState('');
+  const receiptUrl = editingExpense?.receiptUrl || '';
 
   // AI OCR scanning state
   const [isScanningReceipt, setIsScanningReceipt] = useState(false);
@@ -82,7 +82,6 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
     setDate(exp.date);
     setVendor(exp.vendor);
     setNotes(exp.notes || '');
-    setReceiptUrl(exp.receiptUrl || '');
     onOpenAddModal();
   };
 
@@ -97,7 +96,6 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
     mutation.current = { signature: '', id: '' };
     setVendor('');
     setNotes('');
-    setReceiptUrl('');
     setScanMessage('');
     onCloseAddModal();
   };
@@ -140,7 +138,6 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
       reader.onload = async () => {
         if (scanRevision.current !== revision) return;
         const fullBase64 = reader.result as string;
-        setReceiptUrl(fullBase64);
 
         try {
           const result = await analyzeReceiptWithGemini(fullBase64, file.type || 'image/jpeg');
