@@ -1654,8 +1654,12 @@ function AppContent() {
             />
           )}
 
-          {currentTab === 'chat' && (
-            <AiChatView buildingName={currentBuilding.name} />
+          {currentTab === 'chat' && isAdmin && (
+            <AiChatView
+              key={`${managerScope}:${currentBuilding.id}`}
+              buildingName={currentBuilding.name}
+              buildingData={{ building: currentBuilding, apartments, payments, expenses, tickets, bookings, announcements }}
+            />
           )}
 
           {currentTab === 'image-studio' && (
