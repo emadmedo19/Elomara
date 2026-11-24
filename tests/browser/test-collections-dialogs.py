@@ -8,6 +8,27 @@ threading.Thread(target=server.serve_forever,daemon=True).start()
 url='http://127.0.0.1:'+str(server.server_port)
 with sync_playwright() as p:
  browser=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+ for width in [320,390]:
+  page=browser.new_page(viewport={'width':width,'height':844},has_touch=True)
+  page.goto(url)
+  tabs=page.get_by_role('group',name='أقسام الشقق والتحصيل')
+  cards=tabs.get_by_role('button')
+  expect(cards).to_have_count(3)
+  boxes=[card.bounding_box() for card in cards.all()]
+  assert all(box and box['x']>=0 and box['x']+box['width']<=width+1 for box in boxes),boxes
+  assert max(box['y'] for box in boxes)-min(box['y'] for box in boxes)<1,boxes
+  assert tabs.evaluate('(node)=>node.scrollWidth<=node.clientWidth'),boxes
+  for card in [cards.nth(1),cards.nth(2),cards.nth(0)]:
+   card.tap()
+   expect(card).to_have_attribute('aria-pressed','true')
+   expect(tabs.locator('[aria-pressed="true"]')).to_have_count(1)
+  page.close()
+ page=browser.new_page(viewport={'width':320,'height':844},has_touch=True)
+ page.goto(url+'/?role=owner')
+ owner_tabs=page.get_by_role('group',name='أقسام الشقق والتحصيل')
+ expect(owner_tabs.get_by_role('button')).to_have_count(2)
+ expect(owner_tabs.get_by_text('التدقيق',exact=True)).to_have_count(0)
+ page.close()
  for width,height in [(390,844),(1280,900)]:
   page=browser.new_page(viewport={'width':width,'height':height},has_touch=True)
   errors=[];page.on('pageerror',lambda error:errors.append(str(error)))

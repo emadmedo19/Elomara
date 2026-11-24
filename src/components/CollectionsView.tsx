@@ -307,45 +307,28 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
         </section>}
       </div>
 
-      {/* Tabs Navigation: Apartments | All Payments | Audit Log */}
-      <div data-tour="collections-tabs" className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-2xs text-xs font-bold">
-        <button
-          onClick={() => setActiveSubTab('apartments')}
-          className={`flex-1 py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 ${
-            activeSubTab === 'apartments'
-              ? 'bg-[#0f2537] text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <Building2 className="w-4 h-4 text-teal-300" />
-          <span>كشف الشقق وسداد الوحدات ({buildingApartments.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveSubTab('payments')}
-          className={`flex-1 py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 ${
-            activeSubTab === 'payments'
-              ? 'bg-[#0f2537] text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <Receipt className="w-4 h-4 text-teal-300" />
-          <span>سجل جميع الإيصالات والمدفوعات ({buildingPayments.length})</span>
-        </button>
-
-        {isManager && (
-          <button
-            onClick={() => setActiveSubTab('audit')}
-            className={`flex-1 py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 ${
-              activeSubTab === 'audit'
-                ? 'bg-[#0f2537] text-white shadow-xs'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <History className="w-4 h-4 text-teal-300" />
-            <span>سجل تدقيق وتعديل الحسابات ({buildingAuditLogs.length})</span>
-          </button>
-        )}
+      <div data-tour="collections-tabs" role="group" aria-label="أقسام الشقق والتحصيل"
+        className={`grid min-w-0 gap-2 text-xs font-bold ${isManager ? 'grid-cols-3' : 'grid-cols-2'}`}>
+        {([
+          { id: 'apartments', title: 'الشقق', label: 'كشف الشقق وسداد الوحدات', count: buildingApartments.length, icon: Building2 },
+          { id: 'payments', title: 'الإيصالات', label: 'سجل جميع الإيصالات والمدفوعات', count: buildingPayments.length, icon: Receipt },
+          { id: 'audit', title: 'التدقيق', label: 'سجل تدقيق وتعديل الحسابات', count: buildingAuditLogs.length, icon: History },
+        ] as const).filter(tab => tab.id !== 'audit' || isManager).map(({ id, title, label, count, icon: Icon }) => {
+          const selected = activeSubTab === id;
+          return (
+            <button key={id} type="button" aria-pressed={selected} aria-label={`${label} (${count})`}
+              onClick={() => setActiveSubTab(id)}
+              className={`flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-1.5 py-2 leading-tight transition-colors ${selected
+                ? 'border-transparent bg-[#0f2537] text-white shadow-xs'
+                : 'border-slate-200/80 bg-white text-slate-600 hover:bg-slate-100'}`}>
+              <span className="flex items-center justify-center gap-1.5">
+                <Icon aria-hidden="true" className={`size-3.5 shrink-0 ${selected ? 'text-teal-300' : 'text-teal-700'}`} />
+                <span className="tabular-nums">{count}</span>
+              </span>
+              <span>{title}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Search and Filters Bar */}
