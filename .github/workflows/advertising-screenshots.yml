@@ -1,0 +1,106 @@
+name: Elomara Advertising Screenshots
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  screenshots:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install
+      - run: npm run build
+      - run: pip install playwright
+      - run: python -m playwright install --with-deps chromium
+      - name: Prepare synthetic data and capture actual app components
+        shell: bash
+        run: |
+          mkdir -p ad-images
+          cp public/icon.png ad-images/19.png
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('tests/browser/build-membership-fixture.mjs')
+          s=p.read_text()
+          marker='function applyUnifiedFinance(b,f)'
+          extra="""if(residentFixture){
+            state.residentBuilding={...state.residentBuilding,id:'resident-building',name:'عمارة الياسمين',balance:12450,total_units:14};
+            state.entities??={};
+            const bid='resident-building', aid='resident-apartment', now=new Date().toISOString();
+            const messages={ '01':['صيانة الأسانسير','الأسانسير متوقف مؤقتًا لإجراء الصيانة. يرجى استخدام السلم.','maintenance'], '02':['تذكير بالسداد الشهري','نذكركم بموعد سداد اشتراك العمارة لهذا الشهر.','payment'], '10':['تم تسجيل السداد','تم تسجيل سداد الاشتراك الشهري بنجاح.','payment'] };
+            const n=new URLSearchParams(location.search).get('ad-notice');
+            if(messages[n]){const m=messages[n];state.entities.app_notifications=[{id:'notice',recipient_id:'manager',building_id:bid,title:m[0],body:m[1],category:m[2],created_at:now,read_at:null,manager_target:'',member_target:'home'}];}
+            state.entities.announcements=[{id:'a1',building_id:bid,title:'تنبيه انقطاع المياه',content:'سيتم قطع المياه غدًا من الساعة 9 صباحًا إلى 12 ظهرًا لأعمال الصيانة.',announcement_type:'general',created_at:now,pinned:true}];
+            state.entities.building_service_contacts=[{id:'s1',building_id:bid,category:'سباكة',name:'فني سباكة – مثال',phone:'01000000000',notes:'بيانات تجريبية'}];
+            if(new URLSearchParams(location.search).has('ad-exceptional')){state.entities.payments=[{id:'charge',building_id:bid,apartment_id:aid,amount:1500,payment_date:now.slice(0,10),month:'تجديد المدخل',payment_type:'exceptional',is_assessment:true},{id:'pay',building_id:bid,apartment_id:aid,amount:1000,payment_date:now.slice(0,10),month:'تجديد المدخل',payment_type:'exceptional',exceptional_charge_id:'charge',method:'نقدي'}];}
+          }
+          if(state.building){state.building.name='عمارة الياسمين';if(state.entities){state.entities.expenses??=[];if(new URLSearchParams(location.search).has('ad-expenses'))state.entities.expenses.push({id:'ex',building_id:'new-building',title:'تجديد مدخل العمارة',category:'صيانة عامة',amount:4500,expense_date:new Date().toISOString().slice(0,10),expense_type:'exceptional'});}}
+          """
+          assert marker in s
+          p.write_text(s.replace(marker,extra+marker,1))
+          PY
+          node tests/browser/build-membership-fixture.mjs /tmp/ad-fixture
+          python - <<'PY'
+          import functools, threading, json
+          from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
+          from pathlib import Path
+          from playwright.sync_api import sync_playwright
+          server=ThreadingHTTPServer(('127.0.0.1',0),functools.partial(SimpleHTTPRequestHandler,directory='/tmp/ad-fixture'))
+          threading.Thread(target=server.serve_forever,daemon=True).start()
+          base='http://127.0.0.1:'+str(server.server_port)
+          result={'19':'Original repository icon; verify visually.'}
+          with sync_playwright() as p:
+            browser=p.chromium.launch()
+            def capture(num,scenario,actions,expected=None):
+              page=browser.new_page(viewport={'width':390,'height':844},device_scale_factor=3,has_touch=True,is_mobile=True)
+              page.set_default_timeout(7000)
+              page.route('**/*',lambda route: route.continue_() if route.request.url.startswith(base+'/') or route.request.url.startswith('data:') else route.abort())
+              try:
+                page.add_init_script("const timer=setTimeout;window.setTimeout=(fn,ms,...args)=>timer(fn,ms===5600?0:ms,...args)")
+                page.goto(base+'/?scenario='+scenario)
+                page.get_by_role('button',name='الرئيسية',exact=True).wait_for()
+                for action in actions: action(page)
+                if expected: page.get_by_text(expected,exact=False).first.wait_for()
+                page.wait_for_timeout(650)
+                page.screenshot(path='ad-images/'+num+'.png',animations='disabled')
+                result[num]='Captured from real web UI using synthetic data; visual review required.'
+              except Exception as e: result[num]='NOT CAPTURED: '+str(e).splitlines()[0]
+              finally: page.close()
+            def click(name): return lambda p:p.get_by_role('button',name=name,exact=True).first.click()
+            def more(name):return [click('المزيد'),click(name)]
+            def fill(sel,value):return lambda p:p.locator(sel).fill(value)
+            def notice(p):p.get_by_role('button',name='الإشعارات',exact=False).first.click()
+            for num,title in [('01','صيانة الأسانسير'),('02','تذكير بالسداد الشهري'),('10','تم تسجيل السداد')]:capture(num,'feedback-resident&ad-notice='+num,[notice],title)
+            capture('03','feedback-resident',[click('الصيانة والبلاغات'),fill('[data-tour=ticket-title]','تسريب مياه'),fill('[data-tour=ticket-description]','تسريب في مدخل العمارة')])
+            capture('04','review-manager',more('طلبات السكان والمرافق'),'عطل المصعد')
+            capture('05','payment-filter-manager',[],'إجمالي')
+            capture('06','payment-filter-manager',[click('الشقق والتحصيل')],'شقة')
+            capture('07','historical-resident',more('تقارير العمارة'),'إجمالي التحصيلات')
+            capture('08','feedback-resident',more('تصويت الجمعية والقرارات'),'هل توافق على تحسين المدخل؟')
+            capture('09','payment-filter-manager',[click('الشقق والتحصيل'),lambda p:p.locator('.apartment-compact-card').first.get_by_role('button',name='سداد',exact=True).click(),fill('[data-tour=payment-amount]','1000')])
+            capture('11','feedback-resident',more('دليل الخدمات وأرقام الفنيين'))
+            capture('12','feedback-resident',more('إعلانات العمارة'),'تنبيه انقطاع المياه')
+            capture('13','historical-manager&report-import=1',more('التقارير'))
+            capture('14','historical-manager&report-import=1',more('التقارير')+[click('طباعة وتصدير كشف حساب PDF')], 'إجمالي')
+            capture('15','historical-resident&ad-exceptional=1',[click('حسابي المالي')],'المتبقي شامل التحصيل الاستثنائي')
+            capture('16','historical-manager&ad-expenses=1',[click('المصروفات')],'تجديد مدخل العمارة')
+            capture('17','payment-filter-manager',[])
+            capture('18','historical-resident',[])
+            browser.close()
+          Path('ad-images/capture-report.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+          print(json.dumps(result,ensure_ascii=False,indent=2))
+          server.shutdown()
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: elomara-ad-images
+          path: ad-images/
+          if-no-files-found: error
+          retention-days: 14
