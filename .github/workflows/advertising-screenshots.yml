@@ -59,7 +59,7 @@ jobs:
             browser=p.chromium.launch()
             def capture(num,scenario,actions,expected=None):
               page=browser.new_page(viewport={'width':390,'height':844},device_scale_factor=3,has_touch=True,is_mobile=True)
-              page.set_default_timeout(7000)
+              page.set_default_timeout(15000)
               page.route('**/*',lambda route: route.continue_() if route.request.url.startswith(base+'/') or route.request.url.startswith('data:') else route.abort())
               try:
                 page.add_init_script("const timer=setTimeout;window.setTimeout=(fn,ms,...args)=>timer(fn,ms===5600?0:ms,...args)")
@@ -70,22 +70,25 @@ jobs:
                 page.wait_for_timeout(650)
                 page.screenshot(path='ad-images/'+num+'.png',animations='disabled')
                 result[num]='Captured from real web UI using synthetic data; visual review required.'
-              except Exception as e: result[num]='NOT CAPTURED: '+str(e).splitlines()[0]
+              except Exception as e:
+                result[num]='NOT CAPTURED: '+str(e)
+                print('Capture failure',num,str(e),flush=True)
               finally: page.close()
             def click(name): return lambda p:p.get_by_role('button',name=name,exact=True).first.click()
+            def click_partial(name): return lambda p:p.get_by_role('button',name=name,exact=False).first.click()
             def more(name):return [click('المزيد'),click(name)]
             def fill(sel,value):return lambda p:p.locator(sel).fill(value)
             def notice(p):p.get_by_role('button',name='الإشعارات',exact=False).first.click()
             for num,title in [('01','صيانة الأسانسير'),('02','تذكير بالسداد الشهري'),('10','تم تسجيل السداد')]:capture(num,'feedback-resident&ad-notice='+num,[notice],title)
             capture('03','feedback-resident',[click('الصيانة والبلاغات'),fill('[data-tour=ticket-title]','تسريب مياه'),fill('[data-tour=ticket-description]','تسريب في مدخل العمارة')])
-            capture('04','review-manager',more('طلبات السكان والمرافق'),'عطل المصعد')
+            capture('04','review-manager',[click('المزيد'),click_partial('طلبات السكان والمرافق')],'عطل المصعد')
             capture('05','payment-filter-manager',[],'إجمالي')
-            capture('06','payment-filter-manager',[click('الشقق والتحصيل')],'شقة')
+            capture('06','payment-filter-manager',[click('الشقق والتحصيل'),lambda p:p.locator('.apartment-compact-card').first.wait_for(state='visible')])
             capture('07','historical-resident',more('تقارير العمارة'),'إجمالي التحصيلات')
             capture('08','feedback-resident',more('تصويت الجمعية والقرارات'),'هل توافق على تحسين المدخل؟')
             capture('09','payment-filter-manager',[click('الشقق والتحصيل'),lambda p:p.locator('.apartment-compact-card').first.get_by_role('button',name='سداد',exact=True).click(),fill('[data-tour=payment-amount]','1000')])
             capture('11','feedback-resident',more('دليل الخدمات وأرقام الفنيين'))
-            capture('12','feedback-resident',more('إعلانات العمارة'),'تنبيه انقطاع المياه')
+            capture('12','feedback-resident',[click('المزيد'),click_partial('إعلانات العمارة')],'تنبيه انقطاع المياه')
             capture('13','historical-manager&report-import=1',more('التقارير'))
             capture('14','historical-manager&report-import=1',more('التقارير')+[click('طباعة وتصدير كشف حساب PDF')], 'إجمالي')
             capture('15','historical-resident&ad-exceptional=1',[click('حسابي المالي')],'المتبقي شامل التحصيل الاستثنائي')
@@ -96,6 +99,8 @@ jobs:
           Path('ad-images/capture-report.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
           print(json.dumps(result,ensure_ascii=False,indent=2))
           server.shutdown()
+          missing=[f'{i:02d}.png' for i in range(1,20) if not Path(f'ad-images/{i:02d}.png').is_file()]
+          if missing: raise SystemExit('Missing screenshots: '+', '.join(missing))
           PY
       - uses: actions/upload-artifact@v4
         if: always()
