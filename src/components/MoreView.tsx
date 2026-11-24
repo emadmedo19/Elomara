@@ -11,6 +11,12 @@ const subscriptionPlans = [
   { id: 'elomara_building_annual', title: 'سنوي', interval: 'دفعة كل سنة', icon: CalendarRange },
 ] as const;
 
+type VipCode = { id: string; code: string | null; created_at: string; status: 'available' | 'paused' | 'revoked' | 'used' };
+type VipCodeAction = 'generate' | 'pause' | 'resume' | 'delete';
+const vipCodeStatus: Record<VipCode['status'], string> = {
+  available: 'متاح', paused: 'موقوف', revoked: 'ملغي', used: 'مستخدم',
+};
+
 export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignOut }: { items: SettingsListItem[]; buildingId?: string; onBack: () => void; onOpenAppSettings: () => void; onSignOut: () => void }) {
   const [showPlans, setShowPlans] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
@@ -88,9 +94,32 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
     (buildingFilter === 'all' || b.status === buildingFilter) &&
     b.name.toLocaleLowerCase().includes(buildingSearch.trim().toLocaleLowerCase())
   );
-  const [newVipCode, setNewVipCode] = useState('');
+  const [vipCodes, setVipCodes] = useState<VipCode[] | null>(null);
+  const [loadingCodes, setLoadingCodes] = useState(false);
+  const [codeToDelete, setCodeToDelete] = useState<string | null>(null);
+  const [codeMessage, setCodeMessage] = useState('');
   const [ownerError, setOwnerError] = useState('');
-  const [generating, setGenerating] = useState(false);
+  const [codeAction, setCodeAction] = useState<VipCodeAction | null>(null);
+  const loadVipCodes = async () => {
+    setLoadingCodes(true);
+    setOwnerError('');
+    try {
+      const {data, error} = await supabase.rpc('platform_subscription_admin', {p_action: 'list'});
+      if (error) throw new Error(error.message);
+      if (!Array.isArray(data)) throw new Error('تعذر قراءة قائمة الأكواد');
+      const codes: VipCode[] = data;
+      setVipCodes(codes);
+      setOwnerSummary(previous => previous && {
+        ...previous,
+        codes_available: codes.filter(code => code.status === 'available').length,
+        codes_used: codes.filter(code => code.status === 'used').length,
+      });
+    } catch (error) {
+      setOwnerError(error instanceof Error ? error.message : 'تعذر تحديث قائمة الأكواد');
+    } finally {
+      setLoadingCodes(false);
+    }
+  };
   useEffect(() => {
     let active = true;
     void supabase.rpc('platform_subscription_admin', { p_action: 'summary' }).then(({data,error}) => {
@@ -103,19 +132,35 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
     });
     return () => { active = false; };
   }, []);
-  const generateVip = async () => {
-    if (generating) return;
-    setGenerating(true); setOwnerError(''); setNewVipCode('');
+  const changeVipCode = async (action: VipCodeAction, id?: string) => {
+    if (codeAction || loadingCodes) return;
+    setCodeAction(action);
+    setOwnerError('');
+    setCodeMessage('');
     try {
-      const {data,error} = await supabase.rpc('platform_subscription_admin', {p_action:'generate'});
+      const {data,error} = await supabase.rpc('platform_subscription_admin', {p_action: action, ...(id && {p_code_id: id})});
       if (error) throw new Error(error.message);
-      if (!data?.code) throw new Error('لم يتم إنشاء الكود');
-      setNewVipCode(String(data.code));
-      const {data:summary} = await supabase.rpc('platform_subscription_admin', {p_action:'summary'});
-      if (summary) setOwnerSummary(summary as typeof ownerSummary);
-    } catch (error) { setOwnerError(error instanceof Error ? error.message : 'تعذر إنشاء الكود'); }
-    finally { setGenerating(false); }
+      if (!(action === 'generate' ? data?.code : data?.ok)) throw new Error('تعذر تنفيذ العملية');
+      setCodeToDelete(null);
+      setCodeMessage({ generate: 'تم إنشاء الكود', pause: 'تم إيقاف الكود', resume: 'تم إعادة تفعيل الكود', delete: 'تم حذف الكود' }[action]);
+      await loadVipCodes();
+    } catch (error) {
+      setOwnerError(error instanceof Error ? error.message : 'تعذر تحديث الكود');
+    } finally {
+      setCodeAction(null);
+    }
   };
+  const copyVipCode = async (code: string) => {
+    setOwnerError('');
+    try {
+      await navigator.clipboard.writeText(code);
+      setCodeMessage('تم نسخ الكود');
+    } catch {
+      setCodeMessage('');
+      setOwnerError('تعذر نسخ الكود. يمكنك تحديد النص ونسخه يدويًا.');
+    }
+  };
+  const codesBusy = loadingCodes || codeAction !== null;
   const eligible = promoApplied;
   const isVip = subscription?.status === 'vip';
   const plans = subscriptionPlans.map(plan => ({
@@ -135,7 +180,7 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
     ].map(group => { const rows = items.filter(item => group.ids.includes(item.id)); return rows.length ? <section key={group.title}><h2 className="px-4 py-2 text-sm font-bold text-slate-600">{group.title}</h2><SettingsList items={rows}/></section> : null; })}
     <section><h2 className="px-4 py-2 text-sm font-bold text-slate-600">الإعدادات والحساب</h2><SettingsList items={[
       ...items.filter(item => !['exceptional','reports','services','polls','maintenance','bookings','announcements','building','chat','studio','buildings','building-settings'].includes(item.id)),
-      ...(ownerSummary ? [{ id: 'platform-subscriptions', label: 'إدارة اشتراكات المنصة', icon: CreditCard, onClick: () => { setShowPlans(false); setOwnerOpen(true); } }] : []),
+      ...(ownerSummary ? [{ id: 'platform-subscriptions', label: 'إدارة اشتراكات المنصة', icon: CreditCard, onClick: () => { setShowPlans(false); setOwnerOpen(true); setCodeToDelete(null); if (!codesBusy) void loadVipCodes(); } }] : []),
       ...(buildingId ? [{ id: 'subscription', label: 'الاشتراك والباقات', icon: CreditCard, onClick: () => { setOwnerOpen(false); setSelectedPlanId(null); setShowPlans(true); } }] : []),
       { id: 'app-settings', label: 'إعدادات التطبيق والحساب', icon: Settings, onClick: onOpenAppSettings },
     ]}/></section>
@@ -143,6 +188,37 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
     <h3 className="text-lg font-bold">إدارة اشتراكات المنصة</h3>
     <p className="text-sm">العمارات: {ownerSummary.buildings} · تجريبي: {ownerSummary.trial} · نشط: {ownerSummary.active} · مجاني VIP: {ownerSummary.vip}</p>
     <p className="text-sm">أكواد متاحة: {ownerSummary.codes_available} · مستخدمة: {ownerSummary.codes_used}</p>
+    <section className="space-y-2" aria-label="أكواد اشتراك VIP">
+      <h4 className="font-semibold">أكواد اشتراك VIP</h4>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" disabled={codesBusy} onClick={() => void changeVipCode('generate')} className="rounded-xl bg-slate-900 px-3 py-2 text-sm text-white disabled:opacity-50">{codeAction === 'generate' ? 'جارٍ الإنشاء...' : 'إنشاء كود VIP مجاني'}</button>
+        <button type="button" disabled={codesBusy} onClick={() => void loadVipCodes()} className="rounded-xl border border-slate-300 px-3 py-2 text-sm disabled:opacity-50">تحديث الأكواد</button>
+      </div>
+      {codeMessage && <p role="status" className="text-sm">{codeMessage}</p>}
+      {ownerError && <p role="alert" className="text-sm text-red-600">{ownerError}</p>}
+      {loadingCodes && <p role="status" className="text-sm text-slate-500">جارٍ تحميل الأكواد...</p>}
+      {vipCodes?.length === 0 && !loadingCodes && <p className="text-sm text-slate-500">مفيش أكواد اشتراك VIP لعرضها.</p>}
+      {vipCodes?.map(item => <div key={item.id} className="space-y-2 rounded-xl border border-slate-200 p-3 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-1">
+          <span className="font-semibold">{vipCodeStatus[item.status]}</span>
+          <span className="text-slate-500">{new Date(item.created_at).toLocaleString('ar-EG')}</span>
+        </div>
+        {item.code ? <code dir="ltr" className="block select-all break-all">{item.code}</code>
+          : <p className="text-slate-500">المرجع <bdi>{item.id.slice(0, 8)}</bdi>{item.status !== 'used' && ' · نص الكود غير محفوظ'}</p>}
+        <div className="flex flex-wrap gap-2">
+          {item.code && <button type="button" disabled={codesBusy} onClick={() => void copyVipCode(item.code!)} className="rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-50">نسخ</button>}
+          {(item.status === 'available' || item.status === 'paused') && <button type="button" disabled={codesBusy} onClick={() => void changeVipCode(item.status === 'available' ? 'pause' : 'resume', item.id)} className="rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-50">{item.status === 'available' ? 'إيقاف' : 'إعادة تفعيل'}</button>}
+          {item.status !== 'used' && codeToDelete !== item.id && <button type="button" disabled={codesBusy} onClick={() => setCodeToDelete(item.id)} className="rounded-lg border border-red-200 px-3 py-2 text-red-700 disabled:opacity-50">حذف</button>}
+        </div>
+        {item.status !== 'used' && codeToDelete === item.id && <div className="space-y-2">
+          <p>حذف الكود نهائيًا؟ بعد الحذف مش هيكون ممكن استخدامه.</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={codesBusy} onClick={() => void changeVipCode('delete', item.id)} className="rounded-lg bg-red-700 px-3 py-2 text-white disabled:opacity-50">تأكيد الحذف</button>
+            <button type="button" disabled={codesBusy} onClick={() => setCodeToDelete(null)} className="rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-50">رجوع</button>
+          </div>
+        </div>}
+      </div>)}
+    </section>
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <h4 className="font-semibold">اشتراكات العمارات</h4>
@@ -166,10 +242,6 @@ export function MoreView({ items, buildingId, onBack, onOpenAppSettings, onSignO
         {b.paid_through && <div>تاريخ التجديد: {new Date(b.paid_through).toLocaleDateString('ar-EG')}</div>}
       </div>)}
     </div>
-    <button type="button" disabled={generating} onClick={() => void generateVip()} className="rounded-xl bg-slate-900 px-4 py-3 text-white disabled:opacity-50">{generating ? 'جارٍ الإنشاء...' : 'إنشاء كود VIP مجاني'}</button>
-    {newVipCode && <div className="rounded-xl bg-slate-50 p-3 break-all"><p className="text-sm font-semibold">انسخ الكود الآن؛ لن يظهر مرة أخرى:</p><code dir="ltr">{newVipCode}</code><button type="button" className="block mt-2 underline" onClick={() => void navigator.clipboard.writeText(newVipCode)}>نسخ الكود</button></div>}
-    {ownerError && <p role="alert" className="text-sm text-red-600">{ownerError}</p>}
-    <p className="text-xs text-slate-500">توليد الأكواد جاهز. تفعيلها داخل حساب العمارة والدفع الإلكتروني قيد الإعداد.</p>
   </section>}{showPlans && <section dir="rtl" className="mx-4 my-4 space-y-4">
     {!isVip && <fieldset className="min-w-0 space-y-3">
       <legend className="mb-2 text-lg font-bold">باقات العمارة</legend>

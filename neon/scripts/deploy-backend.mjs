@@ -24,7 +24,7 @@ const env = ['GEMINI_API_KEY', 'FIREBASE_SERVICE_ACCOUNT_JSON'].flatMap(name => 
 for (const name of ['POLLINATIONS_API_KEY', 'POLLINATIONS_FREE_ONLY', 'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', 'GOOGLE_PLAY_RTDN_AUDIENCE', 'GOOGLE_PLAY_RTDN_EMAIL', 'GOOGLE_PLAY_BILLING_ENABLED']) {
   if (process.env[name]?.trim()) env.push('--env', `${name}=${process.env[name].trim()}`);
 }
-// Apply the idempotent reminder migration before any scheduler can call it.
+// Apply these idempotent migrations before deploying the backend.
 const connection = spawnSync(cli, ['connection-string', branch, '--project-id', project, '--database-name', 'neondb'],
   { encoding: 'utf8', env: process.env });
 if (connection.status !== 0 || !/^postgres(?:ql)?:\/\//.test(connection.stdout.trim())) {
@@ -34,8 +34,9 @@ const migration = new pg.Client({ connectionString: connection.stdout.trim() });
 try {
   await migration.connect();
   await migration.query(await readFile(new URL('../migrations/034_monthly_collection_reminders.sql', import.meta.url), 'utf8'));
+  await migration.query(await readFile(new URL('../migrations/035_manage_vip_codes.sql', import.meta.url), 'utf8'));
 } catch {
-  throw new Error('Collection reminder migration failed; backend deployment stopped');
+  throw new Error('A Neon migration failed; backend deployment stopped');
 } finally {
   await migration.end();
 }
