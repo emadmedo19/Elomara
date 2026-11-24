@@ -40,7 +40,7 @@ jobs:
             state.entities.building_service_contacts=[{id:'s1',building_id:bid,category:'سباكة',name:'فني سباكة – مثال',phone:'01000000000',notes:'بيانات تجريبية'}];
             if(new URLSearchParams(location.search).has('ad-exceptional')){state.entities.payments=[{id:'charge',building_id:bid,apartment_id:aid,amount:1500,payment_date:now.slice(0,10),month:'تجديد المدخل',payment_type:'exceptional',is_assessment:true},{id:'pay',building_id:bid,apartment_id:aid,amount:1000,payment_date:now.slice(0,10),month:'تجديد المدخل',payment_type:'exceptional',exceptional_charge_id:'charge',method:'نقدي'}];}
           }
-          if(state.building){state.building.name='عمارة الياسمين';if(state.entities){state.entities.expenses??=[];if(new URLSearchParams(location.search).has('ad-expenses'))state.entities.expenses.push({id:'ex',building_id:'new-building',title:'تجديد مدخل العمارة',category:'صيانة عامة',amount:4500,expense_date:new Date().toISOString().slice(0,10),expense_type:'exceptional'});}}
+          if(state.building){if(scenario==='review-manager' && state.entities?.maintenance_tickets?.length)Object.assign(state.entities.maintenance_tickets[0],{title:'تسريب مياه',description:'تسريب مياه من ماسورة في مدخل العمارة',category:'سباكة'});state.building.name='عمارة الياسمين';if(state.entities){state.entities.expenses??=[];if(new URLSearchParams(location.search).has('ad-expenses'))state.entities.expenses.push({id:'ex',building_id:'new-building',title:'تجديد مدخل العمارة',category:'صيانة عامة',amount:4500,expense_date:new Date().toISOString().slice(0,10),expense_type:'exceptional'});}}
           """
           assert marker in s
           p.write_text(s.replace(marker,extra+marker,1))
@@ -81,7 +81,7 @@ jobs:
             def notice(p):p.get_by_role('button',name='الإشعارات',exact=False).first.click()
             for num,title in [('01','صيانة الأسانسير'),('02','تذكير بالسداد الشهري'),('10','تم تسجيل السداد')]:capture(num,'feedback-resident&ad-notice='+num,[notice],title)
             capture('03','feedback-resident',[click('الصيانة والبلاغات'),fill('[data-tour=ticket-title]','تسريب مياه'),fill('[data-tour=ticket-description]','تسريب في مدخل العمارة')])
-            capture('04','review-manager',[click('المزيد'),click_partial('طلبات السكان والمرافق')],'عطل المصعد')
+            capture('04','review-manager',[click('المزيد'),click_partial('طلبات السكان والمرافق'),click_partial('طلبات الصيانة')],'تسريب مياه')
             capture('05','payment-filter-manager',[],'إجمالي')
             capture('06','payment-filter-manager',[click('الشقق والتحصيل'),lambda p:p.locator('.apartment-compact-card').first.wait_for(state='visible')])
             capture('07','historical-resident',more('تقارير العمارة'),'إجمالي التحصيلات')
