@@ -18,6 +18,16 @@ with sync_playwright() as p:
   assert all(box and box['x']>=0 and box['x']+box['width']<=width+1 for box in boxes),boxes
   assert max(box['y'] for box in boxes)-min(box['y'] for box in boxes)<1,boxes
   assert tabs.evaluate('(node)=>node.scrollWidth<=node.clientWidth'),boxes
+  assert tabs.evaluate("""node => {
+    const style = getComputedStyle(node);
+    const available = node.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    const widths = Array.from(node.children, card => card.getBoundingClientRect().width);
+    return style.display === 'grid'
+      && Math.max(...widths) - Math.min(...widths) < 1
+      && Math.abs(widths.reduce((sum, width) => sum + width, 0) + 2 * parseFloat(style.columnGap) - available) < 1;
+  }"""),boxes
+  for name in ['قائمة الشقق','قائمة الإيصالات','قائمة التدقيق']:
+   expect(tabs.get_by_text(name,exact=True)).to_be_visible()
   for card in [cards.nth(1),cards.nth(2),cards.nth(0)]:
    card.tap()
    expect(card).to_have_attribute('aria-pressed','true')
@@ -27,7 +37,7 @@ with sync_playwright() as p:
  page.goto(url+'/?role=owner')
  owner_tabs=page.get_by_role('group',name='أقسام الشقق والتحصيل')
  expect(owner_tabs.get_by_role('button')).to_have_count(2)
- expect(owner_tabs.get_by_text('التدقيق',exact=True)).to_have_count(0)
+ expect(owner_tabs.get_by_text('قائمة التدقيق',exact=True)).to_have_count(0)
  page.close()
  for width,height in [(390,844),(1280,900)]:
   page=browser.new_page(viewport={'width':width,'height':height},has_touch=True)

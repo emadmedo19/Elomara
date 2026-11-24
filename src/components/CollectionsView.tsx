@@ -308,19 +308,19 @@ export const CollectionsView: React.FC<CollectionsViewProps> = ({
       </div>
 
       <div data-tour="collections-tabs" role="group" aria-label="أقسام الشقق والتحصيل"
-        className={`grid min-w-0 gap-2 text-xs font-bold ${isManager ? 'grid-cols-3' : 'grid-cols-2'}`}>
+        className={`grid w-full min-w-0 gap-1.5 rounded-[21px] border border-[#deebe7] bg-[#eaf3f1] p-1.5 text-xs font-bold sm:gap-2 sm:p-2 ${isManager ? 'grid-cols-3' : 'grid-cols-2'}`}>
         {([
-          { id: 'apartments', title: 'الشقق', label: 'كشف الشقق وسداد الوحدات', count: buildingApartments.length, icon: Building2 },
-          { id: 'payments', title: 'الإيصالات', label: 'سجل جميع الإيصالات والمدفوعات', count: buildingPayments.length, icon: Receipt },
-          { id: 'audit', title: 'التدقيق', label: 'سجل تدقيق وتعديل الحسابات', count: buildingAuditLogs.length, icon: History },
+          { id: 'apartments', title: 'قائمة الشقق', label: 'كشف الشقق وسداد الوحدات', count: buildingApartments.length, icon: Building2 },
+          { id: 'payments', title: 'قائمة الإيصالات', label: 'سجل جميع الإيصالات والمدفوعات', count: buildingPayments.length, icon: Receipt },
+          { id: 'audit', title: 'قائمة التدقيق', label: 'سجل تدقيق وتعديل الحسابات', count: buildingAuditLogs.length, icon: History },
         ] as const).filter(tab => tab.id !== 'audit' || isManager).map(({ id, title, label, count, icon: Icon }) => {
           const selected = activeSubTab === id;
           return (
             <button key={id} type="button" aria-pressed={selected} aria-label={`${label} (${count})`}
               onClick={() => setActiveSubTab(id)}
-              className={`flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-1.5 py-2 leading-tight transition-colors ${selected
-                ? 'border-transparent bg-[#0f2537] text-white shadow-xs'
-                : 'border-slate-200/80 bg-white text-slate-600 hover:bg-slate-100'}`}>
+              className={`flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-center leading-tight transition-colors ${selected
+                ? 'border-transparent bg-[#0b4548] text-white shadow-sm'
+                : 'border-[#deebe7] bg-white/80 text-slate-700 hover:bg-white'}`}>
               <span className="flex items-center justify-center gap-1.5">
                 <Icon aria-hidden="true" className={`size-3.5 shrink-0 ${selected ? 'text-teal-300' : 'text-teal-700'}`} />
                 <span className="tabular-nums">{count}</span>
